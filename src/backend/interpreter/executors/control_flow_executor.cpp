@@ -50,10 +50,27 @@ void ControlFlowExecutor::execute_while_statement(const ASTNode *node) {
             try {
                 debug_msg(DebugMsgId::INTERPRETER_WHILE_BODY_EXEC, iteration);
                 interpreter_->execute_statement(node->body.get());
+
+                // v0.12.0: auto_yieldモードの場合、各イテレーション後にyield
+                // これにより、whileループが他のタスクを独占しない
+                if (interpreter_->is_in_auto_yield_mode()) {
+                    throw YieldException(true); // ループ内の自動yield
+                }
+
+                // v0.13.0 Phase 2.0:
+                // 非auto_yieldモードでも、バックグラウンドタスクがあれば
+                // 各イテレーション後に1サイクル実行して協調的マルチタスクを実現
+                if (!interpreter_->is_in_auto_yield_mode()) {
+                    interpreter_->run_background_tasks_one_cycle();
+                }
+
                 iteration++;
             } catch (const ContinueException &e) {
                 // continue文でループ継続
                 continue;
+            } catch (const YieldException &) {
+                // v0.12.0: auto_yieldモードでのyield
+                throw; // YieldExceptionを再スロー
             }
         }
     } catch (const BreakException &e) {
@@ -71,15 +88,44 @@ void ControlFlowExecutor::execute_while_statement(const ASTNode *node) {
 void ControlFlowExecutor::execute_for_statement(const ASTNode *node) {
     debug_msg(DebugMsgId::INTERPRETER_FOR_STMT_START, "");
 
-    // forループ用のdeferスコープのみを作成（変数スコープは作成しない）
-    // これにより、deferはループ終了時に実行されるが、
-    // ループ内で作成された変数は親スコープに属する
+    // v0.10.0: forループにもdeferスコープを作成
+    // forループ内でdeferが使えるようにする
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "[FOR_LOOP] About to call push_defer_scope()");
     interpreter_->push_defer_scope();
 
+    // v0.13.0 Phase 2.0 FIX: init式で宣言された変数名を記憶
+    std::string init_var_name;
+    bool init_var_declared = false;
+
     try {
+        // v0.13.0 Phase 2.0: auto_yieldモードでのループ実行
+        // init式は初回のみ実行（変数宣言の重複を避けるため）
+        // init式で宣言された変数が既に存在する場合、init式をスキップ
+        bool should_execute_init = false;
         if (node->init_expr) {
-            debug_msg(DebugMsgId::INTERPRETER_FOR_INIT_EXEC, "");
-            interpreter_->execute_statement(node->init_expr.get());
+            if (node->init_expr->node_type == ASTNodeType::AST_VAR_DECL &&
+                !node->init_expr->name.empty()) {
+                // 変数宣言の場合、現在のスコープに変数が存在しない場合のみ実行
+                // v0.13.0 Phase 2.0 FIX: 現在のスコープのみをチェック
+                // これにより、複数のforループで同じ変数名を使っても干渉しない
+                should_execute_init =
+                    !interpreter_->variable_exists_in_current_scope(
+                        node->init_expr->name);
+
+                if (should_execute_init) {
+                    init_var_name = node->init_expr->name;
+                    init_var_declared = true;
+                }
+            } else {
+                // 変数宣言でない場合（代入など）は常に実行
+                should_execute_init = true;
+            }
+
+            if (should_execute_init) {
+                debug_msg(DebugMsgId::INTERPRETER_FOR_INIT_EXEC, "");
+                interpreter_->execute_statement(node->init_expr.get());
+            }
         }
 
         int iteration = 0;
@@ -104,11 +150,33 @@ void ControlFlowExecutor::execute_for_statement(const ASTNode *node) {
             } catch (const ContinueException &e) {
                 // continue文でループ継続、update部分だけ実行
                 debug_msg(DebugMsgId::INTERPRETER_FOR_CONTINUE, iteration);
+            } catch (const YieldException &) {
+                // v0.12.0: auto_yieldモードでのyield
+                // 次のイテレーションのためにupdate式を実行してから再スロー
+                if (node->update_expr) {
+                    debug_msg(DebugMsgId::INTERPRETER_FOR_UPDATE_EXEC,
+                              iteration);
+                    interpreter_->execute_statement(node->update_expr.get());
+                }
+                throw; // YieldExceptionを再スロー
             }
 
             if (node->update_expr) {
                 debug_msg(DebugMsgId::INTERPRETER_FOR_UPDATE_EXEC, iteration);
                 interpreter_->execute_statement(node->update_expr.get());
+            }
+
+            // v0.12.0: auto_yieldモードの場合、各イテレーション後にyield
+            // これにより、forループが他のタスクを独占しない
+            if (interpreter_->is_in_auto_yield_mode()) {
+                throw YieldException(true); // ループ内の自動yield
+            }
+
+            // v0.13.0 Phase 2.0:
+            // 非auto_yieldモードでも、バックグラウンドタスクがあれば
+            // 各イテレーション後に1サイクル実行して協調的マルチタスクを実現
+            if (!interpreter_->is_in_auto_yield_mode()) {
+                interpreter_->run_background_tasks_one_cycle();
             }
 
             iteration++;
@@ -118,12 +186,18 @@ void ControlFlowExecutor::execute_for_statement(const ASTNode *node) {
         debug_msg(DebugMsgId::INTERPRETER_WHILE_BREAK);
     }
 
+    // v0.13.0 Phase 2.0 FIX: init式で宣言された変数を削除
+    // これにより、次のforループで同じ変数名を使える
+    if (init_var_declared && !init_var_name.empty()) {
+        interpreter_->remove_variable_from_current_scope(init_var_name);
+    }
+
     // forループのdeferスコープを終了（deferを実行）
     debug_msg(DebugMsgId::GENERIC_DEBUG,
-              "FOR LOOP: About to call pop_defer_scope()");
+              "[FOR_LOOP] About to call pop_defer_scope()");
     interpreter_->pop_defer_scope();
     debug_msg(DebugMsgId::GENERIC_DEBUG,
-              "FOR LOOP: Finished pop_defer_scope()");
+              "[FOR_LOOP] Finished pop_defer_scope()");
 }
 
 // SWITCH文の実行

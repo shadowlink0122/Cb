@@ -266,20 +266,19 @@ int64_t evaluate_variable(const ASTNode *node, Interpreter &interpreter) {
         }
 
         // デバッグ出力: self変数の詳細情報
-        debug_print("SELF_DEBUG: self found - type=%d, is_struct=%d, "
-                    "TYPE_STRUCT=%d, TYPE_INTERFACE=%d\n",
-                    (int)self_var->type, self_var->is_struct, (int)TYPE_STRUCT,
-                    (int)TYPE_INTERFACE);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "SELF_DEBUG: self found - type=%d, is_struct=%d, ");
 
         // selfが構造体またはインターフェース型の場合、ReturnExceptionで構造体を返す
         if (self_var->type == TYPE_STRUCT || self_var->type == TYPE_INTERFACE) {
-            debug_print(
-                "SELF_DEBUG: Throwing ReturnException for struct self\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "SELF_DEBUG: Throwing ReturnException for struct self");
             interpreter.sync_struct_members_from_direct_access("self");
             throw ReturnException(*self_var);
         } else {
-            debug_print(
-                "SELF_DEBUG: self is not struct, returning primitive value\n");
+            debug_msg(
+                DebugMsgId::GENERIC_DEBUG,
+                "SELF_DEBUG: self is not struct, returning primitive value");
             return self_var->value;
         }
     }

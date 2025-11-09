@@ -1,0 +1,26 @@
+// Simplified sleep concurrent test
+// await前後での変数スコープ問題を回避したバージョン
+
+async void simple_sleep(string name, int ms) {
+    println("{name}: sleeping {ms}ms");
+    await sleep(ms);
+    println("{name}: done");
+}
+
+void main() {
+    println("=== Sleep Concurrent Test (Simplified) ===\n");
+    
+    // Test 1: 並行sleep
+    println("[Test 1] Concurrent sleeps");
+    simple_sleep("Task-A", 50);
+    simple_sleep("Task-B", 30);
+    await sleep(80);
+    println("✅ Test 1 completed\n");
+    
+    // Test 2: 0ms sleep
+    println("[Test 2] Zero ms sleep");
+    await sleep(0);
+    println("✅ Test 2 completed\n");
+    
+    println("=== Tests Completed ===");
+}

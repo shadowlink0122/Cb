@@ -1,0 +1,115 @@
+// async/await/sleep 包括的テスト
+// stdlib/std/time.cb のテスト
+
+import stdlib.std.time;
+
+// ===== テスト1: async関数の基本動作 =====
+async void basic_async() {
+    println("Basic async function executed");
+}
+
+// ===== テスト2: sleepの動作確認 =====
+async void test_sleep() {
+    println("Test sleep start");
+    sleep(100);
+    println("Test sleep end");
+}
+
+// ===== テスト3: 協調的マルチタスク =====
+async void concurrent_task1() {
+    println("Concurrent1 start");
+    sleep(50);
+    println("Concurrent1 middle");
+    sleep(50);
+    println("Concurrent1 end");
+}
+
+async void concurrent_task2() {
+    println("Concurrent2 start");
+    sleep(50);
+    println("Concurrent2 middle");
+    sleep(50);
+    println("Concurrent2 end");
+}
+
+// ===== テスト4: awaitの有無による動作の違い =====
+async void delayed_task() {
+    sleep(100);
+    println("Delayed task completed");
+}
+
+void main() {
+    println("=== Async/Await/Sleep Comprehensive Test ===");
+    
+    // Test 1: Basic async function
+    println("\n[Test 1] Basic async function");
+    basic_async();  // awaitなし: 即座にリターン
+    println("After calling basic_async (no await)");
+    
+    // Test 2: await async function
+    println("\n[Test 2] Await async function");
+    await basic_async();  // await: 完了を待つ
+    println("After awaiting basic_async");
+    
+    // Test 3: Sleep without await
+    println("\n[Test 3] Sleep without await");
+    long start3 = now();
+    sleep(50);  // awaitなし: 即座にリターン
+    long end3 = now();
+    println("Time without await: {end3 - start3}ms (expected: ~0ms)");
+    
+    // Test 4: Await sleep
+    println("\n[Test 4] Await sleep");
+    long start4 = now();
+    await sleep(50);  // await: 完了を待つ
+    long end4 = now();
+    println("Time with await: {end4 - start4}ms (expected: ~50ms)");
+    
+    // Test 5: Sequential async tasks with await
+    println("\n[Test 5] Sequential execution with await");
+    long start5 = now();
+    await test_sleep();  // 100ms
+    await test_sleep();  // 100ms
+    long end5 = now();
+    println("Sequential time: {end5 - start5}ms (expected: ~200ms)");
+    
+    // Test 6: Concurrent async tasks without await
+    println("\n[Test 6] Concurrent execution without await");
+    long start6 = now();
+    concurrent_task1();  // awaitなし: バックグラウンド実行
+    concurrent_task2();  // awaitなし: バックグラウンド実行
+    await sleep(150);    // タスクが完了するのを待つ
+    long end6 = now();
+    println("Concurrent time: {end6 - start6}ms (expected: ~150ms)");
+    
+    // Test 7: Sequential vs Concurrent timing
+    println("\n[Test 7] Sequential vs Concurrent comparison");
+    long seq_start = now();
+    await delayed_task();
+    await delayed_task();
+    long seq_end = now();
+    println("Sequential: {seq_end - seq_start}ms (expected: ~200ms)");
+    
+    long con_start = now();
+    delayed_task();
+    delayed_task();
+    await sleep(120);
+    long con_end = now();
+    println("Concurrent: {con_end - con_start}ms (expected: ~120ms)");
+    
+    // Test 8: now() function test
+    println("\n[Test 8] now() function test");
+    long time1 = now();
+    await sleep(10);
+    long time2 = now();
+    long diff = time2 - time1;
+    println("Time difference: {diff}ms (expected: ~10ms)");
+    
+    if (diff >= 8 && diff <= 15) {
+        println("✅ now() function works correctly");
+    } else {
+        println("❌ now() function timing issue");
+    }
+    
+    println("\n=== All Tests Completed ===");
+}

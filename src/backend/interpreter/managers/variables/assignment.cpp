@@ -61,9 +61,8 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
         // Union型変数への代入の特別処理
         if (var->type == TYPE_UNION) {
             if (debug_mode) {
-                debug_print("UNION_ASSIGN_DEBUG: Processing union "
-                            "assignment for variable '%s' (name node)\n",
-                            var_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "UNION_ASSIGN_DEBUG: Processing union ");
             }
             assign_union_value(*var, var->type_name, node->right.get());
             return; // Union型代入処理完了後は早期リターン
@@ -71,11 +70,8 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
 
         // Interface型の変数（ポインタを除く）の代入処理
         if (debug_mode) {
-            debug_print("VAR_ASSIGN_DEBUG: var_name=%s, var->type=%d, "
-                        "TYPE_POINTER=%d, interface_name='%s'\n",
-                        var_name.c_str(), static_cast<int>(var->type),
-                        static_cast<int>(TYPE_POINTER),
-                        var->interface_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "VAR_ASSIGN_DEBUG: var_name=%s, var->type=%d, ");
         }
         if ((var->type == TYPE_INTERFACE || !var->interface_name.empty()) &&
             var->type != TYPE_POINTER) {
@@ -165,9 +161,8 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
         // Union型変数への代入の特別処理
         if (var->type == TYPE_UNION) {
             if (debug_mode) {
-                debug_print("UNION_ASSIGN_DEBUG: Processing union "
-                            "assignment for variable '%s'\n",
-                            var_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "UNION_ASSIGN_DEBUG: Processing union ");
             }
             assign_union_value(*var, var->type_name, node->right.get());
             return; // Union型代入処理完了後は早期リターン
@@ -275,9 +270,8 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
         // Union型変数への代入の特別処理
         if (var->type == TYPE_UNION) {
             if (debug_mode) {
-                debug_print("UNION_ASSIGN_DEBUG: Processing union "
-                            "assignment for variable '%s' (left node)\n",
-                            var_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "UNION_ASSIGN_DEBUG: Processing union ");
             }
             assign_union_value(*var, var->type_name, node->right.get());
             return; // Union型代入処理完了後は早期リターン
@@ -586,8 +580,13 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
         element_var->is_assigned = true;
 
         if (interpreter_->debug_mode) {
-            debug_print("Assigned %lld to struct member array element: %s\n",
-                        (long long)value, element_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Assigned %lld to struct member array element: %s",
+                         (long long)value, element_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     }
     // 他の複雑なケースは後で実装

@@ -204,9 +204,14 @@ bool UnionParser::parseUnionValue(UnionDefinition &union_def) {
             parser_->typedef_map_.end()) {
             // This is a typedef - add as custom type
             union_def.add_allowed_custom_type(type_name);
-            debug_print(
-                "UNION_PARSE_DEBUG: Added typedef custom type '%s' to union\n",
-                type_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "UNION_PARSE_DEBUG: Added typedef custom type '%s' to "
+                         "union",
+                         type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             return true;
         }
 
@@ -214,9 +219,14 @@ bool UnionParser::parseUnionValue(UnionDefinition &union_def) {
             parser_->struct_definitions_.end()) {
             // This is a struct - add as custom type
             union_def.add_allowed_custom_type(type_name);
-            debug_print(
-                "UNION_PARSE_DEBUG: Added struct custom type '%s' to union\n",
-                type_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "UNION_PARSE_DEBUG: Added struct custom type '%s' to union",
+                    type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             return true;
         }
 
@@ -224,17 +234,27 @@ bool UnionParser::parseUnionValue(UnionDefinition &union_def) {
             parser_->enum_definitions_.end()) {
             // This is an enum - add as custom type
             union_def.add_allowed_custom_type(type_name);
-            debug_print(
-                "UNION_PARSE_DEBUG: Added enum custom type '%s' to union\n",
-                type_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "UNION_PARSE_DEBUG: Added enum custom type '%s' to union",
+                    type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             return true;
         }
 
         // Unknown custom type - still add it (might be defined later)
         union_def.add_allowed_custom_type(type_name);
-        debug_print(
-            "UNION_PARSE_DEBUG: Added unknown custom type '%s' to union\n",
-            type_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "UNION_PARSE_DEBUG: Added unknown custom type '%s' to union",
+                type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         return true;
     }
 

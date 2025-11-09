@@ -1,0 +1,381 @@
+// Cb言語 シンプルな非同期プログラミングサンプル
+// 実用的なパターンを簡潔に紹介
+
+import stdlib.std.future;
+
+// ============================================
+// 1. 基本的なawait
+// ============================================
+
+Future<int> get_number() {
+    Future<int> result;
+    result.value = 42;
+    result.is_ready = true;
+    return result;
+}
+
+void demo_basic_await() {
+    print("=== 1. 基本的なawait ===\n");
+    int num = await get_number();
+    print("取得した値: ");
+    print(num);
+    print("\n\n");
+}
+
+// ============================================
+// 2. 文字列を返す非同期関数
+// ============================================
+
+Future<string> get_message() {
+    Future<string> result;
+    result.value = "こんにちは、非同期の世界!";
+    result.is_ready = true;
+    return result;
+}
+
+void demo_string_await() {
+    print("=== 2. 文字列のawait ===\n");
+    string msg = await get_message();
+    print(msg);
+    print("\n\n");
+}
+
+// ============================================
+// 3. 複数の非同期処理を順次実行
+// ============================================
+
+Future<int> add_async(int a, int b) {
+    Future<int> result;
+    result.value = a + b;
+    result.is_ready = true;
+    return result;
+}
+
+Future<int> multiply_async(int a, int b) {
+    Future<int> result;
+    result.value = a * b;
+    result.is_ready = true;
+    return result;
+}
+
+void demo_sequential_async() {
+    print("=== 3. 順次実行 ===\n");
+    
+    int sum = await add_async(10, 20);
+    print("10 + 20 = ");
+    print(sum);
+    print("\n");
+    
+    int product = await multiply_async(5, 6);
+    print("5 * 6 = ");
+    print(product);
+    print("\n");
+    
+    // 結果を使った次の計算
+    int final_result = await add_async(sum, product);
+    print("合計: ");
+    print(final_result);
+    print("\n\n");
+}
+
+// ============================================
+// 4. 式の中でawaitを使用
+// ============================================
+
+void demo_await_in_expression() {
+    print("=== 4. 式の中でawait ===\n");
+    
+    Future<int> fut;
+    fut.value = 10;
+    fut.is_ready = true;
+    
+    // awaitを式の中で使用
+    int doubled = (await fut) * 2;
+    int plus_ten = (await fut) + 10;
+    
+    print("元の値: 10\n");
+    print("2倍: ");
+    print(doubled);
+    print("\n");
+    print("+10: ");
+    print(plus_ten);
+    print("\n\n");
+}
+
+// ============================================
+// 5. 条件分岐と非同期処理
+// ============================================
+
+Future<string> get_status(int code) {
+    Future<string> result;
+    
+    if (code == 200) {
+        result.value = "OK";
+    } else if (code == 404) {
+        result.value = "Not Found";
+    } else if (code == 500) {
+        result.value = "Internal Server Error";
+    } else {
+        result.value = "Unknown";
+    }
+    
+    result.is_ready = true;
+    return result;
+}
+
+void demo_conditional_async() {
+    print("=== 5. 条件分岐 ===\n");
+    
+    string status1 = await get_status(200);
+    print("Status 200: ");
+    print(status1);
+    print("\n");
+    
+    string status2 = await get_status(404);
+    print("Status 404: ");
+    print(status2);
+    print("\n");
+    
+    string status3 = await get_status(500);
+    print("Status 500: ");
+    print(status3);
+    print("\n\n");
+}
+
+// ============================================
+// 6. エラーハンドリングパターン
+// ============================================
+
+struct Result {
+    bool success;
+    int value;
+    string error;
+};
+
+Future<Result> divide_safe(int a, int b) {
+    Future<Result> future;
+    Result result;
+    
+    if (b == 0) {
+        result.success = false;
+        result.value = 0;
+        result.error = "Division by zero";
+    } else {
+        result.success = true;
+        result.value = a / b;
+        result.error = "";
+    }
+    
+    future.value = result;
+    future.is_ready = true;
+    return future;
+}
+
+void demo_error_handling() {
+    print("=== 6. エラーハンドリング ===\n");
+    
+    // 成功ケース
+    Result res1 = await divide_safe(10, 2);
+    if (res1.success) {
+        print("10 / 2 = ");
+        print(res1.value);
+        print("\n");
+    }
+    
+    // エラーケース
+    Result res2 = await divide_safe(10, 0);
+    if (res2.success) {
+        print("10 / 0 = ");
+        print(res2.value);
+        print("\n");
+    } else {
+        print("エラー: ");
+        print(res2.error);
+        print("\n");
+    }
+    
+    print("\n");
+}
+
+// ============================================
+// 7. チェーン処理
+// ============================================
+
+Future<int> step1(int input) {
+    Future<int> result;
+    result.value = input + 10;
+    result.is_ready = true;
+    return result;
+}
+
+Future<int> step2(int input) {
+    Future<int> result;
+    result.value = input * 2;
+    result.is_ready = true;
+    return result;
+}
+
+Future<int> step3(int input) {
+    Future<int> result;
+    result.value = input - 5;
+    result.is_ready = true;
+    return result;
+}
+
+void demo_chained_processing() {
+    print("=== 7. チェーン処理 ===\n");
+    
+    int initial = 5;
+    print("初期値: ");
+    print(initial);
+    print("\n");
+    
+    int after_step1 = await step1(initial);
+    print("Step 1 (+10): ");
+    print(after_step1);
+    print("\n");
+    
+    int after_step2 = await step2(after_step1);
+    print("Step 2 (*2): ");
+    print(after_step2);
+    print("\n");
+    
+    int final_value = await step3(after_step2);
+    print("Step 3 (-5): ");
+    print(final_value);
+    print("\n\n");
+}
+
+// ============================================
+// 8. 実用的な例: データ取得とフィルタリング
+// ============================================
+
+Future<int> fetch_data_point(int id) {
+    Future<int> result;
+    // IDに基づいてデータを生成
+    result.value = id * 10;
+    result.is_ready = true;
+    return result;
+}
+
+void demo_data_filtering() {
+    print("=== 8. データ取得とフィルタリング ===\n");
+    
+    int total = 0;
+    int count = 0;
+    
+    // データポイント1
+    int data1 = await fetch_data_point(1);
+    if (data1 > 5) {
+        total = total + data1;
+        count = count + 1;
+    }
+    
+    // データポイント2
+    int data2 = await fetch_data_point(2);
+    if (data2 > 5) {
+        total = total + data2;
+        count = count + 1;
+    }
+    
+    // データポイント3
+    int data3 = await fetch_data_point(3);
+    if (data3 > 5) {
+        total = total + data3;
+        count = count + 1;
+    }
+    
+    print("合計値: ");
+    print(total);
+    print("\n");
+    print("データ数: ");
+    print(count);
+    print("\n");
+    print("平均値: ");
+    if (count > 0) {
+        int average = total / count;
+        print(average);
+    } else {
+        print("N/A");
+    }
+    print("\n\n");
+}
+
+// ============================================
+// 9. フィボナッチ数列（非同期計算）
+// ============================================
+
+Future<int> fibonacci_async(int n) {
+    Future<int> result;
+    
+    int a = 0;
+    int b = 1;
+    int fib = 0;
+    
+    if (n == 0) {
+        fib = 0;
+    } else if (n == 1) {
+        fib = 1;
+    } else {
+        for (int i = 2; i <= n; i = i + 1) {
+            fib = a + b;
+            a = b;
+            b = fib;
+        }
+    }
+    
+    result.value = fib;
+    result.is_ready = true;
+    return result;
+}
+
+void demo_fibonacci() {
+    print("=== 9. フィボナッチ数列 ===\n");
+    
+    int fib0 = await fibonacci_async(0);
+    int fib5 = await fibonacci_async(5);
+    int fib10 = await fibonacci_async(10);
+    int fib15 = await fibonacci_async(15);
+    
+    print("fib(0) = ");
+    print(fib0);
+    print("\n");
+    
+    print("fib(5) = ");
+    print(fib5);
+    print("\n");
+    
+    print("fib(10) = ");
+    print(fib10);
+    print("\n");
+    
+    print("fib(15) = ");
+    print(fib15);
+    print("\n\n");
+}
+
+// ============================================
+// メイン関数
+// ============================================
+
+int main() {
+    print("==========================================\n");
+    print("  Cb async/await 実用サンプル集\n");
+    print("==========================================\n\n");
+    
+    demo_basic_await();
+    demo_string_await();
+    demo_sequential_async();
+    demo_await_in_expression();
+    demo_conditional_async();
+    demo_error_handling();
+    demo_chained_processing();
+    demo_data_filtering();
+    demo_fibonacci();
+    
+    print("==========================================\n");
+    print("  すべてのサンプル完了!\n");
+    print("==========================================\n");
+    
+    return 0;
+}

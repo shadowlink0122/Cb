@@ -33,6 +33,9 @@ class StatementParser {
     // リソース管理
     ASTNode *parseDeferStatement();
 
+    // v0.12.0: コルーチン制御
+    ASTNode *parseYieldStatement();
+
     // Switch関連ヘルパー
     ASTNode *parseCaseClause();
     ASTNode *parseCaseValue();
@@ -55,9 +58,10 @@ class StatementParser {
     ASTNode *parseDeclarationStatement(bool isStatic, bool isConst,
                                        bool isExported = false);
     ASTNode *parseTypedefTypeStatement(const std::string &type_name,
-                                       bool isStatic, bool isConst);
+                                       bool isStatic, bool isConst,
+                                       bool isAsync = false);
     ASTNode *parseBasicTypeStatement(bool isStatic, bool isConst,
-                                     bool isUnsigned);
+                                     bool isUnsigned, bool isAsync = false);
     ASTNode *parseControlFlowStatement();
     ASTNode *parseExpressionOrAssignmentStatement();
 

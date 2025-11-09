@@ -109,6 +109,13 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
 
     // メソッド宣言の解析
     while (!parser_->check(TokenType::TOK_RBRACE) && !parser_->isAtEnd()) {
+        // v0.13.0 Phase 2.0: async修飾子のチェック
+        bool is_async_method = false;
+        if (parser_->check(TokenType::TOK_ASYNC)) {
+            is_async_method = true;
+            parser_->advance(); // consume 'async'
+        }
+
         // メソッドの戻り値型を解析
         std::string return_type = parser_->parseType();
         ParsedTypeInfo return_parsed = parser_->getLastParsedTypeInfo();
@@ -159,6 +166,8 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
 
         InterfaceMember method(method_name, resolved_return_type,
                                return_parsed.is_unsigned);
+        // v0.13.0 Phase 2.0: asyncフラグを設定
+        method.is_async = is_async_method;
 
         // パラメータの解析
         if (!parser_->check(TokenType::TOK_RPAREN)) {
@@ -213,7 +222,9 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
         parser_->consume(TokenType::TOK_SEMICOLON,
                          "Expected ';' after interface method declaration");
 
+        // v0.13.0 Phase 2.0: インターフェースメソッドをリストに追加
         interface_def.methods.push_back(method);
+        interface_def.methods.back().is_async = is_async_method;
     }
 
     parser_->consume(TokenType::TOK_RBRACE,
@@ -223,8 +234,15 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
         parser_->advance(); // consume optional semicolon
     }
 
-    // interface定義をパーサー内に保存
+    // v0.13.0 Phase 2.0: interface定義をパーサー内に保存
     parser_->interface_definitions_[interface_name] = interface_def;
+
+    // v0.13.0 Phase 2.0: 回避策 -
+    // マップへのコピー時にis_asyncが失われるため、再設定
+    for (size_t i = 0; i < interface_def.methods.size(); ++i) {
+        parser_->interface_definitions_[interface_name].methods[i].is_async =
+            interface_def.methods[i].is_async;
+    }
 
     // ASTノードを作成
     ASTNode *node = new ASTNode(ASTNodeType::AST_INTERFACE_DECL);
@@ -645,6 +663,13 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
             parser_->advance(); // consume 'private'
         }
 
+        // v0.13.0 Phase 2.0: async修飾子のチェック
+        bool is_async_method = false;
+        if (parser_->check(TokenType::TOK_ASYNC)) {
+            is_async_method = true;
+            parser_->advance(); // consume 'async'
+        }
+
         // メソッド実装をパース（関数宣言として）
         // impl内では戻り値の型から始まるメソッド定義
         std::string return_type = parser_->parseType();
@@ -677,6 +702,10 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
             // DEBUG: parser_->debug_print removed
             // privateフラグを設定
             method_impl->is_private_method = is_private_method;
+            // v0.13.0 Phase 2.0: asyncフラグを設定
+            if (is_async_method) {
+                method_impl->is_async = true;
+            }
             // privateメソッドの場合はinterface署名チェックをスキップ
             if (!is_private_method) {
                 // ★ 課題2の解決: メソッド署名の不一致の検出
@@ -738,6 +767,7 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                     for (const auto &interface_method : interface_def.methods) {
                         if (interface_method.name == method_name) {
                             method_found = true;
+
                             auto format_type = [](TypeInfo type,
                                                   bool is_unsigned_flag) {
                                 std::string base = type_info_to_string(type);
@@ -770,6 +800,24 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                             }
                             bool actual_return_unsigned =
                                 method_impl->is_unsigned;
+
+                            // v0.13.0 Phase 2.0: asyncフラグのチェック
+                            bool expected_is_async = interface_method.is_async;
+                            bool actual_is_async = method_impl->is_async;
+
+                            if (expected_is_async != actual_is_async) {
+                                parser_->error(
+                                    "Method signature mismatch: async modifier "
+                                    "mismatch for method '" +
+                                    method_name +
+                                    "'. "
+                                    "Interface declares " +
+                                    (expected_is_async ? "async"
+                                                       : "non-async") +
+                                    " but implementation is " +
+                                    (actual_is_async ? "async" : "non-async"));
+                                return nullptr;
+                            }
 
                             if (expected_return_type_info !=
                                     actual_return_type_info ||

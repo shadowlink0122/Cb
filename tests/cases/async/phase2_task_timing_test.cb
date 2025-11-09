@@ -1,0 +1,45 @@
+// Phase 2.0 Test: Task registration vs execution timing
+// async関数呼び出し = タスク登録（まだ実行されない）
+// await = SimpleEventLoop実行 + 結果待機
+
+async Future<void> log_message(string msg) {
+    println("LOG: {msg}");
+}
+
+async Future<int> compute(int x) {
+    println("Computing {x} * 2");
+    int result = x * 2;
+    println("Result: {result}");
+    return result;
+}
+
+void main() {
+    println("=== Task Registration vs Execution Test ===");
+    
+    // Phase 1: タスク登録（この時点では実行されない）
+    println("Phase 1: Registering tasks");
+    Future<void> log1 = log_message("First message");
+    Future<void> log2 = log_message("Second message");
+    Future<int> calc1 = compute(10);
+    Future<int> calc2 = compute(20);
+    println("Phase 1: All tasks registered (but not executed yet)");
+    
+    // Phase 2: 最初のawaitでSimpleEventLoopが起動し、すべてのタスクが実行される
+    println("Phase 2: Starting execution with first await");
+    await log1;
+    println("Phase 2: log1 completed");
+    
+    // Phase 3: 残りの結果を取得（すでに実行済みの可能性が高い）
+    println("Phase 3: Getting remaining results");
+    await log2;
+    println("Phase 3: log2 completed");
+    
+    int r1 = await calc1;
+    println("Phase 3: calc1 completed, result: {r1}");
+    
+    int r2 = await calc2;
+    println("Phase 3: calc2 completed, result: {r2}");
+    
+    println("=== Test Complete ===");
+    println("Final results: {r1}, {r2}");
+}

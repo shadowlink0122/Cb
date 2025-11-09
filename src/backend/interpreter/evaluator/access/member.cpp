@@ -24,25 +24,26 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
     std::string var_name;
     std::string member_name = node->name;
 
-    debug_print("[MEMBER_EVAL_IMPL] Entry: member_name='%s', "
-                "member_chain.size=%zu, left_type=%d\n",
-                member_name.c_str(), node->member_chain.size(),
-                node->left ? static_cast<int>(node->left->node_type) : -1);
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "[MEMBER_EVAL_IMPL] Entry: member_name='%s', ");
 
     // v0.11.0: Enum値へのメンバーアクセス
     // Option<int> x = Some(42); の後、x.variantやx.valueへアクセス
     if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
         Variable *base_var = interpreter_.find_variable(node->left->name);
-        debug_print(
-            "[MEMBER_EVAL_IMPL] Checking variable '%s': found=%d, is_enum=%d\n",
-            node->left->name.c_str(), base_var != nullptr,
-            base_var ? base_var->is_enum : 0);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[MEMBER_EVAL_IMPL] Checking variable '%s': found=%d, "
+                     "is_enum=%d",
+                     node->left->name.c_str(), base_var != nullptr,
+                     base_var ? base_var->is_enum : 0);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         if (base_var && base_var->is_enum) {
-            debug_print("[MEMBER_EVAL_IMPL] Enum member access: member='%s', "
-                        "has_associated_value=%d, associated_int_value=%lld\n",
-                        member_name.c_str(), base_var->has_associated_value,
-                        (long long)base_var->associated_int_value);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[MEMBER_EVAL_IMPL] Enum member access: member='%s', ");
 
             if (member_name == "variant") {
                 // variant名を文字列として返す
@@ -52,8 +53,13 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
                 typed_result.string_value = base_var->enum_variant;
                 typed_result.is_numeric_result = false;
                 set_last_typed_result(typed_result);
-                debug_print("[MEMBER_EVAL_IMPL] Returning variant: '%s'\n",
-                            base_var->enum_variant.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "[MEMBER_EVAL_IMPL] Returning variant: '%s'",
+                             base_var->enum_variant.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
                 return 0;
             } else if (member_name == "value") {
                 // 関連値を返す
@@ -67,16 +73,14 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
                             base_var->associated_str_value;
                         typed_result.is_numeric_result = false;
                         set_last_typed_result(typed_result);
-                        debug_print("[MEMBER_EVAL_IMPL] Returning associated "
-                                    "string value: '%s'\n",
-                                    base_var->associated_str_value.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[MEMBER_EVAL_IMPL] Returning associated ");
                         return 0;
                     } else {
                         // 数値の場合はassociated_int_valueを返す
                         int64_t val = base_var->associated_int_value;
-                        debug_print("[MEMBER_EVAL_IMPL] Returning associated "
-                                    "int value: %lld\n",
-                                    (long long)val);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[MEMBER_EVAL_IMPL] Returning associated ");
                         return val;
                     }
                 } else {
@@ -111,8 +115,8 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
     if (node->left) {
         has_arrow_or_deref = check_for_arrow_or_deref(node->left.get());
         if (has_arrow_or_deref) {
-            debug_print("[MEMBER_EVAL] Left contains ARROW/DEREF (possibly "
-                        "nested), will use recursive resolution\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[MEMBER_EVAL] Left contains ARROW/DEREF (possibly ");
         }
     }
 
@@ -230,14 +234,8 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
 
     // leftがAST_MEMBER_ACCESS、AST_ARRAY_REF、AST_ARROW_ACCESS、またはUNARY_OP
     // (DEREFERENCE)の場合、再帰的に解決
-    debug_print("[MEMBER_EVAL] Checking recursive condition: "
-                "left->node_type=%d (MEMBER_ACCESS=%d, ARRAY_REF=%d, "
-                "ARROW_ACCESS=%d, UNARY_OP=%d)\n",
-                static_cast<int>(node->left->node_type),
-                static_cast<int>(ASTNodeType::AST_MEMBER_ACCESS),
-                static_cast<int>(ASTNodeType::AST_ARRAY_REF),
-                static_cast<int>(ASTNodeType::AST_ARROW_ACCESS),
-                static_cast<int>(ASTNodeType::AST_UNARY_OP));
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "[MEMBER_EVAL] Checking recursive condition: ");
 
     if (node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS ||
         node->left->node_type == ASTNodeType::AST_ARRAY_REF ||
@@ -293,7 +291,12 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
                 }
             }
         } catch (const std::exception &e) {
-            debug_print("[EVAL_RESOLVER_ERROR] Exception: %s\n", e.what());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[EVAL_RESOLVER_ERROR] Exception: %s", e.what());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             // フォールバックコードに進む
         }
     }
@@ -579,13 +582,19 @@ int64_t ExpressionEvaluator::evaluate_member_access_impl(const ASTNode *node) {
         // デリファレンスを型情報付きで評価
         TypedValue deref_result = evaluate_typed_expression(node->left.get());
 
-        debug_print("[DEREF_MEMBER] deref_result: type=%d, value=%lld\n",
-                    static_cast<int>(deref_result.type.type_info),
-                    (long long)deref_result.value);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[DEREF_MEMBER] deref_result: type=%d, value=%lld",
+                     static_cast<int>(deref_result.type.type_info),
+                     (long long)deref_result.value);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // 構造体ポインタのデリファレンスの場合
         if (deref_result.type.type_info == TYPE_STRUCT) {
-            debug_print("[DEREF_MEMBER] Struct pointer dereference detected\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[DEREF_MEMBER] Struct pointer dereference detected");
             // 生メモリポインタの場合、valueフィールドにアドレスがある
             void *base_ptr = reinterpret_cast<void *>(deref_result.value);
             if (!base_ptr) {

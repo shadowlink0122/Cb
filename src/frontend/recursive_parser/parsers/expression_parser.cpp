@@ -525,6 +525,19 @@ ASTNode *ExpressionParser::parseMultiplicative() {
  * - ++, -- (前置インクリメント・デクリメント)
  */
 ASTNode *ExpressionParser::parseUnary() {
+    // v0.12.0: await式のパース
+    if (parser_->check(TokenType::TOK_AWAIT)) {
+        parser_->advance(); // consume 'await'
+        ASTNode *operand = parseUnary();
+
+        ASTNode *await_node = new ASTNode(ASTNodeType::AST_UNARY_OP);
+        await_node->op = "await";
+        await_node->is_await_expression = true;
+        await_node->left = std::unique_ptr<ASTNode>(operand);
+
+        return await_node;
+    }
+
     // Prefix operators: !, -, ~, &, *
     if (parser_->check(TokenType::TOK_NOT) ||
         parser_->check(TokenType::TOK_MINUS) ||

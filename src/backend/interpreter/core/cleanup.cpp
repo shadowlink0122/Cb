@@ -13,8 +13,13 @@
 // ========================================================================
 void Interpreter::push_scope() {
     if (debug_mode) {
-        debug_print("push_scope: destructor_stacks_ size before: %zu\n",
-                    destructor_stacks_.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "push_scope: destructor_stacks_ size before: %zu",
+                     destructor_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     variable_manager_->push_scope();
@@ -24,16 +29,26 @@ void Interpreter::push_scope() {
         std::vector<std::pair<std::string, std::string>>());
 
     if (debug_mode) {
-        debug_print("push_scope: destructor_stacks_ size after: %zu\n",
-                    destructor_stacks_.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "push_scope: destructor_stacks_ size after: %zu",
+                     destructor_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 }
 
 void Interpreter::push_scope(const std::string &scope_id) {
     if (debug_mode) {
-        debug_print(
-            "push_scope(scope_id='%s'): destructor_stacks_ size before: %zu\n",
-            scope_id.c_str(), destructor_stacks_.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "push_scope(scope_id='%s'): destructor_stacks_ size "
+                     "before: %zu",
+                     scope_id.c_str(), destructor_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     variable_manager_->push_scope();
@@ -47,18 +62,21 @@ void Interpreter::push_scope(const std::string &scope_id) {
     // 現在は未実装
 
     if (debug_mode) {
-        debug_print(
-            "push_scope(scope_id='%s'): destructor_stacks_ size after: %zu\n",
-            scope_id.c_str(), destructor_stacks_.size());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "push_scope(scope_id='%s'): destructor_stacks_ size after: %zu",
+                scope_id.c_str(), destructor_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 }
 
 void Interpreter::pop_scope() {
     if (debug_mode) {
-        debug_print("pop_scope: destructor_stacks_ size before: %zu, "
-                    "is_calling_destructor: %d, scope_stack_size: %zu\n",
-                    destructor_stacks_.size(), is_calling_destructor_,
-                    scope_stack.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[SCOPE] pop_scope: destructor_stacks_ size before: %zu");
     }
 
     // v0.10.0: デストラクタをLIFO順で呼び出す（最後に作成された変数から破棄）
@@ -74,8 +92,13 @@ void Interpreter::pop_scope() {
             destructor_stacks_.pop_back();
 
             if (debug_mode && !destroy_list.empty()) {
-                debug_print("pop_scope: calling %zu destructors\n",
-                            destroy_list.size());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "[SCOPE] pop_scope: calling %zu destructors",
+                             destroy_list.size());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
 
             for (auto it = destroy_list.rbegin(); it != destroy_list.rend();
@@ -84,8 +107,14 @@ void Interpreter::pop_scope() {
                 const std::string &struct_type_name = it->second;
 
                 if (debug_mode) {
-                    debug_print("Destroying variable %s of type %s\n",
-                                var_name.c_str(), struct_type_name.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[DESTRUCTOR] Destroying variable %s of type %s",
+                            var_name.c_str(), struct_type_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
 
                 // デストラクタを呼び出す
@@ -97,12 +126,20 @@ void Interpreter::pop_scope() {
         }
 
         if (debug_mode) {
-            debug_print("pop_scope: destructor_stacks_ size after pop: %zu\n",
-                        destructor_stacks_.size());
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "[SCOPE] pop_scope: destructor_stacks_ size after pop: %zu",
+                    destructor_stacks_.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     } else {
         if (debug_mode) {
-            debug_print("pop_scope: WARNING - destructor_stacks_ is empty!\n");
+            debug_msg(
+                DebugMsgId::GENERIC_DEBUG,
+                "[SCOPE] pop_scope: WARNING - destructor_stacks_ is empty!");
         }
     }
 
@@ -152,9 +189,14 @@ void Interpreter::pop_scope() {
 // ========================================================================
 void Interpreter::push_destructor_scope() {
     if (debug_mode) {
-        debug_print(
-            "push_destructor_scope: destructor_stacks_ size before: %zu\n",
-            destructor_stacks_.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[DESTRUCTOR] push_destructor_scope: destructor_stacks_ "
+                     "size before: %zu",
+                     destructor_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 変数スコープは作成しない（variable_manager_->push_scope()を呼ばない）
@@ -164,18 +206,22 @@ void Interpreter::push_destructor_scope() {
         std::vector<std::pair<std::string, std::string>>());
 
     if (debug_mode) {
-        debug_print(
-            "push_destructor_scope: destructor_stacks_ size after: %zu\n",
-            destructor_stacks_.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[DESTRUCTOR] push_destructor_scope: destructor_stacks_ "
+                     "size after: %zu",
+                     destructor_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 }
 
 void Interpreter::pop_destructor_scope() {
     if (debug_mode) {
-        debug_print(
-            "pop_destructor_scope: destructor_stacks_ size before: %zu, "
-            "is_calling_destructor: %d\n",
-            destructor_stacks_.size(), is_calling_destructor_);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[DESTRUCTOR] pop_destructor_scope: destructor_stacks_ size "
+                  "before: %zu");
     }
 
     // デストラクタをLIFO順で呼び出す（最後に作成された変数から破棄）
@@ -188,8 +234,14 @@ void Interpreter::pop_destructor_scope() {
             destructor_stacks_.pop_back();
 
             if (debug_mode && !destroy_list.empty()) {
-                debug_print("pop_destructor_scope: calling %zu destructors\n",
-                            destroy_list.size());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "[DESTRUCTOR] pop_destructor_scope: calling %zu "
+                             "destructors",
+                             destroy_list.size());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
 
             for (auto it = destroy_list.rbegin(); it != destroy_list.rend();
@@ -198,8 +250,14 @@ void Interpreter::pop_destructor_scope() {
                 const std::string &struct_type_name = it->second;
 
                 if (debug_mode) {
-                    debug_print("Destroying variable %s of type %s\n",
-                                var_name.c_str(), struct_type_name.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[DESTRUCTOR] Destroying variable %s of type %s",
+                            var_name.c_str(), struct_type_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
 
                 call_destructor(var_name, struct_type_name);
@@ -210,9 +268,9 @@ void Interpreter::pop_destructor_scope() {
         }
 
         if (debug_mode) {
-            debug_print("pop_destructor_scope: destructor_stacks_ size after "
-                        "pop: %zu\n",
-                        destructor_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[DESTRUCTOR] pop_destructor_scope: destructor_stacks_ "
+                      "size after");
         }
     }
 
@@ -231,25 +289,41 @@ Scope &Interpreter::current_scope() {
 // ========================================================================
 void Interpreter::push_defer_scope() {
     if (debug_mode) {
-        debug_print("push_defer_scope: defer_stacks_ size before: %zu\n",
-                    defer_stacks_.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[DEFER] push_defer_scope: defer_stacks_ size before: %zu",
+                     defer_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
     defer_stacks_.push_back(std::vector<const ASTNode *>());
     if (debug_mode) {
-        debug_print("push_defer_scope: defer_stacks_ size after: %zu\n",
-                    defer_stacks_.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[DEFER] push_defer_scope: defer_stacks_ size after: %zu",
+                     defer_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 }
 
 void Interpreter::pop_defer_scope() {
     if (debug_mode) {
-        debug_print("pop_defer_scope: defer_stacks_ size before: %zu\n",
-                    defer_stacks_.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[DEFER] pop_defer_scope: defer_stacks_ size before: %zu",
+                     defer_stacks_.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     if (defer_stacks_.empty()) {
         if (debug_mode) {
-            debug_print("pop_defer_scope: defer_stacks_ is empty!\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[DEFER] pop_defer_scope: defer_stacks_ is empty!");
         }
         return;
     }
@@ -260,8 +334,13 @@ void Interpreter::pop_defer_scope() {
     defer_stacks_.pop_back();
 
     if (debug_mode) {
-        debug_print("pop_defer_scope: executing %zu defers\n",
-                    defers_to_execute.size());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[DEFER] pop_defer_scope: executing %zu defers",
+                     defers_to_execute.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     for (auto it = defers_to_execute.rbegin(); it != defers_to_execute.rend();
@@ -279,13 +358,13 @@ void Interpreter::add_defer(const ASTNode *stmt) {
     if (!defer_stacks_.empty()) {
         defer_stacks_.back().push_back(stmt);
         if (debug_mode) {
-            debug_print("add_defer: added defer to stack (stack size: %zu, "
-                        "defer count: %zu)\n",
-                        defer_stacks_.size(), defer_stacks_.back().size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "add_defer: added defer to stack (stack size: %zu, ");
         }
     } else {
         if (debug_mode) {
-            debug_print("add_defer: WARNING - defer_stacks_ is empty!\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "add_defer: WARNING - defer_stacks_ is empty!");
         }
     }
 }

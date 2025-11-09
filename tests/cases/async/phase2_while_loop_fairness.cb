@@ -1,0 +1,28 @@
+// v0.13.0 Phase 2.0: whileループでの協調マルチタスク
+// whileループの各イテレーションでバックグラウンドタスクと交互実行される
+
+async Future<void> background_task() {
+    int i = 0;
+    while (i < 5) {
+        println("[BG] Step %d", i);
+        i = i + 1;
+    }
+    return;
+}
+
+void main() {
+    println("=== While Loop Cooperative Multitasking Test ===\n");
+    
+    Future<void> f = background_task();
+    
+    println("[Main] Starting while loop");
+    int count = 0;
+    while (count < 5) {
+        println("[Main] Iteration %d", count);
+        count = count + 1;
+    }
+    println("[Main] While loop done\n");
+    
+    await f;
+    println("[Main] Done");
+}

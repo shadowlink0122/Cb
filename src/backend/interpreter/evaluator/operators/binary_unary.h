@@ -43,4 +43,22 @@ TypedValue evaluate_unary_op_typed(
 
 } // namespace BinaryUnaryTypedHelpers
 
+namespace BinaryAndUnaryOperators {
+
+/**
+ * @brief await式の評価
+ *
+ * Future<T>構造体からis_readyをチェックし、未実行の場合はタスクを実行
+ *
+ * @param node AST_UNARY_OPノード（awaitキーワード）
+ * @param interpreter インタプリタインスタンス
+ * @param evaluate_typed_func evaluate_typed_expressionの参照（再帰呼び出し用）
+ * @return int64_t 評価結果（await式の結果値）
+ */
+int64_t evaluate_await(
+    const ASTNode *node, Interpreter &interpreter,
+    const std::function<TypedValue(const ASTNode *)> &evaluate_typed_func);
+
+} // namespace BinaryAndUnaryOperators
+
 #endif // EXPRESSION_BINARY_UNARY_TYPED_H

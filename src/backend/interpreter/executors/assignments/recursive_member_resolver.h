@@ -98,11 +98,8 @@ inline std::pair<Variable *, std::string> resolve_nested_member_for_assignment(
             array_parent = &it->second;
             array_member_name = member;
 
-            debug_print("DEBUG_RESOLVER_EARLY: Found array member '%s', "
-                        "is_struct=%d, is_array=%d, struct_type='%s'\n",
-                        member.c_str(), array_parent->is_struct ? 1 : 0,
-                        array_parent->is_array ? 1 : 0,
-                        array_parent->struct_type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "DEBUG_RESOLVER_EARLY: Found array member '%s', ");
 
         } else if (array_ref->left->node_type == ASTNodeType::AST_VARIABLE ||
                    array_ref->left->node_type == ASTNodeType::AST_IDENTIFIER) {
@@ -161,11 +158,8 @@ inline std::pair<Variable *, std::string> resolve_nested_member_for_assignment(
         // 構造体配列の要素を取得する
 
         // デバッグ情報
-        debug_print("DEBUG_RESOLVER: array_member_name=%s, is_struct=%d, "
-                    "is_array=%d, struct_type_name='%s'\n",
-                    array_member_name.c_str(), array_parent->is_struct ? 1 : 0,
-                    array_parent->is_array ? 1 : 0,
-                    array_parent->struct_type_name.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG_RESOLVER: array_member_name=%s, is_struct=%d, ");
 
         // まず、配列自体が構造体配列かチェック
         // struct_type_nameが設定されていれば構造体配列として扱う

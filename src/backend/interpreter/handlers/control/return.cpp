@@ -688,8 +688,13 @@ void ReturnHandler::handle_expression_return(const ASTNode *node) {
     bool debug_mode = interpreter_->is_debug_mode();
 
     if (debug_mode) {
-        debug_print("[RETURN_EXPR] Handling expression return, node_type=%d\n",
-                    static_cast<int>(node->left->node_type));
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[RETURN_EXPR] Handling expression return, node_type=%d",
+                     static_cast<int>(node->left->node_type));
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 【v0.11.0 最適化】式を一度だけ評価する
@@ -699,10 +704,8 @@ void ReturnHandler::handle_expression_return(const ASTNode *node) {
             node->left.get());
 
     if (debug_mode) {
-        debug_print("[RETURN_EXPR] TypedValue: numeric_type=%d, "
-                    "type.type_info=%d, value=%lld\n",
-                    typed_result.numeric_type, typed_result.type.type_info,
-                    (long long)typed_result.value);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[RETURN_EXPR] TypedValue: numeric_type=%d, ");
     }
 
     if (typed_result.is_function_pointer) {
@@ -712,12 +715,9 @@ void ReturnHandler::handle_expression_return(const ASTNode *node) {
     } else if (typed_result.is_pointer) {
         // ポインタの場合、ポインタ型情報を保持してReturnExceptionを作成
         if (debug_mode) {
-            debug_print(
-                "[RETURN_EXPR] Returning pointer: value=0x%llx, depth=%d, "
-                "base_type=%d, base_type_name='%s'\n",
-                (unsigned long long)typed_result.value,
-                typed_result.pointer_depth, typed_result.pointer_base_type,
-                typed_result.pointer_base_type_name.c_str());
+            debug_msg(
+                DebugMsgId::GENERIC_DEBUG,
+                "[RETURN_EXPR] Returning pointer: value=0x%llx, depth=%d, ");
         }
 
         // ポインタ用ReturnExceptionコンストラクタを使用
@@ -751,9 +751,14 @@ void ReturnHandler::handle_expression_return(const ASTNode *node) {
                typed_result.type.type_info == TYPE_ENUM) {
         // Enum型の場合、TYPE_ENUMとして返す（古いスタイルenum）
         if (debug_mode) {
-            debug_print(
-                "[RETURN_EXPR] Returning enum as TYPE_ENUM: value=%lld\n",
-                (long long)typed_result.value);
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "[RETURN_EXPR] Returning enum as TYPE_ENUM: value=%lld",
+                    (long long)typed_result.value);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         throw ReturnException(typed_result.value, TYPE_ENUM);
     } else {

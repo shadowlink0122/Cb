@@ -1,0 +1,37 @@
+// Phase 1: 複数のasync関数呼び出しテスト
+// Future<T>は組み込み型なので定義不要
+
+async Future<int> fetch_data(int id) {
+    println("Fetching data for ID: {id}");
+    return id * 100;
+}
+
+async Future<int> process_data(int value) {
+    println("Processing value: {value}");
+    return value + 50;
+}
+
+void main() {
+    println("=== Phase 1 Multiple Async Test ===");
+    
+    // 即座実行：各関数は呼び出された時点で完全に実行される
+    Future<int> f1 = fetch_data(1);
+    println("After fetch_data(1)");
+    
+    Future<int> f2 = fetch_data(2);
+    println("After fetch_data(2)");
+    
+    // awaitで値を取得（すでにreadyなので即座に取得）
+    int r1 = await f1;
+    println("Result 1: {r1}");
+    
+    int r2 = await f2;
+    println("Result 2: {r2}");
+    
+    // 処理を続ける
+    Future<int> f3 = process_data(r1);
+    int r3 = await f3;
+    println("Processed: {r3}");
+    
+    println("=== Test Complete ===");
+}

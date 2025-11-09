@@ -1,0 +1,104 @@
+// Test: Nested async calls
+// async関数内で別のasync関数を呼び出すテスト
+
+async int inner_task(int value) {
+    println("  Inner: Processing {value}");
+    return value * 2;
+}
+
+async int middle_task(int value) {
+    println(" Middle: Start with {value}");
+    int result = await inner_task(value);
+    println(" Middle: Got result {result}");
+    return result + 10;
+}
+
+async int outer_task(int value) {
+    println("Outer: Start with {value}");
+    int result = await middle_task(value);
+    println("Outer: Got result {result}");
+    return result + 100;
+}
+
+// 複数レベルのネスト
+async int deeply_nested(int depth, int value) {
+    println("Depth {depth}: value={value}");
+    
+    if (depth <= 0) {
+        return value;
+    }
+    
+    int result = await deeply_nested(depth - 1, value + 1);
+    return result * 2;
+}
+
+// ループ内でのネストしたasync呼び出し
+async int process_item(int item) {
+    println("  Processing item {item}");
+    return item * item;
+}
+
+async int process_batch(int count) {
+    println("Batch: Processing {count} items");
+    int r0 = await process_item(0);
+    int r1 = await process_item(1);
+    int r2 = await process_item(2);
+    int result = r0 + r1 + r2;
+    return result;
+}
+
+void main() {
+    println("=== Nested Async Calls Test ===\n");
+    
+    // Test 1: 3レベルのネスト
+    println("[Test 1] Three-level nesting");
+    int result1 = await outer_task(5);
+    println("Final result: {result1}");
+    println("Expected: 120 (5*2+10+100)");
+    
+    if (result1 == 120) {
+        println("✅ Test 1 passed\n");
+    } else {
+        println("❌ Test 1 failed\n");
+    }
+    
+    // Test 2: 再帰的なネスト（深さ5）
+    println("[Test 2] Recursive nesting (depth=5)");
+    int result2 = await deeply_nested(5, 0);
+    println("Final result: {result2}");
+    println("Expected: 160 ((((((0+1)+1)+1)+1)+1)+1)*2*2*2*2*2)");
+    
+    if (result2 == 160) {
+        println("✅ Test 2 passed\n");
+    } else {
+        println("❌ Test 2 failed\n");
+    }
+    
+    // Test 3: ループ内でのネストしたasync呼び出し
+    println("[Test 3] Nested async in loop");
+    int result3 = await process_batch(3);
+    println("Final result: {result3}");
+    println("Expected: 5 (0*0 + 1*1 + 2*2)");
+    
+    if (result3 == 5) {
+        println("✅ Test 3 passed\n");
+    } else {
+        println("❌ Test 3 failed\n");
+    }
+    
+    // Test 4: 並行実行 + ネスト
+    println("[Test 4] Concurrent nested calls");
+    outer_task(1);  // バックグラウンド
+    outer_task(2);  // バックグラウンド
+    int result4 = await outer_task(3);  // 待機
+    println("Awaited result: {result4}");
+    println("Expected: 116 (3*2+10+100)");
+    
+    if (result4 == 116) {
+        println("✅ Test 4 passed\n");
+    } else {
+        println("❌ Test 4 failed\n");
+    }
+    
+    println("=== All Nested Async Tests Completed ===");
+}

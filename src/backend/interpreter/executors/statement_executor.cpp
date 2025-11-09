@@ -7,6 +7,7 @@
 #include "core/pointer_metadata.h"
 #include "core/type_inference.h"
 #include "evaluator/core/evaluator.h"
+#include "event_loop/simple_event_loop.h" // v0.12.0: バックグラウンドタスク実行
 #include "executors/assignments/member_assignment.h"
 #include "executors/assignments/simple_assignment.h"
 #include "executors/declarations/array_declaration.h"
@@ -21,6 +22,12 @@ StatementExecutor::StatementExecutor(Interpreter &interpreter)
 
 void StatementExecutor::execute_statement(const ASTNode *node) {
     execute(node);
+
+    // v0.12.0: バックグラウンドタスクを1サイクル実行
+    // async関数呼び出し（awaitなし）時に、ラウンドロビンでタスクを進める
+    if (interpreter_.get_simple_event_loop().has_tasks()) {
+        interpreter_.get_simple_event_loop().run_one_cycle();
+    }
 }
 
 void StatementExecutor::execute(const ASTNode *node) {
@@ -105,16 +112,22 @@ void StatementExecutor::execute_struct_array_literal_init(
 }
 
 void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
-    debug_print("DEBUG: execute_member_array_assignment called\n");
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "DEBUG: execute_member_array_assignment called");
     // obj.member[index] = value の処理
     const ASTNode *member_array_access = node->left.get();
 
     if (!member_array_access || member_array_access->node_type !=
                                     ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
-        debug_print("DEBUG: Not AST_MEMBER_ARRAY_ACCESS, node_type=%d\n",
-                    member_array_access
-                        ? static_cast<int>(member_array_access->node_type)
-                        : -1);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DEBUG: Not AST_MEMBER_ARRAY_ACCESS, node_type=%d",
+                     member_array_access
+                         ? static_cast<int>(member_array_access->node_type)
+                         : -1);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         throw std::runtime_error("Invalid member array access in assignment");
     }
 
@@ -148,27 +161,27 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
             if (!member_array_access->name.empty() &&
                 member_array_access->name != array_member_name) {
                 is_nested_struct_array_access = true;
-                debug_print("DEBUG: Detected nested struct array member "
-                            "access: %s.%s[idx].%s\n",
-                            obj_name.c_str(), array_member_name.c_str(),
-                            member_array_access->name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "DEBUG: Detected nested struct array member ");
             }
         } else {
-            debug_print("ERROR: Nested "
-                        "member_array_access->left->left->node_type = %d\n",
-                        member_array_access->left->left
-                            ? static_cast<int>(
-                                  member_array_access->left->left->node_type)
-                            : -1);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, "ERROR: Nested ");
             throw std::runtime_error(
                 "Invalid nested object reference in member array access");
         }
     } else {
         if (member_array_access->left) {
-            debug_print("ERROR: member_array_access->left->node_type = %d\n",
-                        static_cast<int>(member_array_access->left->node_type));
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "ERROR: member_array_access->left->node_type = %d",
+                    static_cast<int>(member_array_access->left->node_type));
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         } else {
-            debug_print("ERROR: member_array_access->left is null\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "ERROR: member_array_access->left is null");
         }
         throw std::runtime_error(
             "Invalid object reference in member array access");
@@ -189,10 +202,8 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
         member_name = member_array_access->name;
     }
 
-    debug_print("DEBUG: obj_name='%s', member_name='%s', array_member='%s', "
-                "is_nested=%d\n",
-                obj_name.c_str(), member_name.c_str(),
-                array_member_name.c_str(), is_nested_struct_array_access);
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "DEBUG: obj_name='%s', member_name='%s', array_member='%s', ");
 
     // インデックス値を評価（多次元対応）
     std::vector<int64_t> indices;
@@ -214,8 +225,8 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
     // ネストされた構造体配列メンバーアクセスの処理: obj.array[idx].member =
     // value
     if (is_nested_struct_array_access) {
-        debug_print(
-            "DEBUG: Processing nested struct array member assignment\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: Processing nested struct array member assignment");
         int array_index = static_cast<int>(indices[0]);
 
         // array_member_name の配列から要素を取得
@@ -244,8 +255,13 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
         std::string element_key =
             array_member_name + "[" + std::to_string(array_index) + "]";
 
-        debug_print("DEBUG: Looking for struct array element: %s\n",
-                    element_key.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DEBUG: Looking for struct array element: %s",
+                     element_key.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // 親構造体から配列要素を探す（最初に親のstruct_membersを確認）
         Variable *parent_struct = interpreter_.find_variable(obj_name);
@@ -262,15 +278,26 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
             // 配列メンバー自体のstruct_membersから探す
             element_it = array_member->struct_members.find(element_key);
             if (element_it == array_member->struct_members.end()) {
-                debug_print(
-                    "DEBUG: Available keys in parent struct_members:\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "DEBUG: Available keys in parent struct_members:");
                 for (const auto &pair : parent_struct->struct_members) {
-                    debug_print("  - %s\n", pair.first.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf), "  - %s",
+                                 pair.first.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
-                debug_print(
-                    "DEBUG: Available keys in array_member struct_members:\n");
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "DEBUG: Available keys in array_member struct_members:");
                 for (const auto &pair : array_member->struct_members) {
-                    debug_print("  - %s\n", pair.first.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf), "  - %s",
+                                 pair.first.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
                 throw std::runtime_error("Struct array element not found: " +
                                          element_key);
@@ -278,10 +305,8 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
         }
 
         Variable &struct_element = element_it->second;
-        debug_print("DEBUG: Found struct array element, is_struct=%s, "
-                    "struct_members.size()=%zu\n",
-                    struct_element.is_struct ? "true" : "false",
-                    struct_element.struct_members.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: Found struct array element, is_struct=%s, ");
         if (!struct_element.is_struct) {
             throw std::runtime_error("Array element is not a struct");
         }
@@ -297,29 +322,43 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
         if (node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
             member_it->second.str_value = node->right->str_value;
             member_it->second.type = TYPE_STRING;
-            debug_print("DEBUG_ASSIGN: Assigned string '%s' to %s.%s[%d].%s\n",
-                        node->right->str_value.c_str(), obj_name.c_str(),
-                        array_member_name.c_str(), array_index,
-                        member_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "DEBUG_ASSIGN: Assigned string '%s' to %s.%s[%d].%s",
+                         node->right->str_value.c_str(), obj_name.c_str(),
+                         array_member_name.c_str(), array_index,
+                         member_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         } else {
             TypedValue typed_value =
                 interpreter_.evaluate_typed(node->right.get());
             if (typed_value.is_floating()) {
                 member_it->second.double_value = typed_value.as_double();
                 member_it->second.type = typed_value.type.type_info;
-                debug_print(
-                    "DEBUG_ASSIGN: Assigned double %f to %s.%s[%d].%s\n",
-                    typed_value.as_double(), obj_name.c_str(),
-                    array_member_name.c_str(), array_index,
-                    member_name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "DEBUG_ASSIGN: Assigned double %f to %s.%s[%d].%s",
+                             typed_value.as_double(), obj_name.c_str(),
+                             array_member_name.c_str(), array_index,
+                             member_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             } else {
                 int64_t value = typed_value.as_numeric();
                 member_it->second.value = value;
                 member_it->second.type = typed_value.type.type_info;
-                debug_print(
-                    "DEBUG_ASSIGN: Assigned integer %lld to %s.%s[%d].%s\n",
-                    value, obj_name.c_str(), array_member_name.c_str(),
-                    array_index, member_name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "DEBUG_ASSIGN: Assigned integer %lld to %s.%s[%d].%s",
+                        value, obj_name.c_str(), array_member_name.c_str(),
+                        array_index, member_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
         member_it->second.is_assigned = true;
@@ -339,9 +378,14 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
             }
             direct_var->type = member_it->second.type;
             direct_var->is_assigned = true;
-            debug_print(
-                "DEBUG_ASSIGN: Updated direct access variable: %s = %lld\n",
-                direct_access_name.c_str(), direct_var->value);
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "DEBUG_ASSIGN: Updated direct access variable: %s = %lld",
+                    direct_access_name.c_str(), direct_var->value);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         // 構造体配列要素変数自体の struct_members も更新
@@ -353,24 +397,25 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
                 element_variable->struct_members.find(member_name);
             if (elem_member_it != element_variable->struct_members.end()) {
                 elem_member_it->second = member_it->second;
-                debug_print("DEBUG_ASSIGN: Updated element variable "
-                            "struct_members: %s.%s = %lld\n",
-                            element_var_name.c_str(), member_name.c_str(),
-                            elem_member_it->second.value);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "DEBUG_ASSIGN: Updated element variable ");
             }
         }
 
-        debug_print(
-            "DEBUG: Nested struct array member assigned: %s.%s[%d].%s\n",
-            obj_name.c_str(), array_member_name.c_str(), array_index,
-            member_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DEBUG: Nested struct array member assigned: %s.%s[%d].%s",
+                     obj_name.c_str(), array_member_name.c_str(), array_index,
+                     member_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         return;
     }
 
     // 右辺の値を評価して構造体メンバー配列要素に代入
-    debug_print("DEBUG: execute_member_array_assignment - right type=%d, "
-                "indices count=%zu\n",
-                static_cast<int>(node->right->node_type), indices.size());
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "DEBUG: execute_member_array_assignment - right type=%d, ");
 
     if (indices.size() > 1) {
         // 多次元配列の場合
@@ -398,8 +443,8 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
             obj_name, member_name, index, node->right->str_value);
     } else if (node->right->node_type == ASTNodeType::AST_ARRAY_REF) {
         // 構造体メンバ配列アクセスがAST_ARRAY_REFとして解析される場合
-        debug_print("DEBUG: Processing AST_ARRAY_REF on right-hand side in "
-                    "array assignment\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: Processing AST_ARRAY_REF on right-hand side in ");
         if (node->right->left &&
             node->right->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
             // original.tags[0] の形式
@@ -410,16 +455,21 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
 
             Variable *right_member_var = interpreter_.get_struct_member(
                 right_obj_name, right_member_name);
-            debug_print(
-                "DEBUG: AST_ARRAY_REF right_member_var type=%d, is_array=%d\n",
-                static_cast<int>(right_member_var->type),
-                right_member_var->is_array ? 1 : 0);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "DEBUG: AST_ARRAY_REF right_member_var type=%d, "
+                         "is_array=%d",
+                         static_cast<int>(right_member_var->type),
+                         right_member_var->is_array ? 1 : 0);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             if ((right_member_var->type == TYPE_STRING &&
                  right_member_var->is_array) ||
                 right_member_var->type ==
                     static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING)) {
-                debug_print("DEBUG: Using string array element access via "
-                            "AST_ARRAY_REF\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "DEBUG: Using string array element access via ");
                 std::string str_value =
                     interpreter_.get_struct_member_array_string_element(
                         right_obj_name, right_member_name,
@@ -427,8 +477,8 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
                 interpreter_.assign_struct_member_array_element(
                     obj_name, member_name, index, str_value);
             } else {
-                debug_print("DEBUG: Using numeric array element access via "
-                            "AST_ARRAY_REF\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "DEBUG: Using numeric array element access via ");
                 int64_t value = interpreter_.get_struct_member_array_element(
                     right_obj_name, right_member_name,
                     static_cast<int>(array_index));
@@ -443,8 +493,8 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
         }
     } else if (node->right->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
         // 構造体メンバ配列アクセスの場合（original.tags[0]等）
-        debug_print("DEBUG: Processing AST_MEMBER_ARRAY_ACCESS on right-hand "
-                    "side in array assignment\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: Processing AST_MEMBER_ARRAY_ACCESS on right-hand ");
         std::string right_obj_name;
         std::string right_member_name = node->right->name;
 
@@ -466,16 +516,14 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
         // 右辺の構造体メンバ配列要素を取得
         Variable *right_member_var =
             interpreter_.get_struct_member(right_obj_name, right_member_name);
-        debug_print("DEBUG: right_member_var type=%d, is_array=%d in array "
-                    "assignment\n",
-                    static_cast<int>(right_member_var->type),
-                    right_member_var->is_array ? 1 : 0);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: right_member_var type=%d, is_array=%d in array ");
         if ((right_member_var->type == TYPE_STRING &&
              right_member_var->is_array) ||
             right_member_var->type ==
                 static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING)) {
-            debug_print("DEBUG: Using string array element access in array "
-                        "assignment\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "DEBUG: Using string array element access in array ");
             std::string str_value =
                 interpreter_.get_struct_member_array_string_element(
                     right_obj_name, right_member_name,
@@ -483,8 +531,8 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
             interpreter_.assign_struct_member_array_element(
                 obj_name, member_name, index, str_value);
         } else {
-            debug_print("DEBUG: Using numeric array element access in array "
-                        "assignment\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "DEBUG: Using numeric array element access in array ");
             int64_t value = interpreter_.get_struct_member_array_element(
                 right_obj_name, right_member_name,
                 static_cast<int>(array_index));
@@ -674,8 +722,13 @@ void StatementExecutor::execute_self_member_assignment(
 
     if (self_var && receiver_info && !receiver_info->str_value.empty()) {
         original_receiver_path = receiver_info->str_value + "." + member_name;
-        debug_print("SELF_ASSIGN_DEBUG: Original receiver path: %s\n",
-                    original_receiver_path.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "SELF_ASSIGN_DEBUG: Original receiver path: %s",
+                     original_receiver_path.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 値の型に応じて代入処理
@@ -686,28 +739,47 @@ void StatementExecutor::execute_self_member_assignment(
 
         // 元の変数のメンバーも同時に更新
         if (!original_receiver_path.empty()) {
-            debug_print("SELF_ASSIGN_DEBUG: Looking for original member: %s\n",
-                        original_receiver_path.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "SELF_ASSIGN_DEBUG: Looking for original member: %s",
+                         original_receiver_path.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             Variable *original_member =
                 interpreter_.find_variable(original_receiver_path);
             if (original_member) {
-                debug_print("SELF_ASSIGN_DEBUG: Found original member, "
-                            "updating string value\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "SELF_ASSIGN_DEBUG: Found original member, ");
                 original_member->str_value = value_node->str_value;
                 original_member->type = TYPE_STRING;
                 original_member->is_assigned = true;
-                debug_print("SELF_ASSIGN_SYNC: %s = \"%s\"\n",
-                            original_receiver_path.c_str(),
-                            value_node->str_value.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "SELF_ASSIGN_SYNC: %s = \"%s\"",
+                             original_receiver_path.c_str(),
+                             value_node->str_value.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             } else {
-                debug_print(
-                    "SELF_ASSIGN_DEBUG: Could not find original member: %s\n",
-                    original_receiver_path.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "SELF_ASSIGN_DEBUG: Could not find original member: %s",
+                        original_receiver_path.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
 
-        debug_print("SELF_ASSIGN: %s = \"%s\"\n", member_name.c_str(),
-                    value_node->str_value.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf), "SELF_ASSIGN: %s = \"%s\"",
+                     member_name.c_str(), value_node->str_value.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     } else if (value_node->node_type == ASTNodeType::AST_VARIABLE ||
                value_node->node_type == ASTNodeType::AST_IDENTIFIER) {
         // 変数参照の場合
@@ -758,30 +830,44 @@ void StatementExecutor::execute_self_member_assignment(
 
             // 元の変数のメンバーも同時に更新
             if (!original_receiver_path.empty()) {
-                debug_print(
-                    "SELF_ASSIGN_DEBUG: Looking for original member: %s\n",
-                    original_receiver_path.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "SELF_ASSIGN_DEBUG: Looking for original member: %s",
+                        original_receiver_path.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
                 Variable *original_member =
                     interpreter_.find_variable(original_receiver_path);
                 if (original_member) {
-                    debug_print("SELF_ASSIGN_DEBUG: Found original member, "
-                                "updating string value from variable\n");
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "SELF_ASSIGN_DEBUG: Found original member, ");
                     original_member->str_value = source_var->str_value;
                     original_member->type = TYPE_STRING;
                     original_member->is_assigned = true;
-                    debug_print(
-                        "SELF_ASSIGN_SYNC: %s = \"%s\" (from variable)\n",
-                        original_receiver_path.c_str(),
-                        source_var->str_value.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "SELF_ASSIGN_SYNC: %s = \"%s\" (from variable)",
+                            original_receiver_path.c_str(),
+                            source_var->str_value.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 } else {
-                    debug_print("SELF_ASSIGN_DEBUG: Could not find original "
-                                "member: %s\n",
-                                original_receiver_path.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "SELF_ASSIGN_DEBUG: Could not find original ");
                 }
             }
 
-            debug_print("SELF_ASSIGN: %s = \"%s\" (from variable)\n",
-                        member_name.c_str(), source_var->str_value.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "SELF_ASSIGN: %s = \"%s\" (from variable)",
+                         member_name.c_str(), source_var->str_value.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         } else {
             // 右辺の型情報を取得
             bool is_nullptr =
@@ -798,32 +884,46 @@ void StatementExecutor::execute_self_member_assignment(
 
             // 元の変数のメンバーも同時に更新
             if (!original_receiver_path.empty()) {
-                debug_print(
-                    "SELF_ASSIGN_DEBUG: Looking for original member: %s\n",
-                    original_receiver_path.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "SELF_ASSIGN_DEBUG: Looking for original member: %s",
+                        original_receiver_path.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
                 Variable *original_member =
                     interpreter_.find_variable(original_receiver_path);
                 if (original_member) {
-                    debug_print("SELF_ASSIGN_DEBUG: Found original member, "
-                                "updating numeric value from variable\n");
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "SELF_ASSIGN_DEBUG: Found original member, ");
                     original_member->value = value;
                     if (original_member->type != TYPE_STRING && !is_nullptr &&
                         original_member->type != TYPE_POINTER) {
                         original_member->type = TYPE_INT;
                     }
                     original_member->is_assigned = true;
-                    debug_print("SELF_ASSIGN_SYNC: %s = %lld (from variable)\n",
-                                original_receiver_path.c_str(),
-                                (long long)value);
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "SELF_ASSIGN_SYNC: %s = %lld (from variable)",
+                                 original_receiver_path.c_str(),
+                                 (long long)value);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 } else {
-                    debug_print("SELF_ASSIGN_DEBUG: Could not find original "
-                                "member: %s\n",
-                                original_receiver_path.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "SELF_ASSIGN_DEBUG: Could not find original ");
                 }
             }
 
-            debug_print("SELF_ASSIGN: %s = %lld (from variable)\n",
-                        member_name.c_str(), (long long)value);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "SELF_ASSIGN: %s = %lld (from variable)",
+                         member_name.c_str(), (long long)value);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         self_member->is_assigned = true;
     } else {
@@ -836,9 +936,14 @@ void StatementExecutor::execute_self_member_assignment(
             if (value_node->name == "+=" || value_node->name == "-=" ||
                 value_node->name == "*=" || value_node->name == "/=") {
                 // 複合代入は既に評価済みの値として処理
-                debug_print("SELF_COMPOUND_ASSIGN: %s %s= %lld\n",
-                            member_name.c_str(), value_node->name.c_str(),
-                            (long long)value);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "SELF_COMPOUND_ASSIGN: %s %s= %lld",
+                             member_name.c_str(), value_node->name.c_str(),
+                             (long long)value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
 
@@ -854,30 +959,49 @@ void StatementExecutor::execute_self_member_assignment(
 
         // 元の変数のメンバーも同時に更新
         if (!original_receiver_path.empty()) {
-            debug_print("SELF_ASSIGN_DEBUG: Looking for original member: %s\n",
-                        original_receiver_path.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "SELF_ASSIGN_DEBUG: Looking for original member: %s",
+                         original_receiver_path.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             Variable *original_member =
                 interpreter_.find_variable(original_receiver_path);
             if (original_member) {
-                debug_print("SELF_ASSIGN_DEBUG: Found original member, "
-                            "updating numeric value\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "SELF_ASSIGN_DEBUG: Found original member, ");
                 original_member->value = value;
                 if (original_member->type != TYPE_STRING && !is_nullptr &&
                     original_member->type != TYPE_POINTER) {
                     original_member->type = TYPE_INT;
                 }
                 original_member->is_assigned = true;
-                debug_print("SELF_ASSIGN_SYNC: %s = %lld\n",
-                            original_receiver_path.c_str(), (long long)value);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "SELF_ASSIGN_SYNC: %s = %lld",
+                             original_receiver_path.c_str(), (long long)value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             } else {
-                debug_print(
-                    "SELF_ASSIGN_DEBUG: Could not find original member: %s\n",
-                    original_receiver_path.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "SELF_ASSIGN_DEBUG: Could not find original member: %s",
+                        original_receiver_path.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
 
-        debug_print("SELF_ASSIGN: %s = %lld\n", member_name.c_str(),
-                    (long long)value);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf), "SELF_ASSIGN: %s = %lld",
+                     member_name.c_str(), (long long)value);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // self.member個別変数も同時に更新（sync_struct_members_from_direct_accessで上書きされないように）
@@ -888,8 +1012,13 @@ void StatementExecutor::execute_self_member_assignment(
         self_member_var->str_value = self_member->str_value;
         self_member_var->type = self_member->type;
         self_member_var->is_assigned = true;
-        debug_print("SELF_ASSIGN_DIRECT: %s = %lld\n", self_member_path.c_str(),
-                    (long long)self_member_var->value);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf), "SELF_ASSIGN_DIRECT: %s = %lld",
+                     self_member_path.c_str(),
+                     (long long)self_member_var->value);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     std::string self_value_str = std::to_string(self_member->value);

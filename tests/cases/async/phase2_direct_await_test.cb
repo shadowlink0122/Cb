@@ -1,0 +1,52 @@
+// Phase 2.0 Test: Direct await (await task() without Future variable)
+// async関数を呼び出してすぐにawaitで結果を取得するパターン
+// Future<T>は組み込み型なので定義不要
+// auto-yield機能により、明示的なyield文は不要
+
+async Future<int> task1() {
+    println("Task1: Start");
+    println("Task1: Processing step 1");
+    println("Task1: Processing step 2");
+    println("Task1: Done");
+    return 10;
+}
+
+async Future<int> task2() {
+    println("Task2: Start");
+    println("Task2: Processing");
+    println("Task2: Done");
+    return 20;
+}
+
+async Future<int> compute(int x, int y) {
+    println("Computing: {x} + {y}");
+    int result = x + y;
+    println("Result: {result}");
+    return result;
+}
+
+void main() {
+    println("=== Direct Await Test ===");
+    
+    // パターン1: 直接awaitで結果を取得（Futureを変数に格納しない）
+    println("Pattern 1: Direct await");
+    int r1 = await task1();
+    println("Got r1: {r1}");
+    
+    int r2 = await task2();
+    println("Got r2: {r2}");
+    
+    // パターン2: 計算結果を直接await
+    println("Pattern 2: Compute and await");
+    int sum = await compute(r1, r2);
+    println("Sum: {sum}");
+    
+    // パターン3: 複数の直接await（順次実行）
+    println("Pattern 3: Sequential direct awaits");
+    int a = await task1();
+    int b = await task2();
+    int c = await compute(a, b);
+    
+    println("=== Test Complete ===");
+    println("Final results: a={a}, b={b}, c={c}");
+}

@@ -1,0 +1,67 @@
+// Test: Yield edge cases
+// 関数の最後でyieldする場合や、境界条件のテスト
+
+import stdlib.std.time;
+
+// エッジケース1: 関数の最後でyield
+async void task_yield_at_end() {
+    println("Task: Start");
+    println("Task: Processing");
+    yield;  // 関数の最後でyield
+}
+
+// エッジケース2: yieldのみの関数
+async void task_only_yield() {
+    yield;
+}
+
+// エッジケース3: 連続yield
+async void task_multiple_yields() {
+    println("Task: Before yield 1");
+    yield;
+    println("Task: Before yield 2");
+    yield;
+    println("Task: Before yield 3");
+    yield;
+}
+
+// 通常のタスク（比較用）
+async void task_normal() {
+    println("Normal: Start");
+    yield;
+    println("Normal: Middle");
+    yield;
+    println("Normal: End");
+}
+
+void main() {
+    println("=== Test: Yield Edge Cases ===\n");
+    
+    // テスト1: 関数の最後でyield
+    println("[Test 1] Yield at end of function:");
+    task_yield_at_end();
+    await sleep(100);
+    println("Test 1 completed\n");
+    
+    // テスト2: yieldのみの関数
+    println("[Test 2] Function with only yield:");
+    task_only_yield();
+    await sleep(100);
+    println("Test 2 completed\n");
+    
+    // テスト3: 連続yield
+    println("[Test 3] Multiple consecutive yields:");
+    task_multiple_yields();
+    await sleep(100);
+    println("Test 3 completed\n");
+    
+    // テスト4: 複数タスクの混在
+    println("[Test 4] Mixed tasks:");
+    task_yield_at_end();
+    task_normal();
+    task_multiple_yields();
+    await sleep(200);
+    println("Test 4 completed\n");
+    
+    println("=== All edge case tests completed ===");
+}

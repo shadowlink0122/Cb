@@ -993,7 +993,16 @@ Cb言語の概要をまとめたチラシ（A4・2ページ）をご用意して
 ### サンプルコード
 
 [`sample/`](sample/) フォルダに様々なサンプルプログラムがあります：
-- `function_pointer_demo.cb` - 関数ポインタのデモ 🆕
+
+#### 非同期プログラミング（v0.12.0 🆕）
+- **`async/async_practical.cb`** - シンプルで実用的な9つの非同期パターン集 ⭐推奨
+- **`async/async_examples.cb`** - 包括的な非同期機能デモ
+- **`async/async_data_processing.cb`** - データベース風の非同期クエリシミュレーション
+- **`async/async_error_handling.cb`** - エラーハンドリングパターン集
+- 📚 詳細: [`sample/async/ASYNC_SAMPLES_README.md`](sample/async/ASYNC_SAMPLES_README.md)
+
+#### その他のサンプル
+- `function_pointer_demo.cb` - 関数ポインタのデモ
 - `comprehensive_demo.cb` - 全機能のデモ
 - `fibonacci.cb` - フィボナッチ数列
 - `fizzbuzz.cb` - FizzBuzz

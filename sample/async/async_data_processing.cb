@@ -1,0 +1,311 @@
+// Cb言語 実践的な非同期データ処理サンプル
+// データベース風の非同期クエリをシミュレート
+
+import stdlib.std.future;
+
+// ============================================
+// データモデル
+// ============================================
+
+struct User {
+    int id;
+    string name;
+    int age;
+};
+
+struct Product {
+    int id;
+    string name;
+    int price;
+};
+
+struct Order {
+    int id;
+    int user_id;
+    int product_id;
+    int quantity;
+};
+
+// ============================================
+// 非同期データベースクエリ（シミュレート）
+// ============================================
+
+// ユーザーIDでユーザーを取得
+Future<User> fetch_user(int user_id) {
+    Future<User> result;
+    
+    User user;
+    if (user_id == 1) {
+        user.id = 1;
+        user.name = "Alice";
+        user.age = 25;
+    } else if (user_id == 2) {
+        user.id = 2;
+        user.name = "Bob";
+        user.age = 30;
+    } else {
+        user.id = 0;
+        user.name = "Unknown";
+        user.age = 0;
+    }
+    
+    result.value = user;
+    result.is_ready = true;
+    return result;
+}
+
+// 商品IDで商品を取得
+Future<Product> fetch_product(int product_id) {
+    Future<Product> result;
+    
+    Product product;
+    if (product_id == 1) {
+        product.id = 1;
+        product.name = "Laptop";
+        product.price = 1200;
+    } else if (product_id == 2) {
+        product.id = 2;
+        product.name = "Mouse";
+        product.price = 25;
+    } else if (product_id == 3) {
+        product.id = 3;
+        product.name = "Keyboard";
+        product.price = 75;
+    } else {
+        product.id = 0;
+        product.name = "Unknown";
+        product.price = 0;
+    }
+    
+    result.value = product;
+    result.is_ready = true;
+    return result;
+}
+
+// 注文データを取得
+Future<Order> fetch_order(int order_id) {
+    Future<Order> result;
+    
+    Order order;
+    if (order_id == 1) {
+        order.id = 1;
+        order.user_id = 1;
+        order.product_id = 1;
+        order.quantity = 2;
+    } else if (order_id == 2) {
+        order.id = 2;
+        order.user_id = 2;
+        order.product_id = 2;
+        order.quantity = 5;
+    } else {
+        order.id = 0;
+        order.user_id = 0;
+        order.product_id = 0;
+        order.quantity = 0;
+    }
+    
+    result.value = order;
+    result.is_ready = true;
+    return result;
+}
+
+// ============================================
+// ビジネスロジック（非同期処理の組み合わせ）
+// ============================================
+
+// 注文詳細を表示（複数の非同期クエリを組み合わせ）
+void display_order_details(int order_id) {
+    print("=== Order Details (ID: ");
+    print(order_id);
+    print(") ===\n");
+    
+    // 1. 注文データを取得
+    Order order = await fetch_order(order_id);
+    
+    if (order.id == 0) {
+        print("Error: Order not found\n");
+        return;
+    }
+    
+    // 2. ユーザー情報を取得
+    User user = await fetch_user(order.user_id);
+    
+    // 3. 商品情報を取得
+    Product product = await fetch_product(order.product_id);
+    
+    // 4. 合計金額を計算
+    int total = product.price * order.quantity;
+    
+    // 5. 結果を表示
+    print("Customer: ");
+    print(user.name);
+    print(" (Age: ");
+    print(user.age);
+    print(")\n");
+    
+    print("Product: ");
+    print(product.name);
+    print(" @ $");
+    print(product.price);
+    print(" each\n");
+    
+    print("Quantity: ");
+    print(order.quantity);
+    print("\n");
+    
+    print("Total: $");
+    print(total);
+    print("\n\n");
+}
+
+// 複数の注文を並行処理（シミュレート）
+void process_multiple_orders() {
+    print("=== Processing Multiple Orders ===\n");
+    
+    int total_revenue = 0;
+    
+    // 注文1を処理
+    Order order1 = await fetch_order(1);
+    if (order1.id != 0) {
+        Product product1 = await fetch_product(order1.product_id);
+        int order_total1 = product1.price * order1.quantity;
+        total_revenue = total_revenue + order_total1;
+        print("Order ");
+        print(order1.id);
+        print(": $");
+        print(order_total1);
+        print("\n");
+    }
+    
+    // 注文2を処理
+    Order order2 = await fetch_order(2);
+    if (order2.id != 0) {
+        Product product2 = await fetch_product(order2.product_id);
+        int order_total2 = product2.price * order2.quantity;
+        total_revenue = total_revenue + order_total2;
+        print("Order ");
+        print(order2.id);
+        print(": $");
+        print(order_total2);
+        print("\n");
+    }
+    
+    print("Total Revenue: $");
+    print(total_revenue);
+    print("\n\n");
+}
+
+// ============================================
+// データ分析（非同期データ集計）
+// ============================================
+
+Future<int> calculate_user_spending(int user_id) {
+    Future<int> result;
+    
+    // 簡易的にハードコードされた結果を返す
+    int spending = 0;
+    
+    if (user_id == 1) {
+        spending = 2400;  // Laptop x 2
+    } else if (user_id == 2) {
+        spending = 125;   // Mouse x 5
+    }
+    
+    result.value = spending;
+    result.is_ready = true;
+    return result;
+}
+
+void analyze_user_spending() {
+    print("=== User Spending Analysis ===\n");
+    
+    // ユーザー1
+    User user1 = await fetch_user(1);
+    int spending1 = await calculate_user_spending(1);
+    print("User: ");
+    print(user1.name);
+    print(" - Total Spending: $");
+    print(spending1);
+    print("\n");
+    
+    // ユーザー2
+    User user2 = await fetch_user(2);
+    int spending2 = await calculate_user_spending(2);
+    print("User: ");
+    print(user2.name);
+    print(" - Total Spending: $");
+    print(spending2);
+    print("\n");
+    
+    print("\n");
+}
+
+// ============================================
+// キャッシュのシミュレーション
+// ============================================
+
+struct CachedData {
+    bool is_cached;
+    int value;
+};
+
+// キャッシュをチェックしてから取得
+Future<int> fetch_with_cache(int key, bool use_cache) {
+    Future<int> result;
+    
+    if (use_cache) {
+        // キャッシュヒット
+        result.value = 42;  // キャッシュされた値
+    } else {
+        // キャッシュミス - データベースから取得
+        result.value = 100;  // 新しく取得した値
+    }
+    
+    result.is_ready = true;
+    return result;
+}
+
+void demonstrate_caching() {
+    print("=== Caching Demonstration ===\n");
+    
+    // 最初のアクセス（キャッシュなし）
+    print("First access (no cache): ");
+    int value1 = await fetch_with_cache(1, false);
+    print(value1);
+    print("\n");
+    
+    // 2回目のアクセス（キャッシュあり）
+    print("Second access (cached): ");
+    int value2 = await fetch_with_cache(1, true);
+    print(value2);
+    print("\n\n");
+}
+
+// ============================================
+// メイン関数
+// ============================================
+
+int main() {
+    print("========================================\n");
+    print("  Cb Async Data Processing Demo\n");
+    print("========================================\n\n");
+    
+    // 1. 単一の注文詳細を表示
+    display_order_details(1);
+    display_order_details(2);
+    
+    // 2. 複数の注文を処理
+    process_multiple_orders();
+    
+    // 3. ユーザーの支出分析
+    analyze_user_spending();
+    
+    // 4. キャッシングのデモ
+    demonstrate_caching();
+    
+    print("========================================\n");
+    print("  Demo Complete!\n");
+    print("========================================\n");
+    
+    return 0;
+}

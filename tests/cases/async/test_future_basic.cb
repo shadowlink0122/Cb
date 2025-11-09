@@ -1,0 +1,21 @@
+// v0.12.0: 基本的なFuture<T>のテスト（Phase 2）
+// Future<T>は組み込み型なので定義不要
+
+int main() {
+    print("=== Future<T> Basic Test ===\n");
+    
+    Future<int> fut;
+    fut.value = 42;
+    fut.is_ready = true;
+    
+    print("Future value: ");
+    print(fut.value);
+    print("\n");
+    print("Is ready: ");
+    print(fut.is_ready);
+    print("\n");
+    
+    print("Future type test passed\n");
+    
+    return 0;
+}

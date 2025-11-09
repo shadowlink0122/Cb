@@ -17,6 +17,7 @@ export interface TestFramework {
     TestResult get_result();
     void print_summary();
     void reset();
+    int get_exit_code();
 };
 
 impl TestFramework for TestResult {
@@ -104,6 +105,14 @@ impl TestFramework for TestResult {
         self.passed = 0;
         self.failed = 0;
         self.total = 0;
+    }
+    
+    int get_exit_code() {
+        if (self.failed == 0) {
+            return 0;
+        } else {
+            return 1;
+        }
     }
 };
 

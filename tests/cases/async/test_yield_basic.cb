@@ -1,0 +1,35 @@
+// Test: Basic yield functionality
+// async関数内でyieldを使用した協調的マルチタスク
+
+import stdlib.std.time;
+
+// 非同期タスク1
+async void task1() {
+    println("Task1: Start");
+    yield;  // 明示的にyield
+    println("Task1: After yield");
+    yield;
+    println("Task1: End");
+}
+
+// 非同期タスク2
+async void task2() {
+    println("Task2: Start");
+    yield;
+    println("Task2: After yield");
+    yield;
+    println("Task2: End");
+}
+
+void main() {
+    println("=== Test: Basic yield functionality ===");
+    
+    // 2つのタスクを起動
+    task1();
+    task2();
+    
+    // タスクが完了するまで待つ（十分な時間）
+    await sleep(500);
+    
+    println("=== All tasks completed ===");
+}

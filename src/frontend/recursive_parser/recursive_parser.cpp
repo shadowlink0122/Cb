@@ -1363,9 +1363,10 @@ variable declaration");
         ASTNode* method_impl_raw =
 parseFunctionDeclarationAfterName(return_type, method_name); if
 (method_impl_raw) { std::unique_ptr<ASTNode> method_impl(method_impl_raw);
-            debug_print("[IMPL_PARSE] After method '%s', current token = %s
-(type %d)\n", method_name.c_str(), current_token_.value.c_str(),
-(int)current_token_.type);
+            { char dbg_buf[512]; snprintf(dbg_buf, sizeof(dbg_buf),
+"[IMPL_PARSE] After method '%s', current token = %s (type %d)",
+method_name.c_str(), current_token_.value.c_str(), (int)current_token_.type);
+debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf); }
             // privateフラグを設定
             method_impl->is_private_method = is_private_method;
             // privateメソッドの場合はinterface署名チェックをスキップ
@@ -1834,9 +1835,35 @@ void RecursiveParser::initialize_builtin_types() {
 
     enum_definitions_["Result"] = result_def;
 
+    // Future<T> struct定義 (Phase 2.0 async/await support)
+    StructDefinition future_def;
+    future_def.name = "Future";
+    future_def.is_generic = true;
+    future_def.type_parameters.push_back("T");
+
+    // T value member
+    StructMember value_member;
+    value_member.name = "value";
+    value_member.type_alias = "T";
+    value_member.type = TYPE_UNKNOWN;
+    value_member.is_pointer = false;
+    value_member.pointer_depth = 0;
+    future_def.members.push_back(value_member);
+
+    // bool is_ready member
+    StructMember is_ready_member;
+    is_ready_member.name = "is_ready";
+    is_ready_member.type_alias = "bool";
+    is_ready_member.type = TYPE_BOOL;
+    is_ready_member.is_pointer = false;
+    is_ready_member.pointer_depth = 0;
+    future_def.members.push_back(is_ready_member);
+
+    struct_definitions_["Future"] = future_def;
+
     if (debug_mode_) {
-        std::cerr << "[BUILTIN_TYPES] Registered Option<T> and Result<T, E> as "
-                     "builtin enum types"
+        std::cerr << "[BUILTIN_TYPES] Registered Option<T>, Result<T, E> as "
+                     "builtin enum types and Future<T> as builtin struct type"
                   << std::endl;
     }
 }

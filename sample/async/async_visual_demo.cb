@@ -1,0 +1,281 @@
+// 非同期処理の視覚的デモ - async/awaitが実際に動作する様子を確認
+
+import stdlib.std.future;
+
+// ========================================
+// パターン1: カウントダウン - 最もシンプルな例
+// ========================================
+async int countdown_task(string name, int seconds) {
+    println("[START] {name} - {seconds}秒カウント開始");
+    
+    int count = seconds;
+    while (count > 0) {
+        println("  [{name}] {count}...");
+        sleep_ms(1000);
+        count = count - 1;
+    }
+    
+    println("[COMPLETE] {name} - 発射!");
+    return seconds;
+}
+
+void demo_countdown() {
+    println("\n=== デモ1: カウントダウン ===");
+    println("3つのロケットが同時にカウントダウンします\n");
+    
+    println("[REGISTER] ロケットAをタスクキューに登録");
+    Future<int> rocket1 = countdown_task("ロケットA", 5);
+    
+    println("[REGISTER] ロケットBをタスクキューに登録");
+    Future<int> rocket2 = countdown_task("ロケットB", 3);
+    
+    println("[REGISTER] ロケットCをタスクキューに登録");
+    Future<int> rocket3 = countdown_task("ロケットC", 4);
+    
+    println("\n[AWAIT] 全タスクの完了を待機中...\n");
+    
+    int r1 = await rocket1;
+    int r2 = await rocket2;
+    int r3 = await rocket3;
+    
+    println("\n--- 結果 ---");
+    println("ロケットA: {r1}秒");
+    println("ロケットB: {r2}秒");
+    println("ロケットC: {r3}秒");
+    println("合計: {r1 + r2 + r3}秒");
+}
+
+// ========================================
+// パターン2: 進行状況表示
+// ========================================
+async int progress_task(string name, int steps) {
+    println("[START] {name} - {steps}ステップ処理開始");
+    
+    int current = 1;
+    while (current <= steps) {
+        int percent = (current * 100) / steps;
+        println("  [{name}] ステップ {current}/{steps} ({percent}%)");
+        sleep_ms(400);
+        current = current + 1;
+    }
+    
+    println("[COMPLETE] {name} - 全ステップ完了");
+    return steps * 10;
+}
+
+void demo_progress() {
+    println("\n=== デモ2: 段階的な進行状況 ===");
+    println("3つのタスクが並行して進みます\n");
+    
+    println("[REGISTER] タスクAを登録");
+    Future<int> task1 = progress_task("タスクA", 5);
+    
+    println("[REGISTER] タスクBを登録");
+    Future<int> task2 = progress_task("タスクB", 3);
+    
+    println("[REGISTER] タスクCを登録");
+    Future<int> task3 = progress_task("タスクC", 4);
+    
+    println("\n[AWAIT] 全タスクの完了を待機中...\n");
+    
+    int score1 = await task1;
+    int score2 = await task2;
+    int score3 = await task3;
+    
+    println("\n--- スコア ---");
+    println("タスクA: {score1}点");
+    println("タスクB: {score2}点");
+    println("タスクC: {score3}点");
+    println("総合: {score1 + score2 + score3}点");
+}
+
+// ========================================
+// パターン3: ビジーインジケーター
+// ========================================
+async string busy_task(string operation, int duration_ms) {
+    println("[START] {operation} を実行中...");
+    
+    int steps = duration_ms / 200;
+    int i = 0;
+    while (i < steps) {
+        // アニメーション風の表示
+        if (i % 4 == 0) println("  {operation}  |");
+        if (i % 4 == 1) println("  {operation}  /");
+        if (i % 4 == 2) println("  {operation}  -");
+        if (i % 4 == 3) println("  {operation}  \\");
+        
+        sleep_ms(200);
+        i = i + 1;
+    }
+    
+    println("[COMPLETE] {operation} - 完了!");
+    return operation;
+}
+
+void demo_busy() {
+    println("\n=== デモ3: ビジーインジケーター ===");
+    println("処理が進行中であることを視覚的に確認\n");
+    
+    Future<string> op1 = busy_task("データベース接続", 1200);
+    Future<string> op2 = busy_task("データ取得", 800);
+    Future<string> op3 = busy_task("結果処理", 1000);
+    
+    println("\n[WAIT] 全操作の完了を待機中...\n");
+    
+    string result1 = await op1;
+    string result2 = await op2;
+    string result3 = await op3;
+    
+    println("\n--- 完了した操作 ---");
+    println("1. {result1}");
+    println("2. {result2}");
+    println("3. {result3}");
+}
+
+// ========================================
+// パターン4: リアルタイム監視
+// ========================================
+async int monitor_service(string service_name, int checks) {
+    println("[MONITOR] {service_name} の監視開始");
+    
+    int check_num = 1;
+    int ok_count = 0;
+    
+    while (check_num <= checks) {
+        // 交互にOKとBUSYを表示
+        if (check_num % 2 == 1) {
+            println("  [{service_name}] チェック#{check_num}: OK");
+            ok_count = ok_count + 1;
+        } else {
+            println("  [{service_name}] チェック#{check_num}: BUSY");
+        }
+        
+        sleep_ms(500);
+        check_num = check_num + 1;
+    }
+    
+    println("[MONITOR] {service_name} の監視完了 ({checks}回チェック)");
+    return ok_count;
+}
+
+void demo_monitor() {
+    println("\n=== デモ4: サービス監視 ===");
+    println("複数のサービスをリアルタイムで監視\n");
+    
+    Future<int> web = monitor_service("Webサーバー", 4);
+    Future<int> db = monitor_service("データベース", 3);
+    Future<int> cache = monitor_service("キャッシュ", 5);
+    
+    println("\n[WAIT] 全監視の完了を待機中...\n");
+    
+    int web_ok = await web;
+    int db_ok = await db;
+    int cache_ok = await cache;
+    
+    println("\n--- 監視結果 ---");
+    println("Webサーバー: {web_ok}回正常");
+    println("データベース: {db_ok}回正常");
+    println("キャッシュ: {cache_ok}回正常");
+    int total = web_ok + db_ok + cache_ok;
+    println("合計: {total}回正常");
+}
+
+// ========================================
+// パターン5: データ処理バッチ
+// ========================================
+async int process_batch(string data_type, int items) {
+    println("[BATCH] {data_type} の処理開始 ({items}件)");
+    
+    int processed = 0;
+    while (processed < items) {
+        processed = processed + 1;
+        
+        // 10件ごとまたは最後に進捗を表示
+        if (processed % 10 == 0 || processed == items) {
+            int percent = (processed * 100) / items;
+            println("  [{data_type}] {processed}/{items}件処理済み ({percent}%)");
+        }
+        
+        sleep_ms(150);
+    }
+    
+    println("[BATCH] {data_type} の処理完了");
+    return processed;
+}
+
+void demo_batch() {
+    println("\n=== デモ5: バッチ処理 ===");
+    println("大量データを並行処理\n");
+    
+    Future<int> users = process_batch("ユーザー", 30);
+    Future<int> products = process_batch("商品", 20);
+    Future<int> orders = process_batch("注文", 25);
+    
+    println("\n[WAIT] 全バッチの完了を待機中...\n");
+    
+    int user_count = await users;
+    int product_count = await products;
+    int order_count = await orders;
+    
+    println("\n--- 処理件数 ---");
+    println("ユーザー: {user_count}件");
+    println("商品: {product_count}件");
+    println("注文: {order_count}件");
+    println("総計: {user_count + product_count + order_count}件");
+}
+
+// ========================================
+// メイン実行
+// ========================================
+int main() {
+    println("\n");
+    println("========================================");
+    println("   非同期処理の視覚的デモ");
+    println("========================================");
+    println("\n");
+    println("async/awaitが実際に動作する様子を");
+    println("リアルタイムで確認できます!");
+    
+    // デモ1: カウントダウン
+    demo_countdown();
+    
+    println("\n========================================");
+    
+    // デモ2: 進行状況
+    demo_progress();
+    
+    println("\n========================================");
+    
+    // デモ3: ビジーインジケーター
+    demo_busy();
+    
+    println("\n========================================");
+    
+    // デモ4: サービス監視
+    demo_monitor();
+    
+    println("\n========================================");
+    
+    // デモ5: バッチ処理
+    demo_batch();
+    
+    println("\n");
+    println("========================================");
+    println("   全てのデモが完了しました!");
+    println("========================================");
+    println("\n");
+    println("ポイント:");
+    println("  - [REGISTER]でタスクを登録");
+    println("  - 各タスクが順番に実行される");
+    println("  - awaitで結果を取得");
+    println("  - sleep_ms()で処理時間をシミュレート");
+    println("  - リアルタイムな進行状況を表示");
+    println("\n");
+    println("注記:");
+    println("  現在の実装では逐次実行ですが、");
+    println("  async/awaitの基本構造を確認できます。");
+    println("  将来のバージョンでは並行実行に対応予定。");
+    println("\n");
+    
+    return 0;
+}

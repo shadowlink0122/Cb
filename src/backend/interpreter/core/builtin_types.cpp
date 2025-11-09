@@ -12,9 +12,12 @@
 // 組み込み型の初期化メイン関数
 // ========================================================================
 void Interpreter::initialize_builtin_types() {
-    if (debug_mode) {
-        debug_print("[BUILTIN_TYPES] Initializing builtin types...\n");
-    }
+
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "[BUILTIN_TYPES] Initializing builtin types...");
+
+    // Future<T> struct型を登録（v0.12.0 async/await）
+    register_builtin_struct_future();
 
     // Option<T> enum型を登録
     register_builtin_enum_option();
@@ -23,7 +26,60 @@ void Interpreter::initialize_builtin_types() {
     register_builtin_enum_result();
 
     if (debug_mode) {
-        debug_print("[BUILTIN_TYPES] Builtin types initialization complete\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[BUILTIN_TYPES] Builtin types initialization complete");
+    }
+}
+
+// ========================================================================
+// Future<T> struct型の登録
+//
+// struct Future<T> {
+//     T value;
+//     bool is_ready;
+// }
+//
+// v0.12.0: async/await機能で使用される組み込み型
+// ========================================================================
+void Interpreter::register_builtin_struct_future() {
+    if (debug_mode) {
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[BUILTIN_TYPES] Registering Future<T>...");
+    }
+
+    // Future<T>のStructDefinitionを作成
+    StructDefinition future_def("Future");
+    future_def.is_generic = true;
+    future_def.type_parameters.push_back("T");
+
+    // メンバー1: T value
+    StructMember value_member;
+    value_member.name = "value";
+    value_member.type_alias = "T";    // 型パラメータ名
+    value_member.type = TYPE_UNKNOWN; // ジェネリック型パラメータ
+    value_member.is_pointer = false;
+    value_member.pointer_depth = 0;
+    value_member.is_private = false;
+    value_member.is_default = false;
+    future_def.members.push_back(value_member);
+
+    // メンバー2: bool is_ready
+    StructMember is_ready_member;
+    is_ready_member.name = "is_ready";
+    is_ready_member.type_alias = "bool";
+    is_ready_member.type = TYPE_BOOL;
+    is_ready_member.is_pointer = false;
+    is_ready_member.pointer_depth = 0;
+    is_ready_member.is_private = false;
+    is_ready_member.is_default = false;
+    future_def.members.push_back(is_ready_member);
+
+    // struct_definitions_に登録
+    struct_definitions_["Future"] = future_def;
+
+    if (debug_mode) {
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[BUILTIN_TYPES] Future<T> registered successfully");
     }
 }
 
@@ -37,7 +93,8 @@ void Interpreter::initialize_builtin_types() {
 // ========================================================================
 void Interpreter::register_builtin_enum_option() {
     if (debug_mode) {
-        debug_print("[BUILTIN_TYPES] Registering Option<T>...\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[BUILTIN_TYPES] Registering Option<T>...");
     }
 
     EnumDefinition option_def;
@@ -67,7 +124,8 @@ void Interpreter::register_builtin_enum_option() {
     enum_manager_->register_enum("Option", option_def);
 
     if (debug_mode) {
-        debug_print("[BUILTIN_TYPES] Option<T> registered successfully\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[BUILTIN_TYPES] Option<T> registered successfully");
     }
 }
 
@@ -81,7 +139,8 @@ void Interpreter::register_builtin_enum_option() {
 // ========================================================================
 void Interpreter::register_builtin_enum_result() {
     if (debug_mode) {
-        debug_print("[BUILTIN_TYPES] Registering Result<T, E>...\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[BUILTIN_TYPES] Registering Result<T, E>...");
     }
 
     EnumDefinition result_def;
@@ -113,6 +172,7 @@ void Interpreter::register_builtin_enum_result() {
     enum_manager_->register_enum("Result", result_def);
 
     if (debug_mode) {
-        debug_print("[BUILTIN_TYPES] Result<T, E> registered successfully\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[BUILTIN_TYPES] Result<T, E> registered successfully");
     }
 }

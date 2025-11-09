@@ -1,0 +1,41 @@
+// Phase 2.0 Test: Cooperative Multitasking with yield
+// トップレベルyield文を使った協調的マルチタスキングのテスト
+// Future<T>は組み込み型なので定義不要
+
+async Future<int> task1() {
+    println("Task1: Start");
+    yield;
+    println("Task1: After first yield");
+    yield;
+    println("Task1: After second yield");
+    yield;
+    println("Task1: Done");
+    return 1;
+}
+
+async Future<int> task2() {
+    println("Task2: Start");
+    yield;
+    println("Task2: After first yield");
+    yield;
+    println("Task2: Done");
+    return 2;
+}
+
+void main() {
+    println("Main: Starting tasks");
+    
+    // async関数を呼び出し（SimpleEventLoopに登録）
+    // task1()とtask2()はFuture<int>を返す
+    Future<int> f1 = task1();
+    Future<int> f2 = task2();
+    
+    println("Main: Tasks registered, awaiting results");
+    
+    // awaitで個別に完了待機（SimpleEventLoopが自動実行される）
+    int result1 = await f1;
+    int result2 = await f2;
+    
+    println("Main: All tasks completed");
+    println("Results: %d, %d", result1, result2);
+}

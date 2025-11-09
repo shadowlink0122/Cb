@@ -23,7 +23,7 @@ std::vector<std::string> file_lines;
 int main(int argc, char **argv) {
     if (argc < 2) {
         std::cerr << "使用法: " << argv[0]
-                  << " <ファイル名> [--debug] [--debug-ja]" << std::endl;
+                  << " <ファイル名> [-d|--debug] [--debug-ja]" << std::endl;
         return 1;
     }
 
@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     debug_language = DebugLanguage::ENGLISH;
 
     for (int i = 1; i < argc; ++i) {
-        if (std::string(argv[i]) == "--debug") {
+        if (std::string(argv[i]) == "--debug" || std::string(argv[i]) == "-d") {
             debug_mode = true;
             debug_language = DebugLanguage::ENGLISH;
         } else if (std::string(argv[i]) == "--debug-ja") {

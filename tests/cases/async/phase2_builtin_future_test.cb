@@ -1,0 +1,28 @@
+// Phase 2.0 Test: Builtin Future<T>
+// Future<T>はインライン化されているため、ユーザーが定義する必要はない
+
+// Future定義なし！組み込み型として提供される
+
+async Future<int> task1() {
+    println("Task1: Statement 1");
+    println("Task1: Statement 2");
+    return 100;
+}
+
+async Future<int> task2() {
+    println("Task2: Statement 1");
+    println("Task2: Statement 2");
+    return 200;
+}
+
+void main() {
+    println("=== Builtin Future Test ===");
+    
+    Future<int> f1 = task1();
+    Future<int> f2 = task2();
+    
+    int r1 = await f1;
+    int r2 = await f2;
+    
+    println("Results: {r1}, {r2}");
+}

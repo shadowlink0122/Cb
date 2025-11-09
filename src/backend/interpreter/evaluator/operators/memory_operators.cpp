@@ -48,14 +48,24 @@ static size_t get_type_size(const std::string &type_name,
     // v0.11.0: ジェネリック型パラメータ（T, U等）を現在のTypeContextで解決
     std::string resolved_in_context =
         interpreter->resolve_type_in_context(type_name);
-    debug_print(
-        "[get_type_size] type_name='%s', resolved='%s', TypeContext=%s\n",
-        type_name.c_str(), resolved_in_context.c_str(),
-        (interpreter->get_current_type_context() ? "ACTIVE" : "NULL"));
+    {
+        char dbg_buf[512];
+        snprintf(
+            dbg_buf, sizeof(dbg_buf),
+            "[get_type_size] type_name='%s', resolved='%s', TypeContext=%s",
+            type_name.c_str(), resolved_in_context.c_str(),
+            (interpreter->get_current_type_context() ? "ACTIVE" : "NULL"));
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
     if (resolved_in_context != type_name) {
         // TypeContextで解決された型（例: T → int）
-        debug_print("[get_type_size] Resolved '%s' -> '%s' via TypeContext\n",
-                    type_name.c_str(), resolved_in_context.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[get_type_size] Resolved '%s' -> '%s' via TypeContext",
+                     type_name.c_str(), resolved_in_context.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         return get_type_size(resolved_in_context, interpreter);
     }
 
@@ -76,9 +86,8 @@ static size_t get_type_size(const std::string &type_name,
         size_t angle_pos = type_name.find('<');
         std::string base_struct_name = type_name.substr(0, angle_pos);
 
-        debug_print("[get_type_size] Trying base generic struct: base='%s', "
-                    "full='%s'\n",
-                    base_struct_name.c_str(), type_name.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[get_type_size] Trying base generic struct: base='%s', ");
 
         struct_def = interpreter->get_struct_definition(base_struct_name);
 
@@ -122,10 +131,14 @@ static size_t get_type_size(const std::string &type_name,
                                    i < type_args.size();
                      ++i) {
                     type_arg_map[struct_def->type_parameters[i]] = type_args[i];
-                    debug_print(
-                        "[get_type_size] Type param mapping: %s -> %s\n",
-                        struct_def->type_parameters[i].c_str(),
-                        type_args[i].c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "[get_type_size] Type param mapping: %s -> %s",
+                                 struct_def->type_parameters[i].c_str(),
+                                 type_args[i].c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
             }
         }
@@ -181,10 +194,8 @@ static size_t get_type_size(const std::string &type_name,
                         auto it = type_arg_map.find(member_type_str);
                         if (it != type_arg_map.end()) {
                             member_type_str = it->second;
-                            debug_print("[get_type_size] Resolved type param "
-                                        "'%s' -> '%s'\n",
-                                        member.type_alias.c_str(),
-                                        member_type_str.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "[get_type_size] Resolved type param ");
                         }
                     } else {
                         // フォールバック: ポインタサイズ
@@ -200,10 +211,8 @@ static size_t get_type_size(const std::string &type_name,
                         auto it = type_arg_map.find(member_type_str);
                         if (it != type_arg_map.end()) {
                             member_type_str = it->second;
-                            debug_print("[get_type_size] Resolved type param "
-                                        "'%s' -> '%s' (from UNKNOWN)\n",
-                                        member.type_alias.c_str(),
-                                        member_type_str.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "[get_type_size] Resolved type param ");
                         }
                     } else {
                         // 不明な型はint扱い

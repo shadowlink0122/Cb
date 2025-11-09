@@ -1,0 +1,24 @@
+// v0.13.0 Phase 2.0: forループでの協調マルチタスク
+// forループの各イテレーションでバックグラウンドタスクと交互実行される
+
+async Future<void> background_task() {
+    for (int i = 0; i < 5; i = i + 1) {
+        println("[BG] Step %d", i);
+    }
+    return;
+}
+
+void main() {
+    println("=== For Loop Cooperative Multitasking Test ===\n");
+    
+    Future<void> f = background_task();
+    
+    println("[Main] Starting for loop");
+    for (int i = 0; i < 5; i = i + 1) {
+        println("[Main] Iteration %d", i);
+    }
+    println("[Main] For loop done\n");
+    
+    await f;
+    println("[Main] Done");
+}

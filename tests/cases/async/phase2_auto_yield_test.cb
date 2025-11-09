@@ -1,0 +1,51 @@
+// Phase 2.0 Test: Auto-yield (yield文なしの協調的マルチタスク)
+// yield文を書かなくても、各ステートメント実行後に自動的にyieldする
+// Note: Future<T> は組み込み型なので定義不要
+
+// yield文なし: 各ステートメント後に自動yield
+async Future<int> task1() {
+    println("Task1: Statement 1");
+    println("Task1: Statement 2");
+    println("Task1: Statement 3");
+    println("Task1: Done");
+    return 10;
+}
+
+// yield文なし: 各ステートメント後に自動yield
+async Future<int> task2() {
+    println("Task2: Statement 1");
+    println("Task2: Statement 2");
+    println("Task2: Done");
+    return 20;
+}
+
+// 明示的なyield文あり: 従来通りの動作
+async Future<int> task3() {
+    println("Task3: Before explicit yield");
+    yield;
+    println("Task3: After explicit yield");
+    println("Task3: Done");
+    return 30;
+}
+
+void main() {
+    println("=== Auto-yield Test ===");
+    
+    // 3つのタスクを登録
+    Future<int> f1 = task1();
+    Future<int> f2 = task2();
+    Future<int> f3 = task3();
+    
+    println("Tasks registered, awaiting...");
+    
+    // awaitで完了待機（SimpleEventLoopが自動実行）
+    int r1 = await f1;
+    println("f1 Ok");
+    int r2 = await f2;
+    println("f2 Ok");
+    int r3 = await f3;
+    println("f3 Ok");
+    
+    println("All tasks completed!");
+    println("Results: {r1}, {r2}, {r3}");
+}

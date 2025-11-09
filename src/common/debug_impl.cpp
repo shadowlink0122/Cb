@@ -7,19 +7,7 @@
 bool debug_mode = false;
 DebugLanguage debug_language = DebugLanguage::ENGLISH;
 
-// debug_print関数（既存）
-void debug_print(const char *fmt, ...) {
-    if (!debug_mode)
-        return;
-
-    va_list args;
-    va_start(args, fmt);
-    fprintf(stderr, "[DEBUG_PRINT] ");
-    vfprintf(stderr, fmt, args);
-    va_end(args);
-}
-
-// debug_msg関数（新規）
+// debug_msg関数
 void debug_msg(DebugMsgId msg_id, ...) {
     if (!debug_mode)
         return;
@@ -35,7 +23,7 @@ void debug_msg(DebugMsgId msg_id, ...) {
     fprintf(stderr, "\n");
 }
 
-// error_msg関数（新規 - stderrに直接出力、常時有効）
+// error_msg関数（stderrに直接出力、常時有効）
 void error_msg(DebugMsgId msg_id, ...) {
     const DebugMessageTemplate &msg = get_debug_message(msg_id);
     const char *format =

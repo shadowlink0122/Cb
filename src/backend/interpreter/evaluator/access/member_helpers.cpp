@@ -46,9 +46,14 @@ TypedValue consume_numeric_typed_value(
     // (evaluate_arrow_accessがset_last_typed_resultを呼び出している)
     if (node && node->node_type == ASTNodeType::AST_ARROW_ACCESS &&
         last_typed_result) {
-        debug_print("[consume_numeric] inferred=%d, last_result=%d\n",
-                    static_cast<int>(inferred_type.type_info),
-                    static_cast<int>(last_typed_result->type.type_info));
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[consume_numeric] inferred=%d, last_result=%d",
+                     static_cast<int>(inferred_type.type_info),
+                     static_cast<int>(last_typed_result->type.type_info));
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // 文字列、浮動小数点数の場合は常に last_typed_result を使用
         // （型推論が不完全な場合があるため）
@@ -118,16 +123,36 @@ Variable get_struct_member_from_variable(const Variable &struct_var,
         if (!actual_var) {
             throw std::runtime_error("Invalid reference in member access");
         }
-        debug_print("[DEBUG] get_struct_member_from_variable: resolving "
-                    "reference to target (type=%d)\n",
-                    actual_var->type);
-        debug_print("[MEMBER_ACCESS_DEBUG] Reference resolved:\n");
-        debug_print("  ref_var ptr=%p\n", (void *)&struct_var);
-        debug_print("  actual_var ptr=%p\n", (void *)actual_var);
-        debug_print("  actual_var->struct_type_name=%s\n",
-                    actual_var->struct_type_name.c_str());
-        debug_print("  actual_var->struct_members.size()=%zu\n",
-                    actual_var->struct_members.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[DEBUG] get_struct_member_from_variable: resolving ");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "[MEMBER_ACCESS_DEBUG] Reference resolved:");
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf), "  ref_var ptr=%p",
+                     (void *)&struct_var);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf), "  actual_var ptr=%p",
+                     (void *)actual_var);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "  actual_var->struct_type_name=%s",
+                     actual_var->struct_type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "  actual_var->struct_members.size()=%zu",
+                     actual_var->struct_members.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // v0.11.0: enum型もサポート
@@ -140,14 +165,17 @@ Variable get_struct_member_from_variable(const Variable &struct_var,
     const std::map<std::string, Variable> *members_to_use =
         &actual_var->struct_members;
 
-    debug_print("[DEBUG] get_struct_member_from_variable: looking for '%s' in "
-                "struct (type='%s', members=%zu)\n",
-                member_name.c_str(), actual_var->struct_type_name.c_str(),
-                members_to_use->size());
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "[DEBUG] get_struct_member_from_variable: looking for '%s' in ");
     for (const auto &pair : *members_to_use) {
-        debug_print("[DEBUG]   - member: '%s' (type=%d, is_reference=%d)\n",
-                    pair.first.c_str(), pair.second.type,
-                    pair.second.is_reference);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[DEBUG]   - member: '%s' (type=%d, is_reference=%d)",
+                     pair.first.c_str(), pair.second.type,
+                     pair.second.is_reference);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     auto enforce_privacy = [&](const Variable &member_var) -> Variable {
@@ -159,9 +187,8 @@ Variable get_struct_member_from_variable(const Variable &struct_var,
                 throw std::runtime_error(
                     "Invalid reference in member variable");
             }
-            debug_print("[DEBUG] Member is a reference, resolving to target "
-                        "(type=%d, value=%lld)\n",
-                        final_member->type, (long long)final_member->value);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[DEBUG] Member is a reference, resolving to target ");
         }
 
         if (!final_member->is_private_member) {
@@ -190,11 +217,8 @@ Variable get_struct_member_from_variable(const Variable &struct_var,
     if (member_it != members_to_use->end()) {
         // ネストされた構造体メンバーの場合、そのstruct_membersを確認
         if (member_it->second.type == TYPE_STRUCT) {
-            debug_print("[DEBUG] Found struct member '%s' (type=%d, "
-                        "struct_type='%s', struct_members.size()=%zu)\n",
-                        member_name.c_str(), member_it->second.type,
-                        member_it->second.struct_type_name.c_str(),
-                        member_it->second.struct_members.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[DEBUG] Found struct member '%s' (type=%d, ");
         }
         return enforce_privacy(member_it->second);
     }
@@ -235,13 +259,10 @@ TypedValue evaluate_function_member_access(const ASTNode *func_node,
         throw std::runtime_error(
             "Function did not return a struct for member access");
     } catch (const ReturnException &ret_ex) {
-        debug_print("FUNC_MEMBER_ACCESS: ReturnException caught - type=%d, "
-                    "is_struct=%d\n",
-                    ret_ex.type, ret_ex.is_struct);
-        debug_print("FUNC_MEMBER_ACCESS: struct_value type=%d, is_struct=%d, "
-                    "members=%zu\n",
-                    ret_ex.struct_value.type, ret_ex.struct_value.is_struct,
-                    ret_ex.struct_value.struct_members.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "FUNC_MEMBER_ACCESS: ReturnException caught - type=%d, ");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "FUNC_MEMBER_ACCESS: struct_value type=%d, is_struct=%d, ");
 
         if (ret_ex.is_struct_array && ret_ex.struct_array_3d.size() > 0) {
             throw std::runtime_error(
@@ -249,8 +270,13 @@ TypedValue evaluate_function_member_access(const ASTNode *func_node,
         } else {
             // 単一構造体の場合
             Variable struct_var = ret_ex.struct_value;
-            debug_print("FUNC_MEMBER_ACCESS: Looking for member %s in struct\n",
-                        member_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "FUNC_MEMBER_ACCESS: Looking for member %s in struct",
+                         member_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             Variable member_var = get_struct_member_from_variable(
                 struct_var, member_name, evaluator.get_interpreter());
 
@@ -429,8 +455,13 @@ evaluate_recursive_member_access(const Variable &base_var,
 void sync_self_changes_to_receiver(const std::string &receiver_name,
                                    Variable *receiver_var,
                                    Interpreter &interpreter) {
-    debug_print("SELF_SYNC: Syncing self changes back to %s\n",
-                receiver_name.c_str());
+    {
+        char dbg_buf[512];
+        snprintf(dbg_buf, sizeof(dbg_buf),
+                 "SELF_SYNC: Syncing self changes back to %s",
+                 receiver_name.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
 
     // 構造体の各メンバーについて、selfから元の変数に同期
     for (const auto &member_pair : receiver_var->struct_members) {
@@ -450,10 +481,15 @@ void sync_self_changes_to_receiver(const std::string &receiver_name,
             receiver_member->type = self_member->type;
             receiver_member->is_assigned = self_member->is_assigned;
 
-            debug_print("SELF_SYNC: %s.%s = %lld (\"%s\")\n",
-                        receiver_name.c_str(), member_name.c_str(),
-                        (long long)receiver_member->value,
-                        receiver_member->str_value.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "SELF_SYNC: %s.%s = %lld (\"%s\")",
+                         receiver_name.c_str(), member_name.c_str(),
+                         (long long)receiver_member->value,
+                         receiver_member->str_value.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     }
 }

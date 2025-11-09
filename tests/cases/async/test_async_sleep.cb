@@ -1,0 +1,45 @@
+// Test: Async with sleep
+// sleep関数とawaitを組み合わせた非同期処理のテスト
+
+import stdlib.std.time;
+
+async void task_with_sleep(string name, int duration) {
+    println("{name}: Start (will sleep {duration}ms)");
+    sleep(duration);
+    println("{name}: After sleep");
+    yield;
+    println("{name}: End");
+}
+
+async void quick_task(string name) {
+    println("{name}: Step 1");
+    yield;
+    println("{name}: Step 2");
+    yield;
+    println("{name}: Step 3");
+}
+
+void main() {
+    println("=== Test: Async with Sleep ===\n");
+    
+    // テスト1: sleep中に他のタスクが実行される
+    println("[Test 1] Sleep allows other tasks to run:");
+    long start1 = now();
+    task_with_sleep("SlowTask", 200);
+    quick_task("QuickTask");
+    await sleep(250);
+    long end1 = now();
+    println("Test 1 completed in {end1 - start1}ms\n");
+    
+    // テスト2: 複数のsleepタスク
+    println("[Test 2] Multiple sleep tasks:");
+    long start2 = now();
+    task_with_sleep("Task1", 100);
+    task_with_sleep("Task2", 150);
+    task_with_sleep("Task3", 50);
+    await sleep(200);
+    long end2 = now();
+    println("Test 2 completed in {end2 - start2}ms\n");
+    
+    println("=== All sleep tests completed ===");
+}

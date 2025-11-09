@@ -15,16 +15,27 @@
 #include "../../../../common/type_helpers.h"
 #include "../../core/error_handler.h"
 #include "../../core/interpreter.h"
+#include "../../event_loop/event_loop.h"        // v0.12.0: EventLoop
+#include "../../event_loop/simple_event_loop.h" // v0.13.0: SimpleEventLoop
 #include "../../managers/types/manager.h"
 #include "evaluator/access/receiver_resolution.h"
 #include "evaluator/core/evaluator.h"
 #include "evaluator/core/helpers.h"
 #include "generic_instantiation.h"
+#include <chrono> // v0.12.0: for std::chrono::milliseconds
 #include <cstdlib>
 #include <cstring> // for strdup
 #include <cstring> // for std::memcpy
 #include <iomanip>
 #include <sstream>
+
+// v0.12.0: Platform-specific sleep functions
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/time.h> // for gettimeofday()
+#include <unistd.h>
+#endif
 
 int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     if (interpreter_.is_debug_mode()) {
@@ -611,8 +622,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         }
         debug_msg(DebugMsgId::METHOD_CALL_RECEIVER_FOUND,
                   receiver_name.c_str());
-        debug_print("RECEIVER_DEBUG: Looking for receiver '%s'\n",
-                    receiver_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf), "Looking for receiver '%s'",
+                     receiver_name.c_str());
+            debug_msg(DebugMsgId::CALL_IMPL_RECEIVER, dbg_buf);
+        }
 
         auto resolve_struct_like_type =
             [&](const Variable &var) -> std::string {
@@ -639,11 +654,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             Variable *pointed_struct = reinterpret_cast<Variable *>(ptr_value);
             if (pointed_struct) {
                 if (debug_mode) {
-                    debug_print("POINTER_DEREF_BEFORE: type=%d, is_struct=%d, "
-                                "struct_type_name='%s'\n",
-                                static_cast<int>(pointed_struct->type),
-                                pointed_struct->is_struct ? 1 : 0,
-                                pointed_struct->struct_type_name.c_str());
+                    debug_msg(DebugMsgId::METHOD_POINTER_DEREF,
+                              "type=%d, is_struct=%d");
                 }
 
                 type_name = resolve_struct_like_type(*pointed_struct);
@@ -665,10 +677,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 // Update receiver_var to point to the dereferenced struct
                 receiver_var = pointed_struct;
                 receiver_resolution.variable_ptr = pointed_struct;
-                debug_print("POINTER_METHOD: Dereferenced pointer, type='%s', "
-                            "is_struct=%d\n",
-                            type_name.c_str(),
-                            pointed_struct->is_struct ? 1 : 0);
+                debug_msg(DebugMsgId::METHOD_POINTER_DEREF,
+                          "Dereferenced pointer, type='%s'");
             }
         }
 
@@ -776,38 +786,50 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             // v0.12.0: ジェネリックimplのインスタンス化を試みる
             // find_impl_for_structは自動的にジェネリックimplをインスタンス化する
             if (interpreter_.is_debug_mode()) {
-                debug_print("[CALL_IMPL] Before find_impl_for_struct: "
-                            "unmangled_type_name='%s'\n",
-                            unmangled_type_name.c_str());
+                debug_msg(DebugMsgId::CALL_IMPL_DEBUG,
+                          "Before find_impl_for_struct");
             }
             const ImplDefinition *impl =
                 interpreter_.find_impl_for_struct(unmangled_type_name, "");
 
             if (interpreter_.is_debug_mode()) {
-                debug_print("[CALL_IMPL] After find_impl_for_struct: impl=%p\n",
-                            (void *)impl);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "After find_impl_for_struct: impl=%p",
+                             (void *)impl);
+                    debug_msg(DebugMsgId::CALL_IMPL_DEBUG, dbg_buf);
+                }
             }
 
             if (impl) {
                 // インスタンス化されたimplのメソッドを再検索
                 method_key = type_name + "::" + node->name;
                 if (interpreter_.is_debug_mode()) {
-                    debug_print(
-                        "[CALL_IMPL] Retrying method search: method_key='%s'\n",
-                        method_key.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "Retrying method search: method_key='%s'",
+                                 method_key.c_str());
+                        debug_msg(DebugMsgId::CALL_IMPL_DEBUG, dbg_buf);
+                    }
                 }
                 it = global_scope.functions.find(method_key);
                 if (it != global_scope.functions.end()) {
                     func = it->second;
                     if (interpreter_.is_debug_mode()) {
-                        debug_print(
-                            "[CALL_IMPL] Retry succeeded! Found func=%p\n",
-                            (void *)func);
+                        {
+                            char dbg_buf[512];
+                            snprintf(dbg_buf, sizeof(dbg_buf),
+                                     "Retry succeeded! Found func=%p",
+                                     (void *)func);
+                            debug_msg(DebugMsgId::CALL_IMPL_DEBUG, dbg_buf);
+                        }
                     }
                 } else {
                     if (interpreter_.is_debug_mode()) {
-                        debug_print("[CALL_IMPL] Retry failed: method still "
-                                    "not found\n");
+                        debug_msg(DebugMsgId::CALL_IMPL_DEBUG,
+                                  "Retry failed: method still not found");
                     }
                 }
             }
@@ -3081,7 +3103,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             "strcat",
             "memcpy",
             "memset",
-            "memcmp"};
+            "memcmp",
+            "run_event_loop",   // v0.13.0 Phase 2.0: SimpleEventLoop execution
+            "concurrent_await", // v0.12.0 Phase 8: concurrent execution
+            "sleep",            // v0.12.0: Sleep function (milliseconds)
+            "sleep_ms",         // v0.12.0: Sleep function alias (milliseconds)
+            "now"};             // v0.12.0: Get current time in milliseconds
 
         bool is_builtin = false;
         for (const auto &builtin_name : builtin_function_names) {
@@ -3165,15 +3192,25 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     // v0.14.0: 組み込み関数の処理（funcがnullptrの場合）
     // malloc, free, sizeof などの組み込み関数を早期に処理
     if (interpreter_.is_debug_mode()) {
-        debug_print(
-            "[BUILTIN_CHECK] func=%p, is_method_call=%d, node->name=%s\n",
-            (void *)func, is_method_call, node->name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "[BUILTIN_CHECK] func=%p, is_method_call=%d, node->name=%s",
+                (void *)func, is_method_call, node->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     if (!func && !is_method_call) {
         if (interpreter_.is_debug_mode()) {
-            debug_print("[BUILTIN_EARLY] Processing builtin function: %s\n",
-                        node->name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[BUILTIN_EARLY] Processing builtin function: %s",
+                         node->name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         // malloc(size) - メモリ確保
@@ -3200,7 +3237,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             }
 
             if (interpreter_.is_debug_mode()) {
-                debug_print("[malloc] Allocated %lld bytes at %p\n", size, ptr);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "Allocated %lld bytes at %p", size, ptr);
+                    debug_msg(DebugMsgId::CALL_IMPL_MALLOC, dbg_buf);
+                }
             }
 
             return reinterpret_cast<int64_t>(ptr);
@@ -3225,6 +3267,196 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             return 0;
         }
 
+        // run_event_loop() - SimpleEventLoopを実行 (v0.13.0 Phase 2.0)
+        if (node->name == "run_event_loop") {
+            if (node->arguments.size() != 0) {
+                throw std::runtime_error("run_event_loop() takes no arguments");
+            }
+
+            // SimpleEventLoopを実行
+            interpreter_.get_simple_event_loop().run();
+
+            return 0;
+        }
+
+        // concurrent_await(future1, future2, future3, ...) -
+        // 複数のFutureを並行実行 (v0.12.0 Phase 8 - Not implemented in Phase 1)
+        if (node->name == "concurrent_await") {
+            throw std::runtime_error(
+                "concurrent_await() is not implemented in Phase 1. "
+                "Phase 1 only supports sequential async/await execution.");
+        }
+
+        // now() - 現在時刻をエポックからのミリ秒で取得 (v0.12.0)
+        if (node->name == "now") {
+            if (node->arguments.size() != 0) {
+                throw std::runtime_error("now() takes no arguments");
+            }
+
+#ifdef _WIN32
+            // Windows: GetSystemTimeAsFileTime()を使用
+            FILETIME ft;
+            GetSystemTimeAsFileTime(&ft);
+
+            // FILETIMEは100ナノ秒単位、1601/1/1からの経過時間
+            ULARGE_INTEGER ull;
+            ull.LowPart = ft.dwLowDateTime;
+            ull.HighPart = ft.dwHighDateTime;
+
+            // UNIXエポック(1970/1/1)との差分: 116444736000000000 * 100ns
+            const uint64_t EPOCH_DIFF = 116444736000000000ULL;
+            uint64_t timestamp_100ns = ull.QuadPart - EPOCH_DIFF;
+
+            // 100ナノ秒 → ミリ秒に変換
+            int64_t timestamp_ms =
+                static_cast<int64_t>(timestamp_100ns / 10000);
+
+            return timestamp_ms;
+#else
+            // POSIX (Linux, macOS): gettimeofday()を使用
+            struct timeval tv;
+            gettimeofday(&tv, nullptr);
+
+            // 秒をミリ秒に変換 + マイクロ秒をミリ秒に変換
+            int64_t timestamp_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                                   static_cast<int64_t>(tv.tv_usec) / 1000;
+
+            return timestamp_ms;
+#endif
+        }
+
+        // sleep(milliseconds) - スリープ関数 (v0.12.0)
+        // awaitをサポートするため、Futureを返す
+        // v0.13.0: イベントループベースの非ブロッキング実装
+        if (node->name == "sleep") {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "sleep() requires exactly 1 argument (milliseconds)");
+            }
+
+            // 引数を評価してミリ秒を取得
+            ASTNode *arg = node->arguments[0].get();
+            int64_t result = interpreter_.evaluate(arg);
+            int milliseconds = static_cast<int>(result);
+
+            if (milliseconds < 0) {
+                throw std::runtime_error(
+                    "sleep() argument must be non-negative");
+            }
+
+            // v0.13.0: 非ブロッキングsleep実装
+            // ダミーのasync関数を作成してイベントループに登録
+            AsyncTask sleep_task;
+            sleep_task.function_name = "sleep";
+            sleep_task.function_node = nullptr; // sleepは特殊なタスク
+            sleep_task.is_started = true;
+            sleep_task.is_executed = false;
+            sleep_task.current_statement_index = 0;
+
+            // すぐにsleep状態にする
+            sleep_task.is_sleeping = true;
+
+            // 起床時刻を設定
+#ifdef _WIN32
+            FILETIME ft;
+            GetSystemTimeAsFileTime(&ft);
+            ULARGE_INTEGER uli;
+            uli.LowPart = ft.dwLowDateTime;
+            uli.HighPart = ft.dwHighDateTime;
+            int64_t current_time_ms = (uli.QuadPart / 10000) - 11644473600000LL;
+#else
+            struct timeval tv;
+            gettimeofday(&tv, nullptr);
+            int64_t current_time_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                                      static_cast<int64_t>(tv.tv_usec) / 1000;
+#endif
+            sleep_task.wake_up_time_ms = current_time_ms + milliseconds;
+
+            // awaitをサポートするため、Future構造体を作成
+            Variable future_var;
+            future_var.is_struct = true;
+            future_var.struct_type_name = "Future";
+            future_var.type = TYPE_STRUCT;
+
+            // Future.is_ready = false (sleep中)
+            Variable is_ready_field;
+            is_ready_field.type = TYPE_INT;
+            is_ready_field.value = 0; // false
+            is_ready_field.is_assigned = true;
+            future_var.struct_members["is_ready"] = is_ready_field;
+
+            // Future.value = 0 (sleep()は値を返さない)
+            Variable value_field;
+            value_field.type = TYPE_INT;
+            value_field.value = 0;
+            value_field.is_assigned = true;
+            future_var.struct_members["value"] = value_field;
+
+            // internal_futureに設定（deep copy）
+            sleep_task.internal_future.is_struct = true;
+            sleep_task.internal_future.struct_type_name =
+                future_var.struct_type_name;
+            sleep_task.internal_future.type = TYPE_STRUCT;
+            for (const auto &[key, val] : future_var.struct_members) {
+                sleep_task.internal_future.struct_members[key] = val;
+            }
+            sleep_task.use_internal_future = true;
+
+            // タスクをイベントループに登録
+            int task_id =
+                interpreter_.get_simple_event_loop().register_task(sleep_task);
+
+            debug_msg(DebugMsgId::SLEEP_TASK_REGISTER, task_id, milliseconds,
+                      sleep_task.wake_up_time_ms);
+
+            // task_idフィールドを設定
+            Variable task_id_field;
+            task_id_field.type = TYPE_INT;
+            task_id_field.value = task_id;
+            task_id_field.is_assigned = true;
+            future_var.struct_members["task_id"] = task_id_field;
+
+            debug_msg(DebugMsgId::SLEEP_RETURN_FUTURE, task_id);
+
+            // ReturnExceptionでFutureを返す
+            ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
+            ret.is_struct = true;
+            ret.struct_value = future_var;
+            ret.struct_value.type = TYPE_STRUCT;
+            ret.struct_value.is_struct = true;
+            throw ret;
+        }
+
+        // sleep_ms(milliseconds) - sleepのエイリアス（v0.12.0 互換性）
+        if (node->name == "sleep_ms") {
+            if (node->arguments.size() != 1) {
+                throw std::runtime_error(
+                    "sleep_ms() requires exactly 1 argument (milliseconds)");
+            }
+
+            // 引数を評価してミリ秒を取得
+            ASTNode *arg = node->arguments[0].get();
+            int64_t result = interpreter_.evaluate(arg);
+            int milliseconds = static_cast<int>(result);
+
+            if (milliseconds < 0) {
+                throw std::runtime_error(
+                    "sleep_ms() argument must be non-negative");
+            }
+
+// プラットフォーム依存のスリープ実装
+#ifdef _WIN32
+            Sleep(milliseconds); // Windows: Sleep()はミリ秒単位
+#else
+            usleep(milliseconds * 1000); // POSIX: usleep()はマイクロ秒単位
+#endif
+
+            // sleep_ms()は値を返さない（0を返す）
+            // Note: awaitで使う場合、async関数内で呼ばれるため、
+            // async関数の仕組みでFutureにラップされる
+            return 0;
+        }
+
         // その他の組み込み関数は後続の処理で対応
         // funcがnullptrのままの場合、この時点では処理できない組み込み関数
         // エラーにするか、後続の処理に任せる
@@ -3238,10 +3470,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         // 後続の組み込み関数チェック（sizeof等）に進むため、ここでは何もしない
         // ただし、通常の関数処理（スコープ作成等）はスキップ
         if (interpreter_.is_debug_mode()) {
-            debug_print("[BUILTIN_FALLTHROUGH] Function %s not handled in "
-                        "early builtin check, "
-                        "proceeding to legacy builtin checks\n",
-                        node->name.c_str());
+            debug_msg(DebugMsgId::CALL_IMPL_BUILTIN,
+                      "Function %s not handled in builtin check");
         }
         // 後続の組み込み関数チェックセクションまでジャンプする必要があるが、
         // C++ではgotoを使わずに、処理を別関数に分離するのが良い
@@ -3322,10 +3552,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 interpreter_.get_current_scope().variables["self"] = self_var;
 
                 if (debug_mode) {
-                    debug_print("CONSTRUCTOR_SELF_SETUP: Created self for "
-                                "struct %s with %zu members\n",
-                                struct_name.c_str(),
-                                self_var.struct_members.size());
+                    debug_msg(DebugMsgId::METHOD_CONSTRUCTOR_SELF,
+                              "Created self for constructor");
                 }
             }
         }
@@ -3343,11 +3571,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         // dereference)
         used_resolution_ptr = false;
         if (debug_mode) {
-            debug_print(
-                "SELF_SETUP_RESOLUTION: receiver_resolution.variable_ptr=%p, "
-                "receiver_name='%s'\n",
-                static_cast<void *>(receiver_resolution.variable_ptr),
-                receiver_name.c_str());
+            debug_msg(DebugMsgId::METHOD_SELF_SETUP_START,
+                      "receiver_resolution.variable_ptr check");
         }
         if (receiver_resolution.variable_ptr) {
             receiver_var = receiver_resolution.variable_ptr;
@@ -3355,11 +3580,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             dereferenced_struct_ptr =
                 receiver_resolution.variable_ptr; // Save pointer for writeback
             if (debug_mode) {
-                debug_print("SELF_SETUP_USING_RESOLUTION: type=%d, "
-                            "is_struct=%d, struct_type_name='%s'\n",
-                            static_cast<int>(receiver_var->type),
-                            receiver_var->is_struct ? 1 : 0,
-                            receiver_var->struct_type_name.c_str());
+                debug_msg(DebugMsgId::METHOD_SELF_SETUP_START,
+                          "Using resolution pointer");
             }
         } else if (!receiver_name.empty()) {
             receiver_var = interpreter_.find_variable(receiver_name);
@@ -3401,12 +3623,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         // Ensure self has correct type info after copy
         Variable &self_var = current_scope.variables["self"];
         if (debug_mode) {
-            debug_print("SELF_SETUP_BEFORE: self.type=%d, self.is_struct=%d, "
-                        "struct_type_name='%s', struct_members=%zu\n",
-                        static_cast<int>(self_var.type),
-                        self_var.is_struct ? 1 : 0,
-                        self_var.struct_type_name.c_str(),
-                        self_var.struct_members.size());
+            debug_msg(DebugMsgId::METHOD_SELF_SETUP_START,
+                      "self.type and is_struct check");
         }
         // Only mark as struct if it actually has struct members or is already
         // TYPE_STRUCT Don't mark primitive types as struct even if they have a
@@ -3417,9 +3635,14 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             self_var.is_struct = true;
         }
         if (debug_mode) {
-            debug_print("SELF_SETUP_AFTER: self.type=%d, self.is_struct=%d\n",
-                        static_cast<int>(self_var.type),
-                        self_var.is_struct ? 1 : 0);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "self.type=%d, self.is_struct=%d",
+                         static_cast<int>(self_var.type),
+                         self_var.is_struct ? 1 : 0);
+                debug_msg(DebugMsgId::METHOD_SELF_SETUP_COMPLETE, dbg_buf);
+            }
         }
 
         if (!receiver_name.empty()) {
@@ -3465,12 +3688,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         member_pair.second.array_dimensions;
                     member_value.multidim_array_values =
                         member_pair.second.multidim_array_values;
-                    debug_print(
-                        "SELF_SETUP: Preserved multidimensional info for %s "
-                        "(dimensions: %zu, values: %zu)\n",
-                        self_member_path.c_str(),
-                        member_pair.second.array_dimensions.size(),
-                        member_pair.second.multidim_array_values.size());
+                    debug_msg(
+                        DebugMsgId::GENERIC_DEBUG,
+                        "SELF_SETUP: Preserved multidimensional info for %s ");
                 }
 
                 if (member_value.is_array) {
@@ -3613,8 +3833,12 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 }
 
                 current_scope.variables[self_member_path] = member_value;
-                debug_print("SELF_SETUP: Created %s\n",
-                            self_member_path.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf), "SELF_SETUP: Created %s",
+                             self_member_path.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
 
                 // メンバーが構造体の場合、そのネストメンバーも再帰的に作成
                 if (TypeHelpers::isStruct(member_value.type) ||
@@ -3644,10 +3868,15 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
                         current_scope.variables[nested_self_path] =
                             nested_member_value;
-                        debug_print(
-                            "SELF_SETUP: Created nested member %s = %lld\n",
-                            nested_self_path.c_str(),
-                            nested_member_value.value);
+                        {
+                            char dbg_buf[512];
+                            snprintf(
+                                dbg_buf, sizeof(dbg_buf),
+                                "SELF_SETUP: Created nested member %s = %lld",
+                                nested_self_path.c_str(),
+                                nested_member_value.value);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 }
             }
@@ -3660,6 +3889,24 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     interpreter_.current_function_name = node->name;
 
     debug_msg(DebugMsgId::METHOD_CALL_EXECUTE, node->name.c_str());
+
+    // v0.12.0: async関数フラグを記録（後でReturnExceptionを処理する際に使用）
+    // パーサーのis_async_functionフラグまたは戻り値型が"Future"で始まる関数をasync関数として扱う
+    bool is_async = false;
+    if (func) {
+        is_async = func->is_async_function;
+        // フラグが立っていない場合、戻り値型をチェック
+        if (!is_async && !func->return_type_name.empty()) {
+            is_async = (func->return_type_name.find("Future") == 0);
+        }
+    }
+
+    if (is_async) {
+        debug_msg(DebugMsgId::ASYNC_FUNCTION_CALL, node->name.c_str());
+    }
+
+    // v0.12.0 Phase 1: async関数を即座に実行（遅延実行は後のPhaseで実装）
+    // Phase 1では常に即座実行モードを使用
 
     try {
         // パラメータの評価と設定（デフォルト引数対応）
@@ -4313,9 +4560,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                         interpreter_.find_variable(
                                             source_var_name);
                                 } else {
-                                    debug_print(
-                                        "WARNING: Empty source_var_name, "
-                                        "skipping sync\n");
+                                    debug_msg(
+                                        DebugMsgId::GENERIC_DEBUG,
+                                        "WARNING: Empty source_var_name, ");
                                 }
 
                                 if (!sync_source_var) {
@@ -4394,25 +4641,17 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                         if (source_member !=
                                             sync_source_var->struct_members
                                                 .end()) {
-                                            debug_print(
-                                                "DEBUG: Copying string array "
-                                                "%s: "
-                                                "size=%d\n",
-                                                member_pair.first.c_str(),
-                                                static_cast<int>(
-                                                    source_member->second
-                                                        .array_strings.size()));
+                                            debug_msg(
+                                                DebugMsgId::GENERIC_DEBUG,
+                                                "DEBUG: Copying string array ");
                                             member_pair.second.array_strings =
                                                 source_member->second
                                                     .array_strings;
                                             if (!source_member->second
                                                      .array_strings.empty()) {
-                                                debug_print(
-                                                    "DEBUG: First element: "
-                                                    "'%s'\n",
-                                                    source_member->second
-                                                        .array_strings[0]
-                                                        .c_str());
+                                                debug_msg(
+                                                    DebugMsgId::GENERIC_DEBUG,
+                                                    "DEBUG: First element: ");
                                             }
                                         }
                                     }
@@ -4737,10 +4976,15 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                                     struct_type);
                     impl_context_active = true;
                     if (debug_mode) {
-                        debug_print(
-                            "IMPL_CONTEXT: Entered %s::%s for method %s\n",
-                            interface_name.c_str(), struct_type.c_str(),
-                            node->name.c_str());
+                        {
+                            char dbg_buf[512];
+                            snprintf(
+                                dbg_buf, sizeof(dbg_buf),
+                                "IMPL_CONTEXT: Entered %s::%s for method %s",
+                                interface_name.c_str(), struct_type.c_str(),
+                                node->name.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 }
             }
@@ -4773,28 +5017,240 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         type_context_pushed = true;
 
                         if (interpreter_.is_debug_mode()) {
-                            debug_print("[TYPE_CONTEXT] Pushed for %s::%s\n",
-                                        receiver_type_name.c_str(),
-                                        node->name.c_str());
+                            {
+                                char dbg_buf[512];
+                                snprintf(dbg_buf, sizeof(dbg_buf),
+                                         "[TYPE_CONTEXT] Pushed for %s::%s",
+                                         receiver_type_name.c_str(),
+                                         node->name.c_str());
+                                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                            }
                         }
                     }
                 }
             }
         }
 
-        // 関数本体を実行
+        // v0.12.0: async関数の処理 - EventLoopベースのバックグラウンド実行
+        //
+        // 期待される動作:
+        // - f1()          : EventLoopに登録、即座にFutureを返して待機しない
+        // - await f1()    : EventLoopに登録 +
+        // run_until_complete()で完了まで待機
+        //
+        // async関数は常にFutureを返す（await可能にするため）
+        // バックグラウンドで実行され、mainが終了したら途中でも終了する
+        if (is_async) {
+            // Futureを先に作成（is_ready = false, task_idを後で設定）
+            Variable future_var;
+            future_var.is_struct = true;
+            future_var.struct_type_name = "Future";
+            future_var.type = TYPE_STRUCT;
+
+            // Future.is_ready = false (まだ未完了)
+            Variable is_ready_field;
+            is_ready_field.type = TYPE_INT;
+            is_ready_field.value = 0; // false
+            is_ready_field.is_assigned = true;
+            future_var.struct_members["is_ready"] = is_ready_field;
+
+            // Future.value の初期値（型はasync関数の戻り値型に依存）
+            // ※
+            // 実際の値はsimple_event_loop.cppのReturnException処理で設定される
+            Variable value_field;
+            value_field.type = TYPE_UNKNOWN; // 初期状態では不明
+            value_field.value = 0;
+            value_field.is_assigned = true;
+            future_var.struct_members["value"] = value_field;
+
+            // AsyncTaskを作成
+            AsyncTask task;
+            task.function_name = func->name;
+            task.function_node = func;
+
+            // 引数をコピー（現在のスコープから取得）
+            Scope &current = interpreter_.current_scope();
+            for (const auto &param : func->parameters) {
+                if (current.variables.find(param->name) !=
+                    current.variables.end()) {
+                    task.args.push_back(current.variables[param->name]);
+                }
+            }
+
+            // internal_futureに設定（タスク内部でFutureを管理）
+            // 重要: deep copyして、変数とタスクのFutureを独立させる
+            task.internal_future.is_struct = true;
+            task.internal_future.struct_type_name = future_var.struct_type_name;
+            task.internal_future.type = TYPE_STRUCT;
+            // struct_membersも個別にコピー
+            for (const auto &[key, val] : future_var.struct_members) {
+                task.internal_future.struct_members[key] = val;
+            }
+            task.use_internal_future = true;
+
+            debug_msg(
+                DebugMsgId::ASYNC_INTERNAL_FUTURE_MEMBERS,
+                static_cast<int>(task.internal_future.struct_members.size()));
+
+            // SimpleEventLoopに登録
+            int task_id =
+                interpreter_.get_simple_event_loop().register_task(task);
+
+            // Future.task_id を設定（future_var と internal_future の両方）
+            Variable task_id_field;
+            task_id_field.type = TYPE_INT;
+            task_id_field.value = task_id;
+            task_id_field.is_assigned = true;
+            future_var.struct_members["task_id"] = task_id_field;
+
+            // 重要: internal_future にも task_id を設定
+            // （Task が作成された後なので、正しい task_id が設定される）
+            AsyncTask *registered_task =
+                interpreter_.get_simple_event_loop().get_task(task_id);
+            if (registered_task) {
+                registered_task->internal_future.struct_members["task_id"] =
+                    task_id_field;
+            }
+
+            debug_msg(DebugMsgId::ASYNC_TASK_ID_SET, task_id, task_id);
+
+            // v0.11.0: 型コンテキストをクリア
+            if (type_context_pushed) {
+                interpreter_.pop_type_context();
+            }
+
+            // implコンテキストをクリア
+            if (impl_context_active) {
+                interpreter_.exit_impl_context();
+                impl_context_active = false;
+            }
+
+            // スコープのpopはcatchブロックで行うため、ここでは行わない
+
+            // ReturnExceptionでFutureを返す
+            ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
+            ret.is_struct = true;
+            ret.struct_value = future_var;
+            ret.struct_value.type = TYPE_STRUCT;
+            ret.struct_value.is_struct = true;
+
+            debug_msg(DebugMsgId::ASYNC_TASK_RETURN_FUTURE,
+                      future_var.struct_type_name.c_str(),
+                      static_cast<int>(future_var.struct_members.size()));
+
+            throw ret;
+        }
+
+        // 元のPhase 2.0実装（遅延実行、現在は使用しない）
+        if (false) {
+            // 引数をAsyncTaskに保存
+            std::vector<Variable> task_args;
+            for (size_t i = 0; i < num_params; i++) {
+                const auto &param = func->parameters[i];
+                Variable *param_var = interpreter_.find_variable(param->name);
+                if (param_var) {
+                    task_args.push_back(*param_var);
+                }
+            }
+
+            // AsyncTaskを作成
+            AsyncTask task;
+            task.function_node = func;
+            task.function_name = node->name;
+            task.args = task_args;
+            task.is_executed = false;
+            task.is_started = false;
+            task.current_statement_index = 0;
+
+            // Future変数を作成
+            Variable future_var;
+            future_var.is_struct = true;
+            future_var.struct_type_name = "Future";
+            future_var.type = TYPE_STRUCT;
+
+            // Future.is_ready = false (登録時はまだ未完了)
+            Variable is_ready_field;
+            is_ready_field.type = TYPE_INT;
+            is_ready_field.value = 0; // false
+            is_ready_field.is_assigned = true;
+            future_var.struct_members["is_ready"] = is_ready_field;
+
+            // Future.value = 0 (初期値)
+            Variable value_field;
+            value_field.type = TYPE_INT;
+            value_field.value = 0;
+            value_field.is_assigned = true;
+            future_var.struct_members["value"] = value_field;
+
+            // Phase 2.0: task_idフィールドを追加（後で設定）
+            Variable task_id_field;
+            task_id_field.type = TYPE_INT;
+            task_id_field.value = 0;
+            task_id_field.is_assigned = true;
+            future_var.struct_members["task_id"] = task_id_field;
+
+            // taskにFutureへのポインタを設定
+            // グローバルスコープに保存してポインタを取得
+            std::string temp_future_name =
+                "__future_" + node->name + "_" +
+                std::to_string(interpreter_.get_async_task_counter());
+            interpreter_.get_global_scope().variables[temp_future_name] =
+                future_var;
+            task.future_var =
+                &interpreter_.get_global_scope().variables[temp_future_name];
+
+            // SimpleEventLoopに登録
+            int task_id =
+                interpreter_.get_simple_event_loop().register_task(task);
+
+            // Future.task_idを設定（グローバルスコープの変数を直接更新）
+            interpreter_.get_global_scope()
+                .variables[temp_future_name]
+                .struct_members["task_id"]
+                .value = task_id;
+
+            // async関数は即座に完了まで実行（Phase 1実装）
+            // タスクが完了するまでイベントループを実行
+            while (interpreter_.get_simple_event_loop().has_tasks()) {
+                interpreter_.get_simple_event_loop().run_one_cycle();
+            }
+
+            // タスクカウンターをインクリメント
+            interpreter_.increment_async_task_counter();
+
+            // スコープをポップ（関数スコープは後でタスク実行時に再作成）
+            interpreter_.pop_scope();
+
+            // Future構造体を返す（グローバルスコープから更新後の値を取得）
+            // ReturnExceptionを使って返す
+            ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
+            ret.is_struct = true;
+            ret.struct_value =
+                interpreter_.get_global_scope().variables[temp_future_name];
+            ret.struct_value.type = TYPE_STRUCT;
+            ret.struct_value.is_struct = true;
+            throw ret;
+        }
+
+        // 関数本体を実行（通常の同期実行）
         try {
             if (interpreter_.is_debug_mode()) {
-                debug_print(
-                    "[METHOD_EXEC] func->name='%s', body=%p, statements=%zu\n",
-                    func->name.c_str(), (void *)func->body.get(),
-                    func->body ? func->body->statements.size() : 0);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "[METHOD_EXEC] func->name='%s', body=%p, "
+                             "statements=%zu",
+                             func->name.c_str(), (void *)func->body.get(),
+                             func->body ? func->body->statements.size() : 0);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
             if (func->body) {
                 interpreter_.execute_statement(func->body.get());
             } else {
                 if (interpreter_.is_debug_mode()) {
-                    debug_print("[METHOD_EXEC] Warning: func->body is null!\n");
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[METHOD_EXEC] Warning: func->body is null!");
                 }
             }
 
@@ -4802,8 +5258,14 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             if (type_context_pushed) {
                 interpreter_.pop_type_context();
                 if (interpreter_.is_debug_mode()) {
-                    debug_print("[TYPE_CONTEXT] Popped after %s::%s\n",
-                                receiver_type_name.c_str(), node->name.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "[TYPE_CONTEXT] Popped after %s::%s",
+                                 receiver_type_name.c_str(),
+                                 node->name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
             }
 
@@ -4824,10 +5286,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 if (used_resolution_ptr && dereferenced_struct_ptr) {
                     receiver_var = dereferenced_struct_ptr;
                     if (debug_mode) {
-                        debug_print(
-                            "SELF_WRITEBACK_PTR: Using dereferenced struct at "
-                            "%p\n",
-                            static_cast<void *>(dereferenced_struct_ptr));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "SELF_WRITEBACK_PTR: Using dereferenced "
+                                  "struct at ");
                     }
                 } else {
                     receiver_var = interpreter_.find_variable(receiver_name);
@@ -4858,12 +5319,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                     self_var.struct_members[member_name] =
                                         member_var;
                                     if (debug_mode) {
-                                        debug_print("SELF_MERGE: %s -> "
-                                                    "self.struct_members[%s] "
-                                                    "(value=%lld)\n",
-                                                    var_name.c_str(),
-                                                    member_name.c_str(),
-                                                    member_var.value);
+                                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                                  "SELF_MERGE: %s -> ");
                                     }
                                 }
                             }
@@ -4888,9 +5345,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         receiver_var->is_assigned = self_var.is_assigned;
 
                         if (debug_mode) {
-                            debug_print("SELF_WRITEBACK_FULL: Copied all "
-                                        "fields from self to %s\n",
-                                        receiver_name.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "SELF_WRITEBACK_FULL: Copied all ");
                         }
                     }
 
@@ -4947,12 +5403,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                             receiver_var, member_name);
 
                                     if (debug_mode) {
-                                        debug_print(
-                                            "SELF_WRITEBACK_PTR: %s -> "
-                                            "struct_members[%s] (value=%lld)\n",
-                                            var_name.c_str(),
-                                            member_name.c_str(),
-                                            self_member_var.value);
+                                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                                  "SELF_WRITEBACK_PTR: %s -> ");
                                     }
                                 }
                             } else {
@@ -4977,11 +5429,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                     receiver_member_var->quad_value =
                                         self_member_var.quad_value;
 
-                                    debug_print("SELF_WRITEBACK: %s -> %s "
-                                                "(value=%lld)\n",
-                                                var_name.c_str(),
-                                                receiver_path.c_str(),
-                                                self_member_var.value);
+                                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                              "SELF_WRITEBACK: %s -> %s ");
                                 }
                             }
                         }
@@ -5092,10 +5541,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 if (used_resolution_ptr && dereferenced_struct_ptr) {
                     receiver_var = dereferenced_struct_ptr;
                     if (debug_mode) {
-                        debug_print(
-                            "SELF_WRITEBACK_PTR: Using dereferenced struct at "
-                            "%p\n",
-                            static_cast<void *>(dereferenced_struct_ptr));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "SELF_WRITEBACK_PTR: Using dereferenced "
+                                  "struct at ");
                     }
                 } else {
                     receiver_var = interpreter_.find_variable(receiver_name);
@@ -5157,12 +5605,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                             receiver_var, member_name);
 
                                     if (debug_mode) {
-                                        debug_print(
-                                            "SELF_WRITEBACK_PTR: %s -> "
-                                            "struct_members[%s] (value=%lld)\n",
-                                            var_name.c_str(),
-                                            member_name.c_str(),
-                                            self_member_var.value);
+                                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                                  "SELF_WRITEBACK_PTR: %s -> ");
                                     }
                                 }
                             } else {
@@ -5187,11 +5631,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                     receiver_member_var->quad_value =
                                         self_member_var.quad_value;
 
-                                    debug_print("SELF_WRITEBACK: %s -> %s "
-                                                "(value=%lld)\n",
-                                                var_name.c_str(),
-                                                receiver_path.c_str(),
-                                                self_member_var.value);
+                                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                              "SELF_WRITEBACK: %s -> %s ");
                                 }
                             }
                         }
@@ -5209,9 +5650,14 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             if (type_context_pushed) {
                 interpreter_.pop_type_context();
                 if (interpreter_.is_debug_mode()) {
-                    debug_print(
-                        "[TYPE_CONTEXT] Popped (exception) after %s::%s\n",
-                        receiver_type_name.c_str(), node->name.c_str());
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[TYPE_CONTEXT] Popped (exception) after %s::%s",
+                            receiver_type_name.c_str(), node->name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
             }
 
@@ -5219,6 +5665,89 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             if (impl_context_active) {
                 interpreter_.exit_impl_context();
                 impl_context_active = false;
+            }
+
+            // v0.12.0: async関数の場合、ReturnExceptionをFutureに変換
+            // ただし、すでにFutureである場合はスキップ（二重変換を防ぐ）
+            if (is_async) {
+                // async関数でFutureを返している場合、早期に再throwしてスコープpopを回避
+                if (ret.struct_value.struct_type_name == "Future") {
+                    cleanup_method_context();
+                    if (method_scope_active) {
+                        interpreter_.pop_scope();
+                        method_scope_active = false;
+                    }
+                    interpreter_.current_function_name = prev_function_name;
+                    throw ret; // Futureを返して終了
+                }
+
+                // async関数でFuture以外を返している場合、Futureでラップ
+                debug_msg(DebugMsgId::ASYNC_WRAPPING_FUTURE);
+
+                cleanup_method_context();
+                if (method_scope_active) {
+                    interpreter_.pop_scope();
+                    method_scope_active = false;
+                }
+                interpreter_.current_function_name = prev_function_name;
+
+                // Future<T>構造体を作成
+                Variable future_var;
+                future_var.type = TYPE_STRUCT;
+                future_var.is_struct = true;
+                future_var.struct_type_name = "Future";
+                future_var.is_assigned = true;
+
+                // v0.12.0 Phase 1: 即座実行モード（常にis_ready=true）
+                // valueメンバーにreturn値を格納
+                Variable value_member;
+                if (ret.type == TYPE_STRING) {
+                    value_member.type = TYPE_STRING;
+                    value_member.str_value = ret.str_value;
+                } else if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE ||
+                           ret.type == TYPE_QUAD) {
+                    value_member.type = ret.type;
+                    value_member.double_value = ret.double_value;
+                } else if (ret.is_struct) {
+                    value_member = ret.struct_value;
+                } else {
+                    value_member.type = TYPE_INT;
+                    value_member.value = ret.value;
+                }
+                value_member.is_assigned = true;
+                future_var.struct_members["value"] = value_member;
+
+                // is_ready=true（即座実行）
+                Variable ready_member;
+                ready_member.type = TYPE_BOOL;
+                ready_member.value = 1; // true
+                ready_member.is_assigned = true;
+                future_var.struct_members["is_ready"] = ready_member;
+
+                // task_idメンバー（デバッグ用）
+                int task_id = interpreter_.get_async_task_counter();
+                interpreter_.increment_async_task_counter();
+
+                Variable task_id_member;
+                task_id_member.type = TYPE_INT;
+                task_id_member.value = task_id;
+                task_id_member.is_assigned = true;
+                future_var.struct_members["task_id"] = task_id_member;
+
+                // 返却値の表示
+                int64_t display_value = 0;
+                if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE ||
+                    ret.type == TYPE_QUAD) {
+                    display_value = static_cast<int64_t>(ret.double_value);
+                } else if (!ret.is_struct) {
+                    display_value = ret.value;
+                }
+                debug_msg(DebugMsgId::ASYNC_FUNCTION_RETURNED, display_value,
+                          static_cast<int>(ret.type));
+
+                // Futureを返すReturnExceptionとして投げ直す
+                ReturnException future_ret(future_var);
+                throw future_ret;
             }
 
             // return文で戻り値がある場合
@@ -5232,10 +5761,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 if (used_resolution_ptr && dereferenced_struct_ptr) {
                     receiver_var = dereferenced_struct_ptr;
                     if (debug_mode) {
-                        debug_print(
-                            "SELF_WRITEBACK_PTR: Using dereferenced struct at "
-                            "%p\n",
-                            static_cast<void *>(dereferenced_struct_ptr));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "SELF_WRITEBACK_PTR: Using dereferenced "
+                                  "struct at ");
                     }
                 } else {
                     receiver_var = interpreter_.find_variable(receiver_name);
@@ -5266,12 +5794,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                     self_var.struct_members[member_name] =
                                         member_var;
                                     if (debug_mode) {
-                                        debug_print("SELF_MERGE: %s -> "
-                                                    "self.struct_members[%s] "
-                                                    "(value=%lld)\n",
-                                                    var_name.c_str(),
-                                                    member_name.c_str(),
-                                                    member_var.value);
+                                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                                  "SELF_MERGE: %s -> ");
                                     }
                                 }
                             }
@@ -5296,9 +5820,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         receiver_var->is_assigned = self_var.is_assigned;
 
                         if (debug_mode) {
-                            debug_print("SELF_WRITEBACK_FULL: Copied all "
-                                        "fields from self to %s\n",
-                                        receiver_name.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "SELF_WRITEBACK_FULL: Copied all ");
                         }
                     }
 
@@ -5355,12 +5878,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                             receiver_var, member_name);
 
                                     if (debug_mode) {
-                                        debug_print(
-                                            "SELF_WRITEBACK_PTR: %s -> "
-                                            "struct_members[%s] (value=%lld)\n",
-                                            var_name.c_str(),
-                                            member_name.c_str(),
-                                            self_member_var.value);
+                                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                                  "SELF_WRITEBACK_PTR: %s -> ");
                                     }
                                 }
                             } else {
@@ -5385,11 +5904,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                     receiver_member_var->quad_value =
                                         self_member_var.quad_value;
 
-                                    debug_print("SELF_WRITEBACK: %s -> %s "
-                                                "(value=%lld)\n",
-                                                var_name.c_str(),
-                                                receiver_path.c_str(),
-                                                self_member_var.value);
+                                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                              "SELF_WRITEBACK: %s -> %s ");
                                 }
                             }
                         }
@@ -5505,6 +6021,11 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             }
             TypedValue typed_return = make_typed_from_return(return_value);
             capture_numeric_return(typed_return);
+
+            // v0.12.0:
+            // async関数は早期リターン済み（関数呼び出し開始時にFutureを返す）
+            // ここには到達しないはず
+
             return return_value;
         }
     } catch (const ReturnException &ret) {
@@ -5554,6 +6075,71 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             method_scope_active = false;
         }
         interpreter_.current_function_name = prev_function_name;
+
+        // v0.12.0: async関数の場合、ReturnExceptionをFutureに変換
+        // ただし、すでにFutureである場合はスキップ（二重変換を防ぐ）
+        if (is_async && ret.struct_value.struct_type_name != "Future") {
+            debug_msg(DebugMsgId::ASYNC_WRAPPING_FUTURE);
+
+            // Future<T>構造体を作成
+            Variable future_var;
+            future_var.type = TYPE_STRUCT;
+            future_var.is_struct = true;
+            future_var.struct_type_name = "Future";
+            future_var.is_assigned = true;
+
+            // v0.12.0 Phase 1: 即座実行モード（常にis_ready=true）
+            // valueメンバーにreturn値を格納
+            Variable value_member;
+            if (ret.type == TYPE_STRING) {
+                value_member.type = TYPE_STRING;
+                value_member.str_value = ret.str_value;
+            } else if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE ||
+                       ret.type == TYPE_QUAD) {
+                value_member.type = ret.type;
+                value_member.double_value = ret.double_value;
+            } else if (ret.is_struct) {
+                value_member = ret.struct_value;
+            } else {
+                value_member.type = TYPE_INT;
+                value_member.value = ret.value;
+            }
+            value_member.is_assigned = true;
+            future_var.struct_members["value"] = value_member;
+
+            // is_ready=true（即座実行）
+            Variable ready_member;
+            ready_member.type = TYPE_BOOL;
+            ready_member.value = 1; // true
+            ready_member.is_assigned = true;
+            future_var.struct_members["is_ready"] = ready_member;
+
+            // task_idメンバー（デバッグ用）
+            int task_id = interpreter_.get_async_task_counter();
+            interpreter_.increment_async_task_counter();
+
+            Variable task_id_member;
+            task_id_member.type = TYPE_INT;
+            task_id_member.value = task_id;
+            task_id_member.is_assigned = true;
+            future_var.struct_members["task_id"] = task_id_member;
+
+            // 返却値の表示
+            int64_t display_value = 0;
+            if (ret.type == TYPE_FLOAT || ret.type == TYPE_DOUBLE ||
+                ret.type == TYPE_QUAD) {
+                display_value = static_cast<int64_t>(ret.double_value);
+            } else if (!ret.is_struct) {
+                display_value = ret.value;
+            }
+            debug_msg(DebugMsgId::ASYNC_FUNCTION_RETURNED, display_value,
+                      static_cast<int>(ret.type));
+
+            // Futureを返すReturnExceptionとして投げ直す
+            ReturnException future_ret(future_var);
+            throw future_ret;
+        }
+
         throw ret;
     } catch (...) {
         // implコンテキストをクリア

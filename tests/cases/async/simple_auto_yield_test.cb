@@ -1,0 +1,15 @@
+// Simple auto-yield test
+
+async Future<int> task1() {
+    println("Task1: Line 1");
+    println("Task1: Line 2");
+    return 10;
+}
+
+void main() {
+    println("Main: Start");
+    Future<int> f1 = task1();
+    println("Main: Waiting");
+    int r1 = await f1;
+    println("Main: Done, result={r1}");
+}

@@ -156,7 +156,12 @@ void VariableAccessService::handle_access_error(const std::string &error_msg,
         formatted_error += " (Context: " + context + ")";
     }
 
-    debug_print("Variable access error: %s\n", formatted_error.c_str());
+    {
+        char dbg_buf[512];
+        snprintf(dbg_buf, sizeof(dbg_buf), "Variable access error: %s",
+                 formatted_error.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
     throw std::runtime_error(formatted_error);
 }
 

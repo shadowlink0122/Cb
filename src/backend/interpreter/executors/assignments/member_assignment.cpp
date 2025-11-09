@@ -17,19 +17,31 @@ void execute_member_assignment(StatementExecutor *executor,
     const ASTNode *member_access = node->left.get();
 
     if (debug_mode) {
-        debug_print("DEBUG: execute_member_assignment - starting\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: execute_member_assignment - starting");
     }
-    debug_print(
-        "DEBUG: execute_member_assignment - left type=%d, right type=%d\n",
-        static_cast<int>(node->left->node_type),
-        static_cast<int>(node->right->node_type));
+    {
+        char dbg_buf[512];
+        snprintf(
+            dbg_buf, sizeof(dbg_buf),
+            "DEBUG: execute_member_assignment - left type=%d, right type=%d",
+            static_cast<int>(node->left->node_type),
+            static_cast<int>(node->right->node_type));
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
 
     if (member_access->left) {
-        debug_print("DEBUG: member_access->left->node_type=%d, name='%s'\n",
-                    static_cast<int>(member_access->left->node_type),
-                    member_access->left->name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DEBUG: member_access->left->node_type=%d, name='%s'",
+                     static_cast<int>(member_access->left->node_type),
+                     member_access->left->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     } else {
-        debug_print("DEBUG: member_access->left is null\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: member_access->left is null");
     }
 
     if (!member_access ||
@@ -56,15 +68,25 @@ void execute_member_assignment(StatementExecutor *executor,
         }
 
         if (debug_mode) {
-            debug_print("DEBUG: Struct member access - variable: %s\n",
-                        obj_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "DEBUG: Struct member access - variable: %s",
+                         obj_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     } else if (member_access->left &&
                member_access->left->node_type == ASTNodeType::AST_UNARY_OP &&
                member_access->left->op == "*") {
         // デリファレンスされたポインタへのメンバアクセス: (*ptr).member = value
-        debug_print("DEBUG: Dereference member access assignment - member=%s\n",
-                    member_access->name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DEBUG: Dereference member access assignment - member=%s",
+                     member_access->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // constポインタチェック（const T*経由でのメンバ変更を禁止）
         AssignmentHelpers::check_const_pointer_modification(
@@ -112,7 +134,8 @@ void execute_member_assignment(StatementExecutor *executor,
         interpreter.sync_individual_member_from_struct(struct_var, member_name);
 
         if (debug_mode) {
-            debug_print("DEBUG: Dereference member assignment completed\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "DEBUG: Dereference member assignment completed");
         }
         return;
     } else if (member_access->left &&
@@ -121,9 +144,13 @@ void execute_member_assignment(StatementExecutor *executor,
                 member_access->left->node_type == ASTNodeType::AST_ARRAY_REF)) {
         // ネストメンバアクセス: obj.mid.data.value = 100
         // または配列を含むネスト: container.shapes[0].edges[0].start.x = 10
-        debug_print(
-            "DEBUG: Nested/Array member access assignment - member=%s\n",
-            member_access->name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DEBUG: Nested/Array member access assignment - member=%s",
+                     member_access->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // 評価用のラムダ関数
         auto evaluate_index =
@@ -172,14 +199,24 @@ void execute_member_assignment(StatementExecutor *executor,
         auto &members = parent_struct->get_struct_members();
 
         if (debug_mode) {
-            debug_print(
-                "DEBUG: parent_struct=%p, final_member=%s, members=%zu\n",
-                static_cast<void *>(parent_struct), final_member.c_str(),
-                members.size());
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "DEBUG: parent_struct=%p, final_member=%s, members=%zu",
+                    static_cast<void *>(parent_struct), final_member.c_str(),
+                    members.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
-        debug_print("DEBUG: Resolved parent struct, final member: %s\n",
-                    final_member.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DEBUG: Resolved parent struct, final member: %s",
+                     final_member.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // constメンバへの代入チェック
         auto final_member_it = members.find(final_member);
@@ -213,13 +250,17 @@ void execute_member_assignment(StatementExecutor *executor,
         member_ref.is_assigned = true;
 
         if (debug_mode) {
-            debug_print("DEBUG: member_ref after assignment -> value=%lld, "
-                        "is_assigned=%d\n",
-                        member_ref.value, member_ref.is_assigned ? 1 : 0);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "DEBUG: member_ref after assignment -> value=%lld, ");
         }
 
-        debug_print("DEBUG: Nested member assignment completed: %s = %lld\n",
-                    final_member.c_str(), member_ref.value);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DEBUG: Nested member assignment completed: %s = %lld",
+                     final_member.c_str(), member_ref.value);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // 個別変数システムとの同期
         // 完全なベースパスを構築 (例: points[0])
@@ -260,8 +301,13 @@ void execute_member_assignment(StatementExecutor *executor,
                     individual_var->double_value = member_ref.double_value;
                     individual_var->quad_value = member_ref.quad_value;
                 }
-                debug_print("DEBUG: Synced individual variable: %s = %lld\n",
-                            full_member_path.c_str(), individual_var->value);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "DEBUG: Synced individual variable: %s = %lld",
+                             full_member_path.c_str(), individual_var->value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
 
@@ -289,15 +335,20 @@ void execute_member_assignment(StatementExecutor *executor,
         obj_name = array_base_name + "[" + std::to_string(index) + "]";
 
         if (debug_mode) {
-            debug_print(
-                "DEBUG: Struct array element member assignment: %s.%s\n",
-                obj_name.c_str(), member_access->name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "DEBUG: Struct array element member assignment: %s.%s",
+                         obj_name.c_str(), member_access->name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     } else if (member_access->left &&
                member_access->left->node_type == ASTNodeType::AST_UNARY_OP &&
                member_access->left->op == "DEREFERENCE") {
         // デリファレンスされたポインタ: (*pp).member or (*(*p).inner).value
-        debug_print("DEBUG: Dereference pointer member assignment\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: Dereference pointer member assignment");
 
         // デリファレンスの対象がメンバーアクセスか単純な変数かを判定
         ASTNode *deref_target = member_access->left->left.get();
@@ -312,9 +363,14 @@ void execute_member_assignment(StatementExecutor *executor,
         int64_t ptr_value = 0;
 
         if (debug_mode) {
-            debug_print("DEBUG: deref_target node_type=%d (MEMBER_ACCESS=%d)\n",
-                        static_cast<int>(deref_target->node_type),
-                        static_cast<int>(ASTNodeType::AST_MEMBER_ACCESS));
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "DEBUG: deref_target node_type=%d (MEMBER_ACCESS=%d)",
+                         static_cast<int>(deref_target->node_type),
+                         static_cast<int>(ASTNodeType::AST_MEMBER_ACCESS));
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         if (deref_target->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
@@ -323,18 +379,16 @@ void execute_member_assignment(StatementExecutor *executor,
             ptr_value = interpreter.evaluate(deref_target);
 
             if (debug_mode) {
-                debug_print("DEBUG: Nested member access evaluated to "
-                            "ptr_value=%lld (0x%llx)\n",
-                            ptr_value, static_cast<uint64_t>(ptr_value));
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "DEBUG: Nested member access evaluated to ");
             }
         } else {
             // 単純な変数: (*ptr).member の場合
             ptr_value = interpreter.evaluate(deref_target);
 
             if (debug_mode) {
-                debug_print("DEBUG: Simple variable evaluated to "
-                            "ptr_value=%lld (0x%llx)\n",
-                            ptr_value, static_cast<uint64_t>(ptr_value));
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "DEBUG: Simple variable evaluated to ");
             }
         }
 
@@ -370,10 +424,8 @@ void execute_member_assignment(StatementExecutor *executor,
         interpreter.sync_individual_member_from_struct(struct_var, member_name);
 
         if (debug_mode) {
-            debug_print("DEBUG: Dereference member assignment completed: "
-                        "struct_var=%p, member=%s, value=%lld\n",
-                        static_cast<void *>(struct_var), member_name.c_str(),
-                        new_value.value);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "DEBUG: Dereference member assignment completed: ");
         }
 
         return;
@@ -619,8 +671,9 @@ void execute_member_assignment(StatementExecutor *executor,
         }
     } else if (node->right->node_type == ASTNodeType::AST_MEMBER_ARRAY_ACCESS) {
         // 構造体メンバ配列アクセスの場合（original.tags[0]等）
-        debug_print(
-            "DEBUG: Processing AST_MEMBER_ARRAY_ACCESS on right-hand side\n");
+        debug_msg(
+            DebugMsgId::GENERIC_DEBUG,
+            "DEBUG: Processing AST_MEMBER_ARRAY_ACCESS on right-hand side");
         std::string right_obj_name;
         std::string right_member_name = node->right->name;
 
@@ -642,21 +695,28 @@ void execute_member_assignment(StatementExecutor *executor,
         // 右辺の構造体メンバ配列要素を取得
         Variable *right_member_var =
             interpreter.get_struct_member(right_obj_name, right_member_name);
-        debug_print("DEBUG: right_member_var type=%d, is_array=%d\n",
-                    static_cast<int>(right_member_var->type),
-                    right_member_var->is_array ? 1 : 0);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "DEBUG: right_member_var type=%d, is_array=%d",
+                     static_cast<int>(right_member_var->type),
+                     right_member_var->is_array ? 1 : 0);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
         if ((right_member_var->type == TYPE_STRING &&
              right_member_var->is_array) ||
             right_member_var->type ==
                 static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING)) {
-            debug_print("DEBUG: Using string array element access\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "DEBUG: Using string array element access");
             std::string str_value =
                 interpreter.get_struct_member_array_string_element(
                     right_obj_name, right_member_name,
                     static_cast<int>(array_index));
             interpreter.assign_struct_member(obj_name, member_name, str_value);
         } else {
-            debug_print("DEBUG: Using numeric array element access\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "DEBUG: Using numeric array element access");
             int64_t value = interpreter.get_struct_member_array_element(
                 right_obj_name, right_member_name,
                 static_cast<int>(array_index));
@@ -675,12 +735,18 @@ void execute_arrow_assignment(StatementExecutor *executor,
     const ASTNode *arrow_access = node->left.get();
 
     if (debug_mode) {
-        debug_print("DEBUG: execute_arrow_assignment - starting\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: execute_arrow_assignment - starting");
     }
-    debug_print(
-        "DEBUG: execute_arrow_assignment - left type=%d, right type=%d\n",
-        static_cast<int>(node->left->node_type),
-        static_cast<int>(node->right->node_type));
+    {
+        char dbg_buf[512];
+        snprintf(
+            dbg_buf, sizeof(dbg_buf),
+            "DEBUG: execute_arrow_assignment - left type=%d, right type=%d",
+            static_cast<int>(node->left->node_type),
+            static_cast<int>(node->right->node_type));
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
 
     if (!arrow_access ||
         arrow_access->node_type != ASTNodeType::AST_ARROW_ACCESS) {
@@ -708,12 +774,9 @@ void execute_arrow_assignment(StatementExecutor *executor,
             }
 
             if (debug_mode) {
-                debug_print(
-                    "[ARROW_ASSIGN] Found variable '%s': is_pointer=%d, "
-                    "pointer_base_type_name='%s', value=0x%llx\n",
-                    var_name.c_str(), struct_var->is_pointer ? 1 : 0,
-                    struct_var->pointer_base_type_name.c_str(),
-                    (unsigned long long)struct_var->value);
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "[ARROW_ASSIGN] Found variable '%s': is_pointer=%d, ");
             }
 
             if (struct_var->value == 0) {
@@ -729,13 +792,8 @@ void execute_arrow_assignment(StatementExecutor *executor,
                 ptr_value = interpreter.evaluate(arrow_access->left.get());
             } catch (const ReturnException &ret_ex) {
                 if (debug_mode) {
-                    debug_print("DEBUG: execute_arrow_assignment - caught "
-                                "ReturnException: "
-                                "is_pointer=%d, pointer_base_type_name='%s', "
-                                "value=0x%llx\n",
-                                ret_ex.is_pointer ? 1 : 0,
-                                ret_ex.pointer_base_type_name.c_str(),
-                                (unsigned long long)ret_ex.value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "DEBUG: execute_arrow_assignment - caught ");
                 }
 
                 ptr_value = ret_ex.value;
@@ -775,10 +833,8 @@ void execute_arrow_assignment(StatementExecutor *executor,
                     }
 
                     if (debug_mode) {
-                        debug_print("DEBUG: ARROW_ASSIGN metadata - "
-                                    "array_name='%s', element_index=%zu\n",
-                                    metadata->array_name.c_str(),
-                                    metadata->element_index);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "DEBUG: ARROW_ASSIGN metadata - ");
                     }
 
                     struct_element_name =
@@ -897,11 +953,8 @@ void execute_arrow_assignment(StatementExecutor *executor,
             new_value.double_value = d_val;
             new_value.value = static_cast<int64_t>(d_val);
             if (debug_mode) {
-                debug_print(
-                    "[ARROW_ASSIGN] Setting double member '%s': "
-                    "typed_value.double_value=%f, new_value.double_value=%f\n",
-                    member_name.c_str(), typed_value.double_value,
-                    new_value.double_value);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ARROW_ASSIGN] Setting double member '%s': ");
             }
         } else if (typed_value.type.type_info == TYPE_QUAD) {
             new_value.quad_value = typed_value.as_quad();
@@ -921,10 +974,8 @@ void execute_arrow_assignment(StatementExecutor *executor,
             struct_var->pointer_base_type_name);
 
         if (debug_mode) {
-            debug_print("[ARROW_ASSIGN] Pointer-to-struct access: "
-                        "base_type='%s', resolved='%s', member='%s'\n",
-                        struct_var->pointer_base_type_name.c_str(),
-                        resolved_type_name.c_str(), member_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[ARROW_ASSIGN] Pointer-to-struct access: ");
         }
 
         // 構造体定義を取得
@@ -939,10 +990,8 @@ void execute_arrow_assignment(StatementExecutor *executor,
                 resolved_type_name.substr(0, angle_pos);
 
             if (debug_mode) {
-                debug_print("[ARROW_ASSIGN] Trying base generic struct: "
-                            "base='%s', full='%s'\n",
-                            base_struct_name.c_str(),
-                            resolved_type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ARROW_ASSIGN] Trying base generic struct: ");
             }
 
             // ベース定義を取得
@@ -972,10 +1021,8 @@ void execute_arrow_assignment(StatementExecutor *executor,
             }
 
             if (debug_mode) {
-                debug_print("[ARROW_ASSIGN] Non-generic struct: updating "
-                            "struct_members "
-                            "for member='%s', target_var=%p\n",
-                            member_name.c_str(), (void *)target_var);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ARROW_ASSIGN] Non-generic struct: updating ");
             }
 
             // struct_membersに代入
@@ -987,8 +1034,8 @@ void execute_arrow_assignment(StatementExecutor *executor,
                                                            member_name);
 
             if (debug_mode) {
-                debug_print("[ARROW_ASSIGN] Updated struct_members for "
-                            "non-generic struct\n");
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ARROW_ASSIGN] Updated struct_members for ");
             }
 
             return; // 処理完了
@@ -1087,11 +1134,9 @@ void execute_arrow_assignment(StatementExecutor *executor,
                         interpreter.resolve_type_in_context(member.type_alias);
 
                     if (debug_mode) {
-                        debug_print(
-                            "[ARROW_ASSIGN] Member '%s' has generic type '%s', "
-                            "resolved to '%s'\n",
-                            member_name.c_str(), member.type_alias.c_str(),
-                            resolved_member_type.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[ARROW_ASSIGN] Member '%s' has generic type "
+                                  "'%s', ");
                     }
 
                     // 解決された型からTypeInfoを取得
@@ -1119,11 +1164,8 @@ void execute_arrow_assignment(StatementExecutor *executor,
                 }
 
                 if (debug_mode) {
-                    debug_print("[ARROW_ASSIGN] Found member '%s': type=%d, "
-                                "is_pointer=%d, type_alias='%s'\n",
-                                member_name.c_str(), (int)member_type,
-                                member.is_pointer ? 1 : 0,
-                                member.type_alias.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[ARROW_ASSIGN] Found member '%s': type=%d, ");
                 }
                 break;
             }
@@ -1178,9 +1220,15 @@ void execute_arrow_assignment(StatementExecutor *executor,
             break;
         case TYPE_POINTER:
             if (debug_mode) {
-                debug_print(
-                    "[ARROW_ASSIGN] Writing pointer: addr=%p, value=0x%llx\n",
-                    (void *)member_addr, (unsigned long long)new_value.value);
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "[ARROW_ASSIGN] Writing pointer: addr=%p, value=0x%llx",
+                        (void *)member_addr,
+                        (unsigned long long)new_value.value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
             *reinterpret_cast<int64_t *>(member_addr) = new_value.value;
             break;
@@ -1190,16 +1238,19 @@ void execute_arrow_assignment(StatementExecutor *executor,
             // Variable は str_value フィールドを使用
 
             // デバッグ: 入力値を確認
-            debug_print("[ARROW_ASSIGN] String assignment: str_value='%s', "
-                        "value=%lld (0x%llx)\n",
-                        new_value.str_value.c_str(), (long long)new_value.value,
-                        (unsigned long long)new_value.value);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[ARROW_ASSIGN] String assignment: str_value='%s', ");
 
             const char *str_data = strdup(new_value.str_value.c_str());
             *reinterpret_cast<const char **>(member_addr) = str_data;
-            debug_print(
-                "[ARROW_ASSIGN] Wrote string: addr=%p, ptr=%p, str='%s'\n",
-                (void *)member_addr, (void *)str_data, str_data);
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "[ARROW_ASSIGN] Wrote string: addr=%p, ptr=%p, str='%s'",
+                    (void *)member_addr, (void *)str_data, str_data);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
             break;
         }
         default:
@@ -1208,11 +1259,9 @@ void execute_arrow_assignment(StatementExecutor *executor,
         }
 
         if (debug_mode) {
-            debug_print(
-                "[ARROW_ASSIGN] Wrote to memory: addr=0x%llx, offset=%zu, "
-                "value=%lld\n",
-                (unsigned long long)base_addr, offset,
-                (long long)new_value.value);
+            debug_msg(
+                DebugMsgId::GENERIC_DEBUG,
+                "[ARROW_ASSIGN] Wrote to memory: addr=0x%llx, offset=%zu, ");
         }
 
         // ポインタ経由の場合は struct_members への代入はスキップ
@@ -1229,7 +1278,8 @@ void execute_arrow_assignment(StatementExecutor *executor,
     }
 
     if (debug_mode) {
-        debug_print("DEBUG: execute_arrow_assignment - completed\n");
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "DEBUG: execute_arrow_assignment - completed");
     }
 }
 

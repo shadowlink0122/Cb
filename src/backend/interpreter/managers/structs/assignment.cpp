@@ -17,10 +17,15 @@ void StructAssignmentManager::assign_struct_member(
     const Variable &value_var) {
     // Note: value_var contains the source value to assign
     if (interpreter_->debug_mode) {
-        debug_print(
-            "assign_struct_member (Variable): var=%s, member=%s, type=%d\n",
-            var_name.c_str(), member_name.c_str(),
-            static_cast<int>(value_var.type));
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "assign_struct_member (Variable): var=%s, member=%s, type=%d",
+                var_name.c_str(), member_name.c_str(),
+                static_cast<int>(value_var.type));
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     std::string target_full_name = var_name + "." + member_name;
@@ -111,11 +116,9 @@ void StructAssignmentManager::assign_struct_member(
         // unsignedの場合は負の値を0にクランプ
         if (member_var->is_unsigned && assign_value < 0) {
             if (interpreter_->debug_mode) {
-                debug_print(
-                    "Unsigned struct member %s.%s assignment with negative "
-                    "value (%lld); clamping to 0\n",
-                    var_name.c_str(), member_name.c_str(),
-                    static_cast<long long>(assign_value));
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "Unsigned struct member %s.%s assignment with negative ");
             }
             assign_value = 0;
         }
@@ -180,11 +183,9 @@ void StructAssignmentManager::assign_struct_member(
             // unsignedの場合は負の値を0にクランプ
             if (direct_var->is_unsigned && assign_value < 0) {
                 if (interpreter_->debug_mode) {
-                    debug_print(
-                        "Unsigned struct member %s assignment with negative "
-                        "value (%lld); clamping to 0\n",
-                        direct_var_name.c_str(),
-                        static_cast<long long>(assign_value));
+                    debug_msg(
+                        DebugMsgId::GENERIC_DEBUG,
+                        "Unsigned struct member %s assignment with negative ");
                 }
                 assign_value = 0;
             }
@@ -199,9 +200,14 @@ void StructAssignmentManager::assign_struct_member(
         direct_var->is_assigned = true;
 
         if (interpreter_->debug_mode) {
-            debug_print("Updated direct access var %s (type=%d)\n",
-                        direct_var_name.c_str(),
-                        static_cast<int>(direct_var->type));
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Updated direct access var %s (type=%d)",
+                         direct_var_name.c_str(),
+                         static_cast<int>(direct_var->type));
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     }
 }
@@ -219,17 +225,21 @@ void StructAssignmentManager::assign_struct_member(
     if (dot_pos != std::string::npos) {
         root_var_name = var_name.substr(0, dot_pos);
         if (interpreter_->debug_mode) {
-            debug_print("INT: Nested member assignment: var_name=%s, "
-                        "root_var_name=%s\n",
-                        var_name.c_str(), root_var_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "INT: Nested member assignment: var_name=%s, ");
         }
     }
 
     // 最上位の親変数がconstかチェック
     if (Variable *root_var = interpreter_->find_variable(root_var_name)) {
         if (interpreter_->debug_mode) {
-            debug_print("INT: Root variable %s found, is_const=%d\n",
-                        root_var_name.c_str(), root_var->is_const ? 1 : 0);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "INT: Root variable %s found, is_const=%d",
+                         root_var_name.c_str(), root_var->is_const ? 1 : 0);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         if (root_var->is_const) {
             error_msg(DebugMsgId::CONST_REASSIGN_ERROR,
@@ -241,11 +251,8 @@ void StructAssignmentManager::assign_struct_member(
 
     if (Variable *struct_var = interpreter_->find_variable(var_name)) {
         if (interpreter_->debug_mode) {
-            debug_print("assign_struct_member (int): var=%s, member=%s, "
-                        "value=%lld, struct_is_const=%d\n",
-                        var_name.c_str(), member_name.c_str(),
-                        static_cast<long long>(value),
-                        struct_var->is_const ? 1 : 0);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "assign_struct_member (int): var=%s, member=%s, ");
         }
         if (struct_var->is_const) {
             error_msg(DebugMsgId::CONST_REASSIGN_ERROR,
@@ -282,10 +289,8 @@ void StructAssignmentManager::assign_struct_member(
     int64_t member_value = value;
     if (member_var->is_unsigned && member_value < 0) {
         if (interpreter_->debug_mode) {
-            debug_print("Unsigned struct member %s.%s assigned negative value "
-                        "(%lld); clamping to 0\n",
-                        var_name.c_str(), member_name.c_str(),
-                        static_cast<long long>(member_value));
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "Unsigned struct member %s.%s assigned negative value ");
         }
         member_value = 0;
     }
@@ -322,11 +327,9 @@ void StructAssignmentManager::assign_struct_member(
         int64_t direct_value = member_var->is_unsigned ? member_value : value;
         if (direct_var->is_unsigned && direct_value < 0) {
             if (interpreter_->debug_mode) {
-                debug_print(
-                    "Unsigned struct member %s.%s assigned negative value "
-                    "(%lld); clamping to 0\n",
-                    var_name.c_str(), member_name.c_str(),
-                    static_cast<long long>(direct_value));
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "Unsigned struct member %s.%s assigned negative value ");
             }
             direct_value = 0;
         }
@@ -339,9 +342,14 @@ void StructAssignmentManager::assign_struct_member(
     const std::string &var_name, const std::string &member_name,
     const std::string &str_value) {
     if (interpreter_->debug_mode) {
-        debug_print(
-            "assign_struct_member (string): var=%s, member=%s, value='%s'\n",
-            var_name.c_str(), member_name.c_str(), str_value.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "assign_struct_member (string): var=%s, member=%s, value='%s'",
+                var_name.c_str(), member_name.c_str(), str_value.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     std::string target_full_name = var_name + "." + member_name;
@@ -428,13 +436,23 @@ void StructAssignmentManager::assign_struct_member(
         direct_var->str_value = str_value;
         direct_var->is_assigned = true;
         if (interpreter_->debug_mode) {
-            debug_print("Updated direct access var %s with value '%s'\n",
-                        direct_var_name.c_str(), str_value.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Updated direct access var %s with value '%s'",
+                         direct_var_name.c_str(), str_value.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     } else {
         if (interpreter_->debug_mode) {
-            debug_print("Direct access var %s not found\n",
-                        direct_var_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Direct access var %s not found",
+                         direct_var_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     }
 }
@@ -443,10 +461,15 @@ void StructAssignmentManager::assign_struct_member_struct(
     const std::string &var_name, const std::string &member_name,
     const Variable &struct_value) {
     if (interpreter_->debug_mode) {
-        debug_print(
-            "assign_struct_member_struct: var=%s, member=%s, struct_type=%s\n",
-            var_name.c_str(), member_name.c_str(),
-            struct_value.struct_type_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "assign_struct_member_struct: var=%s, member=%s, "
+                     "struct_type=%s",
+                     var_name.c_str(), member_name.c_str(),
+                     struct_value.struct_type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     std::string target_full_name = var_name + "." + member_name;
@@ -488,8 +511,13 @@ void StructAssignmentManager::assign_struct_member_struct(
     if (member_var->struct_type_name.empty()) {
         member_var->struct_type_name = struct_value.struct_type_name;
         if (interpreter_->debug_mode) {
-            debug_print("Setting member struct type to: %s\n",
-                        struct_value.struct_type_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Setting member struct type to: %s",
+                         struct_value.struct_type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     }
 
@@ -510,8 +538,13 @@ void StructAssignmentManager::assign_struct_member_struct(
         *direct_var = struct_value;
         direct_var->is_assigned = true;
         if (interpreter_->debug_mode) {
-            debug_print("Updated direct access struct var %s\n",
-                        direct_var_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "Updated direct access struct var %s",
+                         direct_var_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     }
 
@@ -525,9 +558,8 @@ void StructAssignmentManager::assign_struct_member_array_element(
     const std::string &var_name, const std::string &member_name, int index,
     long value) {
     if (interpreter_->debug_mode) {
-        debug_print("assign_struct_member_array_element: var=%s, member=%s, "
-                    "index=%d, value=%lld\n",
-                    var_name.c_str(), member_name.c_str(), index, value);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "assign_struct_member_array_element: var=%s, member=%s, ");
     }
 
     std::string target_full_name = var_name + "." + member_name;
@@ -553,10 +585,8 @@ void StructAssignmentManager::assign_struct_member_array_element(
     }
 
     if (interpreter_->debug_mode) {
-        debug_print("Found member_var, is_array=%d, array_size=%d, "
-                    "array_values.size()=%zu\n",
-                    member_var->is_array, member_var->array_size,
-                    member_var->array_values.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "Found member_var, is_array=%d, array_size=%d, ");
     }
 
     if (!member_var->is_array) {
@@ -571,11 +601,9 @@ void StructAssignmentManager::assign_struct_member_array_element(
     int64_t adjusted_value = value;
     if (member_var->is_unsigned && adjusted_value < 0) {
         if (interpreter_->debug_mode) {
-            debug_print(
-                "WARNING: Unsigned struct member %s.%s[%d] assigned negative "
-                "value (%lld); clamping to 0\n",
-                var_name.c_str(), member_name.c_str(), index,
-                static_cast<long long>(adjusted_value));
+            debug_msg(
+                DebugMsgId::GENERIC_DEBUG,
+                "WARNING: Unsigned struct member %s.%s[%d] assigned negative ");
         }
         adjusted_value = 0;
     }
@@ -613,11 +641,9 @@ void StructAssignmentManager::assign_struct_member_array_element(
         int64_t direct_value = member_var->is_unsigned ? adjusted_value : value;
         if (direct_element->is_unsigned && direct_value < 0) {
             if (interpreter_->debug_mode) {
-                debug_print(
-                    "WARNING: Unsigned struct member %s.%s[%d] assigned "
-                    "negative value (%lld); clamping to 0\n",
-                    var_name.c_str(), member_name.c_str(), index,
-                    static_cast<long long>(direct_value));
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "WARNING: Unsigned struct member %s.%s[%d] assigned ");
             }
             direct_value = 0;
         }
@@ -626,8 +652,13 @@ void StructAssignmentManager::assign_struct_member_array_element(
     }
 
     if (interpreter_->debug_mode) {
-        debug_print("Assignment completed, array_values[%d] = %lld\n", index,
-                    member_var->array_values[index]);
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "Assignment completed, array_values[%d] = %lld", index,
+                     member_var->array_values[index]);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 }
 
@@ -639,10 +670,8 @@ void StructAssignmentManager::assign_struct_member_array_element(
         // String version
         const std::string &value = value_var.str_value;
         if (interpreter_->debug_mode) {
-            debug_print("assign_struct_member_array_element (string): var=%s, "
-                        "member=%s, index=%d, value=%s\n",
-                        var_name.c_str(), member_name.c_str(), index,
-                        value.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "assign_struct_member_array_element (string): var=%s, ");
         }
 
         std::string target_full_name = var_name + "." + member_name;
@@ -680,9 +709,14 @@ void StructAssignmentManager::assign_struct_member_array_element(
         }
 
         if (interpreter_->debug_mode) {
-            debug_print(
-                "Before assignment: array_strings.size()=%zu, index=%d\n",
-                member_var->array_strings.size(), index);
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "Before assignment: array_strings.size()=%zu, index=%d",
+                    member_var->array_strings.size(), index);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         if (index >= static_cast<int>(member_var->array_strings.size())) {
@@ -709,8 +743,13 @@ void StructAssignmentManager::assign_struct_member_array_element(
         }
 
         if (interpreter_->debug_mode) {
-            debug_print("After assignment: array_strings[%d]=%s\n", index,
-                        member_var->array_strings[index].c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "After assignment: array_strings[%d]=%s", index,
+                         member_var->array_strings[index].c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
     } else {
         // Numeric version - delegate to the int64_t version
@@ -723,8 +762,13 @@ void StructAssignmentManager::assign_struct_member_array_literal(
     const std::string &var_name, const std::string &member_name,
     const ASTNode *array_literal) {
     if (interpreter_->debug_mode) {
-        debug_print("assign_struct_member_array_literal: var=%s, member=%s\n",
-                    var_name.c_str(), member_name.c_str());
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "assign_struct_member_array_literal: var=%s, member=%s",
+                     var_name.c_str(), member_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     Variable *member_var =
@@ -734,11 +778,14 @@ void StructAssignmentManager::assign_struct_member_array_literal(
     }
 
     if (interpreter_->debug_mode) {
-        debug_print("member_var->is_multidimensional: %d, "
-                    "array_dimensions.size(): %zu\n",
-                    member_var->is_multidimensional,
-                    member_var->array_dimensions.size());
-        debug_print("Address of member_var: %p\n", (void *)member_var);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "member_var->is_multidimensional: %d, ");
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf), "Address of member_var: %p",
+                     (void *)member_var);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     // 共通実装を使用して配列リテラルを解析・代入
@@ -747,38 +794,57 @@ void StructAssignmentManager::assign_struct_member_array_literal(
             array_literal);
 
         if (interpreter_->debug_mode) {
-            debug_print("Before assign_array_literal_to_variable: "
-                        "array_dimensions.size(): %zu\n",
-                        member_var->array_dimensions.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "Before assign_array_literal_to_variable: ");
         }
 
         interpreter_->common_operations_->assign_array_literal_to_variable(
             member_var, result, var_name + "." + member_name);
 
         if (interpreter_->debug_mode) {
-            debug_print("After assign_array_literal_to_variable: "
-                        "array_dimensions.size(): %zu\n",
-                        member_var->array_dimensions.size());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "After assign_array_literal_to_variable: ");
         }
 
         if (interpreter_->debug_mode) {
-            debug_print("result.is_string_array: %d, result.size: %zu\n",
-                        result.is_string_array, result.size);
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "result.is_string_array: %d, result.size: %zu",
+                         result.is_string_array, result.size);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         // 構造体メンバー配列の場合、個別要素変数も更新する必要がある
         if (!result.is_string_array) {
             if (interpreter_->debug_mode) {
-                debug_print("Entering individual element update block\n");
-                debug_print("member_var->is_multidimensional: %d\n",
-                            member_var->is_multidimensional);
-                debug_print("member_var->array_dimensions.size(): %zu\n",
-                            member_var->array_dimensions.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "Entering individual element update block");
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "member_var->is_multidimensional: %d",
+                             member_var->is_multidimensional);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "member_var->array_dimensions.size(): %zu",
+                             member_var->array_dimensions.size());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
                 if (member_var->array_dimensions.size() >= 2) {
                     for (size_t i = 0; i < member_var->array_dimensions.size();
                          i++) {
-                        debug_print("dimension[%zu]: %zu\n", i,
-                                    member_var->array_dimensions[i]);
+                        {
+                            char dbg_buf[512];
+                            snprintf(dbg_buf, sizeof(dbg_buf),
+                                     "dimension[%zu]: %d", i,
+                                     member_var->array_dimensions[i]);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 }
             }
@@ -791,12 +857,22 @@ void StructAssignmentManager::assign_struct_member_array_literal(
                 member_var->array_dimensions.size() >= 2) {
                 // N次元配列の場合 - フラット配列として直接更新
                 if (interpreter_->debug_mode) {
-                    debug_print(
-                        "Assigning N-dimensional array literal to %s.%s\n",
-                        var_name.c_str(), member_name.c_str());
-                    debug_print(
-                        "Total array size: %zu, values to assign: %zu\n",
-                        member_var->array_values.size(), assigned_count);
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "Assigning N-dimensional array literal to %s.%s",
+                            var_name.c_str(), member_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
+                    {
+                        char dbg_buf[512];
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "Total array size: %zu, values to assign: %zu",
+                                 member_var->array_values.size(),
+                                 assigned_count);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
 
                 // フラット配列データを直接更新
@@ -809,9 +885,14 @@ void StructAssignmentManager::assign_struct_member_array_literal(
                     member_var->multidim_array_values.resize(
                         member_var->array_values.size());
                     if (interpreter_->debug_mode) {
-                        debug_print(
-                            "Resized multidim_array_values to %zu elements\n",
-                            member_var->array_values.size());
+                        {
+                            char dbg_buf[512];
+                            snprintf(
+                                dbg_buf, sizeof(dbg_buf),
+                                "Resized multidim_array_values to %zu elements",
+                                member_var->array_values.size());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 }
 
@@ -820,9 +901,8 @@ void StructAssignmentManager::assign_struct_member_array_literal(
                     member_var->multidim_array_values[i] =
                         assigned_values[i]; // multidim_array_values にも設定
                     if (interpreter_->debug_mode) {
-                        debug_print("Set flat_index[%zu] = %lld (both "
-                                    "array_values and multidim_array_values)\n",
-                                    i, assigned_values[i]);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "Set flat_index[%zu] = %lld (both ");
                     }
                 }
 
@@ -836,10 +916,15 @@ void StructAssignmentManager::assign_struct_member_array_literal(
                         for (size_t c = 0;
                              c < cols && (r * cols + c) < assigned_count; c++) {
                             size_t flat_index = r * cols + c;
-                            debug_print(
-                                "  [%zu][%zu] = %lld (flat_index: %zu)\n", r, c,
-                                member_var->array_values[flat_index],
-                                flat_index);
+                            {
+                                char dbg_buf[512];
+                                snprintf(
+                                    dbg_buf, sizeof(dbg_buf),
+                                    "  [%zu][%zu] = %lld (flat_index: %zu)", r,
+                                    c, member_var->array_values[flat_index],
+                                    flat_index);
+                                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                            }
                         }
                     }
                 }
@@ -854,10 +939,8 @@ void StructAssignmentManager::assign_struct_member_array_literal(
                         element_var->value = assigned_values[i];
                         element_var->is_assigned = true;
                         if (interpreter_->debug_mode) {
-                            debug_print("Updated individual element variable "
-                                        "%s = %lld\n",
-                                        element_name.c_str(),
-                                        assigned_values[i]);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "Updated individual element variable ");
                         }
                     }
                 }
@@ -873,10 +956,8 @@ void StructAssignmentManager::assign_struct_member_array_literal(
                     direct_var->array_values = member_var->array_values;
                     direct_var->is_assigned = true;
                     if (interpreter_->debug_mode) {
-                        debug_print("Updated direct variable %s with %zu "
-                                    "multidim_array_values\n",
-                                    direct_var_name.c_str(),
-                                    direct_var->multidim_array_values.size());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "Updated direct variable %s with %zu ");
                     }
                 }
             } else {
@@ -895,15 +976,19 @@ void StructAssignmentManager::assign_struct_member_array_literal(
         }
 
         if (interpreter_->debug_mode) {
-            debug_print("Successfully assigned array literal to struct member "
-                        "%s.%s using common operations\n",
-                        var_name.c_str(), member_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "Successfully assigned array literal to struct member ");
         }
     } catch (const std::exception &e) {
         if (interpreter_->debug_mode) {
-            debug_print(
-                "Failed to assign array literal to struct member %s.%s: %s\n",
-                var_name.c_str(), member_name.c_str(), e.what());
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "Failed to assign array literal to struct member %s.%s: %s",
+                    var_name.c_str(), member_name.c_str(), e.what());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         throw;
     }
@@ -1201,10 +1286,8 @@ void StructAssignmentManager::process_named_initialization(
             }
 
             if (interpreter_->debug_mode) {
-                debug_print("Array member initialization: %s, array_size=%d, "
-                            "elements_count=%zu\n",
-                            member_name.c_str(), struct_member_var.array_size,
-                            member_init->right->arguments.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "Array member initialization: %s, array_size=%d, ");
             }
 
             const auto &array_elements = member_init->right->arguments;
@@ -1234,9 +1317,8 @@ void StructAssignmentManager::process_named_initialization(
                         element_var->is_assigned = true;
 
                         if (interpreter_->debug_mode) {
-                            debug_print("Initialized struct member array "
-                                        "element: %s = %f\n",
-                                        element_name.c_str(), float_value);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "Initialized struct member array ");
                         }
                     }
 
@@ -1244,9 +1326,8 @@ void StructAssignmentManager::process_named_initialization(
                         struct_member_var.array_float_values[i] = float_value;
 
                         if (interpreter_->debug_mode) {
-                            debug_print("Updated struct_members array element: "
-                                        "%s[%zu] = %f\n",
-                                        member_name.c_str(), i, float_value);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "Updated struct_members array element: ");
                         }
                     }
                 } else {
@@ -1263,9 +1344,8 @@ void StructAssignmentManager::process_named_initialization(
                         element_var->is_assigned = true;
 
                         if (interpreter_->debug_mode) {
-                            debug_print("Initialized struct member array "
-                                        "element: %s = %lld\n",
-                                        element_name.c_str(), (long long)value);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "Initialized struct member array ");
                         }
                     }
 
@@ -1273,10 +1353,8 @@ void StructAssignmentManager::process_named_initialization(
                         struct_member_var.array_values[i] = value;
 
                         if (interpreter_->debug_mode) {
-                            debug_print("Updated struct_members array element: "
-                                        "%s[%zu] = %lld\n",
-                                        member_name.c_str(), i,
-                                        (long long)value);
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "Updated struct_members array element: ");
                         }
                     }
                 }
@@ -1300,10 +1378,15 @@ void StructAssignmentManager::process_named_initialization(
                 direct_array_var->is_assigned = true;
 
                 if (interpreter_->debug_mode) {
-                    debug_print(
-                        "Synced direct access array variable: %s (size=%d)\n",
-                        direct_array_name.c_str(),
-                        direct_array_var->array_size);
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "Synced direct access array variable: %s (size=%d)",
+                            direct_array_name.c_str(),
+                            direct_array_var->array_size);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
                 }
             }
         } else if ((struct_member_var.type == TYPE_STRING ||
@@ -1453,9 +1536,8 @@ void StructAssignmentManager::process_positional_initialization(
     };
 
     // 位置ベース初期化: {25, "Bob"}
-    debug_print("STRUCT_LITERAL_DEBUG: Position-based initialization with "
-                "%zu arguments\n",
-                literal_node->arguments.size());
+    debug_msg(DebugMsgId::GENERIC_DEBUG,
+              "STRUCT_LITERAL_DEBUG: Position-based initialization with ");
     if (literal_node->arguments.size() > struct_def->members.size()) {
         throw std::runtime_error("Too many initializers for struct");
     }
@@ -1468,17 +1550,14 @@ void StructAssignmentManager::process_positional_initialization(
         }
 
         const ASTNode *init_value = literal_node->arguments[i].get();
-        debug_print("STRUCT_LITERAL_DEBUG: Initializing member %s (index "
-                    "%zu, type %d, init_node_type=%d, is_array=%d)\n",
-                    member_def.name.c_str(), i, (int)member_def.type,
-                    (int)init_value->node_type, it->second.is_array ? 1 : 0);
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "STRUCT_LITERAL_DEBUG: Initializing member %s (index ");
 
         // メンバ値を評価して代入
         if (it->second.type == TYPE_STRING &&
             init_value->node_type == ASTNodeType::AST_STRING_LITERAL) {
-            debug_print("STRUCT_LITERAL_DEBUG: String literal "
-                        "initialization: %s = \"%s\"\n",
-                        member_def.name.c_str(), init_value->str_value.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "STRUCT_LITERAL_DEBUG: String literal ");
             it->second.str_value = init_value->str_value;
 
             // 直接アクセス変数も更新
@@ -1488,10 +1567,8 @@ void StructAssignmentManager::process_positional_initialization(
             if (direct_member_var) {
                 direct_member_var->str_value = init_value->str_value;
                 direct_member_var->is_assigned = true;
-                debug_print("STRUCT_LITERAL_DEBUG: Updated direct access "
-                            "variable: %s = \"%s\"\n",
-                            full_member_name.c_str(),
-                            init_value->str_value.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "STRUCT_LITERAL_DEBUG: Updated direct access ");
             }
         } else if (it->second.type == TYPE_STRING &&
                    (init_value->node_type == ASTNodeType::AST_VARIABLE ||
@@ -1503,9 +1580,8 @@ void StructAssignmentManager::process_positional_initialization(
                     "Expected string variable for string member: " +
                     member_def.name);
             }
-            debug_print("STRUCT_LITERAL_DEBUG: String variable "
-                        "initialization: %s = \"%s\"\n",
-                        member_def.name.c_str(), str_var->str_value.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "STRUCT_LITERAL_DEBUG: String variable ");
             it->second.str_value = str_var->str_value;
 
             // 直接アクセス変数も更新
@@ -1515,25 +1591,27 @@ void StructAssignmentManager::process_positional_initialization(
             if (direct_member_var) {
                 direct_member_var->str_value = str_var->str_value;
                 direct_member_var->is_assigned = true;
-                debug_print("STRUCT_LITERAL_DEBUG: Updated direct access "
-                            "variable: %s = \"%s\"\n",
-                            full_member_name.c_str(),
-                            str_var->str_value.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "STRUCT_LITERAL_DEBUG: Updated direct access ");
             }
         } else if (it->second.is_array &&
                    init_value->node_type == ASTNodeType::AST_ARRAY_LITERAL) {
-            debug_print(
-                "STRUCT_LITERAL_DEBUG: Array literal initialization: %s\n",
-                member_def.name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "STRUCT_LITERAL_DEBUG: Array literal initialization: %s",
+                    member_def.name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
 
             // 配列の要素型を確認（構造体配列かプリミティブ配列か）
             TypeInfo element_type = member_def.array_info.base_type;
 
             if (element_type == TYPE_STRUCT) {
                 // 構造体配列の場合：各要素は構造体リテラルとして処理
-                debug_print("STRUCT_LITERAL_DEBUG: Struct array "
-                            "initialization with %zu elements\n",
-                            init_value->arguments.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "STRUCT_LITERAL_DEBUG: Struct array ");
 
                 for (size_t j = 0;
                      j < init_value->arguments.size() &&
@@ -1549,9 +1627,8 @@ void StructAssignmentManager::process_positional_initialization(
                                                    member_def.name + "[" +
                                                    std::to_string(j) + "]";
 
-                        debug_print("STRUCT_LITERAL_DEBUG: Assigning "
-                                    "struct literal to array element: %s\n",
-                                    element_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "STRUCT_LITERAL_DEBUG: Assigning ");
 
                         // 要素変数が存在し、構造体として初期化されているか確認
                         Variable *element_var =
@@ -1603,9 +1680,8 @@ void StructAssignmentManager::process_positional_initialization(
                     element_var.is_assigned = true;
                     element_vars[full_element_name] = element_var;
 
-                    debug_print("STRUCT_LITERAL_DEBUG: Array element [%zu] "
-                                "= %lld\n",
-                                j, (long long)element_value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "STRUCT_LITERAL_DEBUG: Array element [%zu] ");
                 }
                 it->second.array_size = init_value->arguments.size();
                 it->second.is_assigned = true;
@@ -1618,9 +1694,8 @@ void StructAssignmentManager::process_positional_initialization(
                     direct_member_var->array_values = it->second.array_values;
                     direct_member_var->array_size = it->second.array_size;
                     direct_member_var->is_assigned = true;
-                    debug_print("STRUCT_LITERAL_DEBUG: Updated direct "
-                                "access array variable: %s\n",
-                                full_member_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "STRUCT_LITERAL_DEBUG: Updated direct ");
                 }
 
                 // 個別要素変数を一括登録（マップの再ハッシュを防ぐため一度に追加）
@@ -1632,10 +1707,8 @@ void StructAssignmentManager::process_positional_initialization(
         } else if (it->second.type == TYPE_STRUCT &&
                    init_value->node_type == ASTNodeType::AST_STRUCT_LITERAL) {
             // ネストされた構造体リテラルの初期化
-            debug_print("STRUCT_LITERAL_DEBUG: Nested struct literal "
-                        "initialization: %s (type=%s)\n",
-                        member_def.name.c_str(),
-                        it->second.struct_type_name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "STRUCT_LITERAL_DEBUG: Nested struct literal ");
 
             std::string nested_var_name = var_name + "." + member_def.name;
 
@@ -1661,9 +1734,8 @@ void StructAssignmentManager::process_positional_initialization(
                     interpreter_->expression_evaluator_
                         ->evaluate_typed_expression(init_value);
                 double float_value = typed_result.as_double();
-                debug_print("STRUCT_LITERAL_DEBUG: Float/Double "
-                            "initialization: %s = %f\n",
-                            member_def.name.c_str(), float_value);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "STRUCT_LITERAL_DEBUG: Float/Double ");
 
                 // TYPEに応じて適切なフィールドに設定
                 if (it->second.type == TYPE_FLOAT) {
@@ -1691,18 +1763,16 @@ void StructAssignmentManager::process_positional_initialization(
                             static_cast<long double>(float_value);
                     }
                     direct_member_var->is_assigned = true;
-                    debug_print("STRUCT_LITERAL_DEBUG: Updated direct "
-                                "access variable: %s = %f\n",
-                                full_member_name.c_str(), float_value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "STRUCT_LITERAL_DEBUG: Updated direct ");
                 }
             } else {
                 // int/bool/その他の型の処理
                 int64_t value =
                     interpreter_->expression_evaluator_->evaluate_expression(
                         init_value);
-                debug_print("STRUCT_LITERAL_DEBUG: Numeric initialization: "
-                            "%s = %lld\n",
-                            member_def.name.c_str(), (long long)value);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "STRUCT_LITERAL_DEBUG: Numeric initialization: ");
                 clamp_unsigned_member(it->second, value, member_def.name,
                                       "initialized with literal");
                 it->second.value = value;
@@ -1714,9 +1784,8 @@ void StructAssignmentManager::process_positional_initialization(
                 if (direct_member_var) {
                     direct_member_var->value = value;
                     direct_member_var->is_assigned = true;
-                    debug_print("STRUCT_LITERAL_DEBUG: Updated direct "
-                                "access variable: %s = %lld\n",
-                                full_member_name.c_str(), (long long)value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "STRUCT_LITERAL_DEBUG: Updated direct ");
                 }
             }
         }
@@ -1730,9 +1799,8 @@ void StructAssignmentManager::sync_nested_struct_members_recursive(
     const std::map<std::string, Variable> &members) {
 
     if (interpreter_->debug_mode) {
-        debug_print("sync_nested_struct_members_recursive: base_path=%s, "
-                    "members.size=%zu\n",
-                    base_path.c_str(), members.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                  "sync_nested_struct_members_recursive: base_path=%s, ");
     }
 
     for (const auto &member : members) {
@@ -1748,8 +1816,13 @@ void StructAssignmentManager::sync_nested_struct_members_recursive(
             nested_var->is_assigned = true;
 
             if (interpreter_->debug_mode) {
-                debug_print("Updated nested member: %s (type=%d)\n",
-                            nested_var_name.c_str(), member_var.type);
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "Updated nested member: %s (type=%d)",
+                             nested_var_name.c_str(), member_var.type);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         } else {
             // 変数が存在しない場合は新規作成
@@ -1760,8 +1833,13 @@ void StructAssignmentManager::sync_nested_struct_members_recursive(
             // スキップして、struct_membersマップだけを信頼する
 
             if (interpreter_->debug_mode) {
-                debug_print("Skipped creating nested member (not found): %s\n",
-                            nested_var_name.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "Skipped creating nested member (not found): %s",
+                             nested_var_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         }
 
@@ -1770,10 +1848,8 @@ void StructAssignmentManager::sync_nested_struct_members_recursive(
             !member_var.struct_members.empty()) {
 
             if (interpreter_->debug_mode) {
-                debug_print("Recursing into struct member: %s "
-                            "(struct_members.size=%zu)\n",
-                            nested_var_name.c_str(),
-                            member_var.struct_members.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "Recursing into struct member: %s ");
             }
 
             sync_nested_struct_members_recursive(nested_var_name,

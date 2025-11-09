@@ -1,0 +1,41 @@
+// v0.13.0 Phase 2.0: ネストした関数呼び出しでの協調マルチタスク
+// 関数呼び出しの各ステートメントでバックグラウンドタスクと交互実行される
+
+async Future<void> background_task() {
+    for (int i = 0; i < 8; i = i + 1) {
+        println("[BG] Step %d", i);
+    }
+    return;
+}
+
+int inner_function(int x) {
+    println("  [Inner] x=%d", x);
+    return x * 2;
+}
+
+int middle_function(int n) {
+    println(" [Middle] n=%d", n);
+    int result = inner_function(n);
+    println(" [Middle] Got result=%d", result);
+    return result + 1;
+}
+
+int outer_function(int value) {
+    println("[Outer] value=%d", value);
+    int temp = middle_function(value);
+    println("[Outer] Got temp=%d", temp);
+    return temp * 3;
+}
+
+void main() {
+    println("=== Nested Function Call Fairness Test ===\n");
+    
+    Future<void> f = background_task();
+    
+    println("[Main] Calling outer_function");
+    int final_result = outer_function(5);
+    println("[Main] Final result: %d\n", final_result);
+    
+    await f;
+    println("[Main] Done");
+}

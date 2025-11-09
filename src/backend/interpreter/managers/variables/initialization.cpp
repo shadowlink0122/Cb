@@ -68,21 +68,25 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
         interpreter_->type_manager_->resolve_typedef(declared_type_name) !=
             declared_type_name) {
         if (debug_mode) {
-            debug_print("TYPEDEF_DEBUG: Entering typedef resolution branch\n");
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "TYPEDEF_DEBUG: Entering typedef resolution branch");
         }
         std::string resolved_type =
             interpreter_->type_manager_->resolve_typedef(declared_type_name);
 
         if (debug_mode) {
-            debug_print("TYPEDEF_DEBUG: Declared='%s' Resolved='%s'\n",
-                        declared_type_name.c_str(), resolved_type.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "TYPEDEF_DEBUG: Declared='%s' Resolved='%s'",
+                         declared_type_name.c_str(), resolved_type.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
 
         if (debug_mode) {
-            debug_print("TYPEDEF_DEBUG: Resolving typedef '%s' -> '%s' "
-                        "(type_info=%d)\n",
-                        declared_type_name.c_str(), resolved_type.c_str(),
-                        static_cast<int>(node->type_info));
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "TYPEDEF_DEBUG: Resolving typedef '%s' -> '%s' ");
         }
 
         // union typedefの場合（早期return）
@@ -99,10 +103,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
             TypeInfo base_type =
                 interpreter_->type_manager_->string_to_type_info(base);
             if (debug_mode) {
-                debug_print("TYPEDEF_DEBUG: Array base='%s' base_type=%d "
-                            "node.info=%d\n",
-                            base.c_str(), static_cast<int>(base_type),
-                            static_cast<int>(node->type_info));
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "TYPEDEF_DEBUG: Array base='%s' base_type=%d ");
             }
             var.type = static_cast<TypeInfo>(TYPE_ARRAY_BASE + base_type);
             var.is_array = true;
@@ -114,9 +116,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
             std::string remaining = array_part;
 
             if (debug_mode) {
-                debug_print("TYPEDEF_DEBUG: Processing typedef array: %s "
-                            "(array_part: %s)\n",
-                            declared_type_name.c_str(), array_part.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "TYPEDEF_DEBUG: Processing typedef array: %s ");
             }
 
             while (!remaining.empty() && remaining[0] == '[') {
@@ -177,9 +178,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                 var.array_size = total_size;
 
                 if (debug_mode) {
-                    debug_print("TYPEDEF_DEBUG: Multidim array created: "
-                                "dimensions=%zu, total_size=%d\n",
-                                dimensions.size(), total_size);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "TYPEDEF_DEBUG: Multidim array created: ");
                 }
             }
 
@@ -212,10 +212,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                 interpreter_->find_struct_definition(resolved_type);
             if (struct_def) {
                 if (debug_mode) {
-                    debug_print("TYPEDEF_DEBUG: Resolving struct typedef "
-                                "'%s' -> '%s'\n",
-                                declared_type_name.c_str(),
-                                resolved_type.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "TYPEDEF_DEBUG: Resolving struct typedef ");
                 }
                 var.type = TYPE_STRUCT;
                 var.is_struct = true;
@@ -242,9 +240,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                     current_scope().variables[member_path] = member_var;
 
                     if (debug_mode) {
-                        debug_print("TYPEDEF_DEBUG: Added struct member: "
-                                    "%s (type: %d)\n",
-                                    member.name.c_str(), (int)member.type);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "TYPEDEF_DEBUG: Added struct member: ");
                     }
                 }
             } else {
@@ -256,10 +253,8 @@ bool VariableManager::handle_typedef_resolution(const ASTNode *node,
                 var.struct_type_name = declared_type_name;
 
                 if (debug_mode) {
-                    debug_print("TYPEDEF_DEBUG: Set primitive typedef '%s' "
-                                "with struct_type_name='%s'\n",
-                                declared_type_name.c_str(),
-                                declared_type_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "TYPEDEF_DEBUG: Set primitive typedef '%s' ");
                 }
             }
         }
@@ -296,9 +291,14 @@ void VariableManager::assign_union_value(Variable &var,
             var.current_type = TYPE_STRING;
             var.is_assigned = true;
             if (debug_mode) {
-                debug_print(
-                    "UNION_DEBUG: Assigned string '%s' to union variable\n",
-                    str_value.c_str());
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "UNION_DEBUG: Assigned string '%s' to union variable",
+                        str_value.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         } else {
             throw std::runtime_error("String value '" + str_value +
@@ -314,9 +314,14 @@ void VariableManager::assign_union_value(Variable &var,
             var.current_type = TYPE_INT;
             var.is_assigned = true;
             if (debug_mode) {
-                debug_print(
-                    "UNION_DEBUG: Assigned integer %lld to union variable\n",
-                    int_value);
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "UNION_DEBUG: Assigned integer %lld to union variable",
+                        int_value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
             }
         } else {
             throw std::runtime_error(
@@ -329,10 +334,8 @@ void VariableManager::assign_union_value(Variable &var,
         Variable *source_var = find_variable(var_name);
         if (source_var) {
             if (debug_mode) {
-                debug_print("UNION_DEBUG: Checking variable reference '%s' "
-                            "(type_name='%s', current_type=%d)\n",
-                            var_name.c_str(), source_var->type_name.c_str(),
-                            static_cast<int>(source_var->current_type));
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "UNION_DEBUG: Checking variable reference '%s' ");
             }
 
             // 1. カスタム型（typedef型）のチェック
@@ -392,13 +395,9 @@ void VariableManager::assign_union_value(Variable &var,
 
                         var.is_assigned = true;
                         if (debug_mode) {
-                            debug_print(
-                                "UNION_DEBUG: Assigned custom type '%s' to "
-                                "union "
-                                "variable (current_type=%d, str_value='%s')\n",
-                                custom_type_name.c_str(),
-                                static_cast<int>(source_var->current_type),
-                                source_var->str_value.c_str());
+                            debug_msg(
+                                DebugMsgId::GENERIC_DEBUG,
+                                "UNION_DEBUG: Assigned custom type '%s' to ");
                         }
                         return;
                     } else {
@@ -432,9 +431,8 @@ void VariableManager::assign_union_value(Variable &var,
                 var.struct_members = source_var->struct_members;
                 var.is_assigned = true;
                 if (debug_mode) {
-                    debug_print("UNION_DEBUG: Assigned struct type '%s' to "
-                                "union variable\n",
-                                source_var->struct_type_name.c_str());
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "UNION_DEBUG: Assigned struct type '%s' to ");
                 }
                 return;
             }
@@ -506,9 +504,8 @@ void VariableManager::assign_union_value(Variable &var,
                         source_var->multidim_array_values;
                     var.is_assigned = true;
                     if (debug_mode) {
-                        debug_print("UNION_DEBUG: Assigned array type '%s' to "
-                                    "union variable\n",
-                                    array_type_name.c_str());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "UNION_DEBUG: Assigned array type '%s' to ");
                     }
                     return;
                 }
@@ -528,9 +525,8 @@ void VariableManager::assign_union_value(Variable &var,
                 var.current_type = TYPE_INT;
                 var.is_assigned = true;
                 if (debug_mode) {
-                    debug_print("UNION_DEBUG: Assigned evaluated integer %lld "
-                                "to union variable\n",
-                                int_value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "UNION_DEBUG: Assigned evaluated integer %lld ");
                 }
             } else {
                 throw std::runtime_error("Value " + std::to_string(int_value) +
@@ -555,9 +551,8 @@ void VariableManager::assign_union_value(Variable &var,
                 var.current_type = TYPE_INT;
                 var.is_assigned = true;
                 if (debug_mode) {
-                    debug_print("UNION_DEBUG: Assigned evaluated integer %lld "
-                                "to union variable\n",
-                                int_value);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "UNION_DEBUG: Assigned evaluated integer %lld ");
                 }
             } else {
                 throw std::runtime_error("Value " + std::to_string(int_value) +
@@ -849,8 +844,13 @@ bool VariableManager::handle_array_type_info_declaration(const ASTNode *node,
                                                          Variable &var) {
     // 新しいArrayTypeInfoが設定されている場合の処理
     if (node->array_type_info.base_type != TYPE_UNKNOWN) {
-        debug_print("VAR_DEBUG: Taking ArrayTypeInfo branch (base_type=%d)\n",
-                    static_cast<int>(node->array_type_info.base_type));
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "VAR_DEBUG: Taking ArrayTypeInfo branch (base_type=%d)",
+                     static_cast<int>(node->array_type_info.base_type));
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
 
         // ArrayTypeInfoが設定されている場合は配列として処理
         var.is_array = true;
@@ -914,9 +914,8 @@ bool VariableManager::handle_array_type_info_declaration(const ASTNode *node,
             var.array_size = total_size; // 総サイズを設定
 
             if (debug_mode) {
-                debug_print("VAR_DEBUG: ArrayTypeInfo - dimensions=%zu, "
-                            "total_size=%d\n",
-                            var.array_dimensions.size(), total_size);
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "VAR_DEBUG: ArrayTypeInfo - dimensions=%zu, ");
             }
 
             // 配列初期化
@@ -949,8 +948,13 @@ bool VariableManager::handle_union_typedef_declaration(const ASTNode *node,
     // union typedefの場合
     if (interpreter_->type_manager_->is_union_type(node->type_name)) {
         if (debug_mode) {
-            debug_print("TYPEDEF_DEBUG: Processing union typedef: %s\n",
-                        node->type_name.c_str());
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "TYPEDEF_DEBUG: Processing union typedef: %s",
+                         node->type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         var.type = TYPE_UNION;
         var.type_name = node->type_name; // union型名を保存
@@ -982,9 +986,8 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
               interpreter_->type_manager_->resolve_typedef(node->type_name)) !=
               nullptr))) {
         if (debug_mode) {
-            debug_print("VAR_DEBUG: Taking STRUCT branch (type_info=%d, "
-                        "TYPE_STRUCT=%d)\n",
-                        (int)node->type_info, (int)TYPE_STRUCT);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "VAR_DEBUG: Taking STRUCT branch (type_info=%d, ");
         }
         debug_msg(DebugMsgId::VAR_MANAGER_STRUCT_CREATE, node->name.c_str(),
                   node->type_name.c_str());
@@ -1090,11 +1093,9 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                 interpreter_->type_manager_->resolve_typedef(base_struct_type));
         if (struct_def) {
             if (interpreter_->debug_mode) {
-                debug_print(
-                    "Initializing struct %s with %zu members (array: %s, "
-                    "size: %d)\n",
-                    base_struct_type.c_str(), struct_def->members.size(),
-                    is_struct_array ? "yes" : "no", struct_array_size);
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "Initializing struct %s with %zu members (array: %s, ");
             }
 
             if (is_struct_array) {
@@ -1184,11 +1185,9 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                                     resolved_size =
                                         static_cast<int>(const_var->value);
                                     if (interpreter_->debug_mode) {
-                                        debug_print(
-                                            "Resolved constant %s to %d "
-                                            "for struct member %s\n",
-                                            dim.size_expr.c_str(),
-                                            resolved_size, member.name.c_str());
+                                        debug_msg(
+                                            DebugMsgId::GENERIC_DEBUG,
+                                            "Resolved constant %s to %d ");
                                     }
                                 } else {
                                     throw std::runtime_error(
@@ -1254,20 +1253,16 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                                       member.name.c_str(),
                                       member_var.array_dimensions.size());
                             if (interpreter_->debug_mode) {
-                                debug_print(
-                                    "Set multidimensional flag for struct "
-                                    "member: %s (dimensions: %zu)\n",
-                                    member.name.c_str(),
-                                    member_var.array_dimensions.size());
+                                debug_msg(
+                                    DebugMsgId::GENERIC_DEBUG,
+                                    "Set multidimensional flag for struct ");
                             }
                         }
 
                         if (interpreter_->debug_mode) {
-                            debug_print(
-                                "Creating array member: %s with total size "
-                                "%d (dims: %zu)\n",
-                                member.name.c_str(), total_size,
-                                member.array_info.dimensions.size());
+                            debug_msg(
+                                DebugMsgId::GENERIC_DEBUG,
+                                "Creating array member: %s with total size ");
                         }
 
                         // 配列の各要素を個別の変数として作成（多次元対応）
@@ -1295,12 +1290,8 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                             }
 
                             if (interpreter_->debug_mode) {
-                                debug_print("Processing array element %d: "
-                                            "element_type=%d, TYPE_STRUCT=%d, "
-                                            "type_alias='%s'\n",
-                                            i, (int)element_type_info,
-                                            (int)TYPE_STRUCT,
-                                            element_type_alias.c_str());
+                                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                          "Processing array element %d: ");
                             }
 
                             // 構造体型の配列要素の場合
@@ -1313,10 +1304,8 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                                     element_type_alias;
 
                                 if (interpreter_->debug_mode) {
-                                    debug_print("Creating struct array "
-                                                "element: %s of type %s\n",
-                                                element_name.c_str(),
-                                                element_type_alias.c_str());
+                                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                              "Creating struct array ");
                                 }
 
                                 // 構造体定義を取得してメンバーを初期化
@@ -1370,20 +1359,9 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                                                         element_member.type) -
                                                     TYPE_ARRAY_BASE);
                                             if (interpreter_->debug_mode) {
-                                                debug_print(
-                                                    "Array element member: "
-                                                    "name=%s, type=%d, "
-                                                    "elem_type=%d, "
-                                                    "TYPE_STRUCT=%d, "
-                                                    "type_alias='%s'\n",
-                                                    element_member.name.c_str(),
-                                                    static_cast<int>(
-                                                        element_member.type),
-                                                    static_cast<int>(elem_type),
-                                                    static_cast<int>(
-                                                        TYPE_STRUCT),
-                                                    element_member.type_alias
-                                                        .c_str());
+                                                debug_msg(
+                                                    DebugMsgId::GENERIC_DEBUG,
+                                                    "Array element member: ");
                                             }
                                             if (elem_type == TYPE_STRUCT &&
                                                 !element_member.type_alias
@@ -1405,14 +1383,10 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                                                     elem_type_name;
 
                                                 if (interpreter_->debug_mode) {
-                                                    debug_print(
-                                                        "Set struct array "
-                                                        "member: name=%s, "
-                                                        "is_struct=true, "
-                                                        "struct_type='%s'\n",
-                                                        element_member.name
-                                                            .c_str(),
-                                                        elem_type_name.c_str());
+                                                    debug_msg(
+                                                        DebugMsgId::
+                                                            GENERIC_DEBUG,
+                                                        "Set struct array ");
                                                 }
                                             }
                                         }
@@ -1431,10 +1405,9 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                                     }
 
                                     if (interpreter_->debug_mode) {
-                                        debug_print(
-                                            "Initialized struct array element "
-                                            "with %zu members\n",
-                                            element_var.struct_members.size());
+                                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                                  "Initialized struct array "
+                                                  "element ");
                                     }
                                 }
                             } else {
@@ -1454,12 +1427,9 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                             var.struct_members[element_key] = element_var;
 
                             if (interpreter_->debug_mode) {
-                                debug_print(
-                                    "Created struct member array element: %s "
-                                    "(key: %s), is_struct=%s, members=%zu\n",
-                                    element_name.c_str(), element_key.c_str(),
-                                    element_var.is_struct ? "true" : "false",
-                                    element_var.struct_members.size());
+                                debug_msg(
+                                    DebugMsgId::GENERIC_DEBUG,
+                                    "Created struct member array element: %s ");
                             }
                         }
 
@@ -1486,14 +1456,8 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                         TypeInfo element_type = static_cast<TypeInfo>(
                             static_cast<int>(member.type) - TYPE_ARRAY_BASE);
                         if (interpreter_->debug_mode) {
-                            debug_print("Check array member: name=%s, type=%d, "
-                                        "element_type=%d, TYPE_STRUCT=%d, "
-                                        "type_alias='%s'\n",
-                                        member.name.c_str(),
-                                        static_cast<int>(member.type),
-                                        static_cast<int>(element_type),
-                                        static_cast<int>(TYPE_STRUCT),
-                                        member.type_alias.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "Check array member: name=%s, type=%d, ");
                         }
                         if (element_type == TYPE_STRUCT &&
                             !member.type_alias.empty()) {
@@ -1510,17 +1474,8 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                         var.struct_members[member.name] = member_var;
 
                         if (interpreter_->debug_mode) {
-                            debug_print("Added to struct_members[%s]: "
-                                        "is_multidimensional=%s, "
-                                        "array_dimensions.size()=%zu, "
-                                        "is_struct=%s, struct_type='%s'\n",
-                                        member.name.c_str(),
-                                        member_var.is_multidimensional
-                                            ? "true"
-                                            : "false",
-                                        member_var.array_dimensions.size(),
-                                        member_var.is_struct ? "true" : "false",
-                                        member_var.struct_type_name.c_str());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "Added to struct_members[%s]: ");
                         }
                     } else {
                         // 通常のメンバーの場合
@@ -1554,10 +1509,9 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                     if (member.type == TYPE_STRUCT &&
                         !member.type_alias.empty()) {
                         if (interpreter_->debug_mode) {
-                            debug_print(
-                                "Recursively creating nested struct members "
-                                "for: %s (type: %s)\n",
-                                member_path.c_str(), member.type_alias.c_str());
+                            debug_msg(
+                                DebugMsgId::GENERIC_DEBUG,
+                                "Recursively creating nested struct members ");
                         }
                         // struct_membersに既に追加されたメンバーを参照
                         auto &struct_member_ref =
@@ -1569,10 +1523,16 @@ void VariableManager::handle_struct_member_initialization(const ASTNode *node,
                     }
 
                     if (interpreter_->debug_mode) {
-                        debug_print(
-                            "Added member: %s (type: %d, is_array: %s)\n",
-                            member.name.c_str(), (int)member.type,
-                            member.array_info.is_array() ? "true" : "false");
+                        {
+                            char dbg_buf[512];
+                            snprintf(
+                                dbg_buf, sizeof(dbg_buf),
+                                "Added member: %s (type: %d, is_array: %s)",
+                                member.name.c_str(), (int)member.type,
+                                member.array_info.is_array() ? "true"
+                                                             : "false");
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
                     }
                 }
             }
@@ -1682,9 +1642,8 @@ bool VariableManager::handle_array_literal_initialization(const ASTNode *node,
         // まず変数を登録
         current_scope().variables[node->name] = var;
         if (interpreter_->debug_mode) {
-            debug_print("VAR_DEBUG: stored array var %s with "
-                        "is_unsigned=%d before literal assignment\n",
-                        node->name.c_str(), var.is_unsigned ? 1 : 0);
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "VAR_DEBUG: stored array var %s with ");
         }
 
         // 配列リテラル代入を実行

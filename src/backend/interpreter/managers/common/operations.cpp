@@ -73,10 +73,15 @@ void CommonOperations::assign_array_literal_to_variable(
     }
 
     if (interpreter_->is_debug_mode()) {
-        debug_print(
-            "ARRAY_CLAMP_DEBUG: assigning literal to %s, is_unsigned=%d\n",
-            var_name_hint.empty() ? "<anonymous>" : var_name_hint.c_str(),
-            var->is_unsigned ? 1 : 0);
+        {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "ARRAY_CLAMP_DEBUG: assigning literal to %s, is_unsigned=%d",
+                var_name_hint.empty() ? "<anonymous>" : var_name_hint.c_str(),
+                var->is_unsigned ? 1 : 0);
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     if (!var->is_array) {

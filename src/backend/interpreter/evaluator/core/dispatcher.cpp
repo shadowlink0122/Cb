@@ -143,6 +143,16 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
     case ASTNodeType::AST_UNARY_OP: {
         debug_msg(DebugMsgId::UNARY_OP_DEBUG, node->op.c_str());
 
+        // v0.12.0: await式の処理
+        if (node->op == "await" || node->is_await_expression) {
+            std::function<TypedValue(const ASTNode *)> eval_typed_func =
+                [this](const ASTNode *n) -> TypedValue {
+                return expression_evaluator_.evaluate_typed_expression(n);
+            };
+            return BinaryAndUnaryOperators::evaluate_await(node, interpreter_,
+                                                           eval_typed_func);
+        }
+
         if (node->op == "++_post" || node->op == "--_post") {
             return ExpressionHelpers::evaluate_postfix_incdec(node,
                                                               interpreter_);

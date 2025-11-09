@@ -1,0 +1,128 @@
+// 前方宣言を使った実用例: グラフとツリーの相互参照
+
+// 前方宣言
+struct TreeNode;
+struct GraphNode;
+
+// グラフノード: IDと木への参照を持つ
+struct GraphNode {
+    int id;
+    TreeNode* tree_ref;  // 対応する木ノードへの参照
+};
+
+// 木ノード: 値と左右の子、グラフへの参照を持つ
+struct TreeNode {
+    int value;
+    TreeNode* left;
+    TreeNode* right;
+    GraphNode* graph_ref;  // 対応するグラフノードへの参照
+};
+
+// 木の走査（中順）
+void inorder_traversal(TreeNode* node) {
+    if (node == nullptr) {
+        return;
+    }
+    
+    // 左部分木を走査
+    inorder_traversal((*node).left);
+    
+    // ノードの値を表示
+    print("%d ", (*node).value);
+    
+    // 右部分木を走査
+    inorder_traversal((*node).right);
+}
+
+// グラフノードの情報を表示
+void print_graph_node(GraphNode& gnode) {
+    println("GraphNode[id={gnode.id}]:");
+    
+    if (gnode.tree_ref != nullptr) {
+        TreeNode* tnode = gnode.tree_ref;
+        int tree_val = (*tnode).value;
+        println("  -> TreeNode[value={tree_val}]");
+        
+        if ((*tnode).graph_ref != nullptr) {
+            GraphNode* back_ref = (*tnode).graph_ref;
+            int back_id = (*back_ref).id;
+            println("  -> (back to GraphNode[id={back_id}])");
+        }
+    }
+}
+
+void main() {
+    println("=== Forward Declaration Example: Graph & Tree ===\n");
+    
+    // グラフノードを作成
+    GraphNode g1;
+    GraphNode g2;
+    GraphNode g3;
+    
+    g1.id = 100;
+    g2.id = 200;
+    g3.id = 300;
+    
+    // 木ノードを作成
+    TreeNode t1;  // ルート
+    TreeNode t2;  // 左の子
+    TreeNode t3;  // 右の子
+    
+    t1.value = 50;
+    t2.value = 30;
+    t3.value = 70;
+    
+    // 木の構造を設定
+    t1.left = &t2;
+    t1.right = &t3;
+    t2.left = nullptr;
+    t2.right = nullptr;
+    t3.left = nullptr;
+    t3.right = nullptr;
+    
+    // グラフと木の相互参照を設定
+    g1.tree_ref = &t1;
+    g2.tree_ref = &t2;
+    g3.tree_ref = &t3;
+    
+    t1.graph_ref = &g1;
+    t2.graph_ref = &g2;
+    t3.graph_ref = &g3;
+    
+    // 木の構造を表示
+    println("=== Tree Structure (Inorder Traversal) ===");
+    print("Values: ");
+    inorder_traversal(&t1);
+    println("\n");
+    
+    // グラフノードの情報を表示
+    println("=== Graph Nodes ===");
+    print_graph_node(g1);
+    println("");
+    print_graph_node(g2);
+    println("");
+    print_graph_node(g3);
+    
+    // 相互参照のテスト
+    println("\n=== Cross-Reference Test ===");
+    println("Starting from GraphNode g1 (id={g1.id}):");
+    
+    if (g1.tree_ref != nullptr) {
+        TreeNode* t = g1.tree_ref;
+        int tval = (*t).value;
+        println("  -> TreeNode (value={tval})");
+        
+        if ((*t).graph_ref != nullptr) {
+            GraphNode* g = (*t).graph_ref;
+            int gid = (*g).id;
+            println("  -> GraphNode (id={gid})");
+            
+            if (gid == g1.id) {
+                println("  -> Successfully returned to g1!");
+            }
+        }
+    }
+    
+    println("\n=== Test Completed Successfully ===");
+    println("Forward declarations enable complex mutual references!");
+}

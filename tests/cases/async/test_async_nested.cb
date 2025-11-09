@@ -1,0 +1,150 @@
+// Test: Deeply nested async function calls
+// 複数レイヤーのasync関数を呼び出し、ラウンドロビンが正しく動作するか検証
+
+async void background_logger(string id) {
+    for (int i = 0; i < 12; i = i + 1) {
+        println("[Logger-{id}] Activity {i}");
+    }
+}
+
+// Test 1: 3層ネストのasync関数
+async int level3_compute(int x) {
+    println("   [Level3] Computing with x={x}");
+    Future<int> sleep_future = sleep(1000);
+    await sleep_future;
+    println("   [Level3] Done, returning {x}");
+    return x;
+}
+
+async int level2_process(int n) {
+    println("  [Level2] Processing n={n}");
+    
+    Future<int> f1 = level3_compute(n * 2);
+    Future<int> f2 = level3_compute(n * 3);
+    
+    int r1 = await f1;
+    println("  [Level2] Got first result: {r1}");
+    
+    int r2 = await f2;
+    println("  [Level2] Got second result: {r2}");
+    
+    int result = r1 + r2;
+    println("  [Level2] Returning {result}");
+    return result;
+}
+
+async int level1_start(int value) {
+    println(" [Level1] Starting with value={value}");
+    
+    int mid = await level2_process(value);
+    println(" [Level1] Got middle result: {mid}");
+    
+    int final_val = mid + value;
+    println(" [Level1] Returning {final_val}");
+    return final_val;
+}
+
+// Test 2: 複数のasync関数を並行実行（sleep無し版）
+async int compute_task(string name, int input) {
+    println("[Task-{name}] Start: input={input}");
+    int result = input * 2;
+    println("[Task-{name}] Done: result={result}");
+    return result;
+}
+
+async int orchestrator(int base) {
+    println("[Orchestrator] Starting with base={base}");
+    
+    // 3つのタスクを並行起動
+    Future<int> t1 = compute_task("A", base + 1);
+    Future<int> t2 = compute_task("B", base + 2);
+    Future<int> t3 = compute_task("C", base + 3);
+    
+    // 順番に結果を取得
+    int r1 = await t1;
+    println("[Orchestrator] Got t1: {r1}");
+    
+    int r2 = await t2;
+    println("[Orchestrator] Got t2: {r2}");
+    
+    int r3 = await t3;
+    println("[Orchestrator] Got t3: {r3}");
+    
+    int total = r1 + r2 + r3;
+    println("[Orchestrator] Total: {total}");
+    return total;
+}
+
+// Test 3: async関数チェーン
+async int step1(int x) {
+    println("[Step1] x={x}");
+    return x + 10;
+}
+
+async int step2(int x) {
+    println("[Step2] x={x}");
+    int r = await step1(x);
+    return r + 20;
+}
+
+async int step3(int x) {
+    println("[Step3] x={x}");
+    int r = await step2(x);
+    return r + 30;
+}
+
+async int step4(int x) {
+    println("[Step4] x={x}");
+    int r = await step3(x);
+    return r + 40;
+}
+
+void main() {
+    println("=== Deeply Nested Async Function Tests ===\n");
+    
+    // Test 1: 3層ネスト
+    println("[Test 1] Three-level nested async calls");
+    background_logger("Test1");
+    
+    int result1 = await level1_start(5);
+    println("Result: {result1}");
+    
+    // Expected: level1_start(5) -> level2_process(5) 
+    // -> level3_compute(10) + level3_compute(15) = 10 + 15 = 25
+    // -> 25 + 5 = 30
+    if (result1 == 30) {
+        println("✅ Test 1 passed: result = 30\n");
+    } else {
+        println("❌ Test 1 failed: expected 30, got {result1}\n");
+    }
+    
+    // Test 2: オーケストレーター
+    println("[Test 2] Orchestrator with parallel tasks");
+    background_logger("Test2");
+    
+    int result2 = await orchestrator(10);
+    println("Result: {result2}");
+    
+    // Expected: (11*2) + (12*2) + (13*2) = 22 + 24 + 26 = 72
+    if (result2 == 72) {
+        println("✅ Test 2 passed: result = 72\n");
+    } else {
+        println("❌ Test 2 failed: expected 72, got {result2}\n");
+    }
+    
+    // Test 3: async関数チェーン
+    println("[Test 3] Async function chain (4 levels)");
+    background_logger("Test3");
+    
+    int result3 = await step4(5);
+    println("Result: {result3}");
+    
+    // Expected: 5 -> (+10) -> 15 (+20) -> 35 (+30) -> 65 (+40) -> 105
+    if (result3 == 105) {
+        println("✅ Test 3 passed: result = 105\n");
+    } else {
+        println("❌ Test 3 failed: expected 105, got {result3}\n");
+    }
+    
+    println("=== All Deeply Nested Async Tests Completed ===");
+}

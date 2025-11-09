@@ -1,0 +1,115 @@
+// string_demo.cb - 文字列の基本操作
+// 文字列とchar配列の基本的な使い方
+
+int main() {
+    println("====================================");
+    println("  文字列操作の基本");
+    println("====================================");
+    println("");
+    
+    // 1. 基本的な文字列
+    println("=== 1. 文字列の基本 ===");
+    string greeting = "Hello, Cb!";
+    string name = "World";
+    
+    print("挨拶: ");
+    println(greeting);
+    print("名前: ");
+    println(name);
+    println("");
+    
+    // 2. 文字列の連結（手動）
+    println("=== 2. 文字列の連結 ===");
+    string part1 = "Hello";
+    string part2 = " ";
+    string part3 = "World";
+    
+    print("部品: ");
+    print(part1);
+    print(part2);
+    println(part3);
+    println("");
+    
+    // 3. 文字配列の操作
+    println("=== 3. 文字配列 ===");
+    char[10] arr;
+    arr[0] = 'H';
+    arr[1] = 'e';
+    arr[2] = 'l';
+    arr[3] = 'l';
+    arr[4] = 'o';
+    arr[5] = '\0';  // nullターミネータ
+    
+    print("配列: ");
+    println(arr);
+    println("");
+    
+    // 4. 文字配列のループ
+    println("=== 4. 文字のループ処理 ===");
+    string text = "ABCDE";
+    println("元の文字列: {text}");
+    println("各文字:");
+    
+    for (int i = 0; i < 5; i = i + 1) {
+        print("  [{i}] = '{text[i]}' ({text[i]})");
+        println("");
+    }
+    println("");
+    
+    // 5. 簡単な文字列処理
+    println("=== 5. 文字の検索 ===");
+    string search = "Hello World";
+    char target = 'W';
+    int found = -1;
+    
+    println("検索対象: {search}");
+    println("探す文字: {target}");
+    
+    for (int i = 0; i < 11; i = i + 1) {
+        if (search[i] == target) {
+            found = i;
+        }
+    }
+    
+    if (found != -1) {
+        println("見つかった位置: {found}");
+    }
+    println("");
+    
+    // 6. 定数文字列の使用
+    println("=== 6. 複数の文字列 ===");
+    println("プログラミング言語:");
+    println("  1. C");
+    println("  2. C++");
+    println("  3. Python");
+    println("  4. Cb");
+    println("");
+    
+    // 7. 文字の操作
+    println("=== 7. 文字の変更 ===");
+    char[20] message;
+    message[0] = 'T';
+    message[1] = 'e';
+    message[2] = 's';
+    message[3] = 't';
+    message[4] = '\0';
+    
+    print("初期メッセージ: ");
+    println(message);
+    
+    // 最初の文字を変更
+    message[0] = 'B';
+    print("変更後: ");
+    println(message);
+    println("");
+    
+    println("====================================");
+    println("デモ完了！");
+    println("");
+    println("【ポイント】");
+    println("• string型は読み取り専用の文字列");
+    println("• char配列は変更可能な文字列");
+    println("• [index]で個別の文字にアクセス");
+    println("• '\\0'でnullターミネータを表現");
+    println("====================================");
+}

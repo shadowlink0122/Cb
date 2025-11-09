@@ -1,0 +1,16 @@
+// Phase 1 構文確認テスト - 即座実行モード
+// Future<T>は組み込み型なので定義不要
+
+// Phase 1: async int - 即座に実行してFutureでラップして返す
+async int simple_async() {
+    println("Inside simple_async");
+    return 42;
+}
+
+void main() {
+    println("Start main");
+    Future<int> f = simple_async();
+    println("After async call");
+    int result = await f;
+    println("Result: {result}");
+}
