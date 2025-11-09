@@ -1,0 +1,179 @@
+// Test: Complex async patterns
+// 再帰とネストを組み合わせた複雑なasyncパターンのテスト
+
+async void activity_monitor(int count) {
+    for (int i = 0; i < count; i = i + 1) {
+        println("[ActivityMonitor] Step {i}");
+    }
+}
+
+// Test 1: async再帰関数が別のasync関数を呼び出す
+async int async_helper(int x) {
+    println("    [Helper] Processing {x}");
+    await sleep(5);
+    return x * 2;
+}
+
+async int recursive_with_async(int n) {
+    println("  [RecursiveAsync] Level {n}");
+    
+    if (n <= 0) {
+        println("  [RecursiveAsync] Base case");
+        return 0;
+    }
+    
+    // async関数を呼び出す
+    int processed = await async_helper(n);
+    println("  [RecursiveAsync] Processed: {processed}");
+    
+    // 再帰呼び出し
+    int sub = await recursive_with_async(n - 1);
+    
+    int result = processed + sub;
+    println("  [RecursiveAsync] Level {n} returning {result}");
+    return result;
+}
+
+// Test 2: 相互再帰（mutual recursion）のasync版
+async int async_even(int n);
+async int async_odd(int n);
+
+async int async_even(int n) {
+    println("  [Even] n={n}");
+    if (n == 0) {
+        println("  [Even] Base: true");
+        return 1;
+    }
+    int result = await async_odd(n - 1);
+    println("  [Even] Returning {result}");
+    return result;
+}
+
+async int async_odd(int n) {
+    println("  [Odd] n={n}");
+    if (n == 0) {
+        println("  [Odd] Base: false");
+        return 0;
+    }
+    int result = await async_even(n - 1);
+    println("  [Odd] Returning {result}");
+    return result;
+}
+
+// Test 3: ネストした再帰呼び出し（木構造の探索）
+async int tree_sum(int depth, int branch) {
+    println("  [Tree] depth={depth}, branch={branch}");
+    
+    if (depth <= 0) {
+        println("  [Tree] Leaf: returning {branch}");
+        return branch;
+    }
+    
+    // 2つの子ノードを再帰的に探索
+    Future<int> left = tree_sum(depth - 1, branch * 2);
+    Future<int> right = tree_sum(depth - 1, branch * 2 + 1);
+    
+    int l = await left;
+    int r = await right;
+    int sum = l + r;
+    
+    println("  [Tree] depth={depth}: {l} + {r} = {sum}");
+    return sum;
+}
+
+// Test 4: 複数の非同期操作を組み合わせた複雑なフロー
+async int complex_workflow(int input) {
+    println(" [Workflow] Starting with {input}");
+    
+    // Phase 1: 並行処理
+    Future<int> p1 = async_helper(input);
+    Future<int> p2 = async_helper(input + 1);
+    
+    int r1 = await p1;
+    int r2 = await p2;
+    
+    println(" [Workflow] Phase1: {r1}, {r2}");
+    
+    // Phase 2: 再帰処理
+    int phase2 = await recursive_with_async(2);
+    
+    println(" [Workflow] Phase2: {phase2}");
+    
+    // Phase 3: 相互再帰
+    int phase3 = await async_even(3);
+    
+    println(" [Workflow] Phase3: {phase3}");
+    
+    int total = r1 + r2 + phase2 + phase3;
+    println(" [Workflow] Total: {total}");
+    return total;
+}
+
+void main() {
+    println("=== Complex Async Pattern Tests ===\n");
+    
+    // Test 1: 再帰+async呼び出し
+    println("[Test 1] Recursive async calling another async");
+    activity_monitor(8);
+    
+    int result1 = await recursive_with_async(3);
+    println("Result: {result1}");
+    // Expected: helper(3)=6 + [helper(2)=4 + [helper(1)=2 + 0]]
+    //         = 6 + [4 + 2] = 12
+    if (result1 == 12) {
+        println("✅ Test 1 passed\n");
+    } else {
+        println("❌ Test 1 failed: expected 12, got {result1}\n");
+    }
+    
+    // Test 2: 相互再帰
+    println("[Test 2] Mutual recursion (async_even/async_odd)");
+    activity_monitor(10);
+    
+    int even4 = await async_even(4);
+    println("Result even(4): {even4}");
+    
+    int odd5 = await async_odd(5);
+    println("Result odd(5): {odd5}");
+    
+    if (even4 == 1 && odd5 == 0) {
+        println("✅ Test 2 passed\n");
+    } else {
+        println("❌ Test 2 failed\n");
+    }
+    
+    // Test 3: 木構造の再帰探索
+    println("[Test 3] Tree structure recursive exploration");
+    activity_monitor(12);
+    
+    int tree_result = await tree_sum(2, 1);
+    println("Result: {tree_result}");
+    // depth=2, branch=1
+    // -> left(1,2): left(0,4)=4 + right(0,5)=5 = 9
+    // -> right(1,3): left(0,6)=6 + right(0,7)=7 = 13
+    // -> 9 + 13 = 22
+    if (tree_result == 22) {
+        println("✅ Test 3 passed\n");
+    } else {
+        println("❌ Test 3 failed: expected 22, got {tree_result}\n");
+    }
+    
+    // Test 4: 複雑なワークフロー
+    println("[Test 4] Complex workflow combining multiple patterns");
+    activity_monitor(15);
+    
+    int workflow_result = await complex_workflow(5);
+    println("Result: {workflow_result}");
+    // Phase1: helper(5)=10, helper(6)=12
+    // Phase2: recursive_with_async(2) = 12 (from test 1: helper(2)=4 + helper(1)=2)
+    //         Actually: helper(2)=4 + [helper(1)=2 + 0] = 6
+    // Phase3: async_even(3) = 0
+    // Total: 10 + 12 + 6 + 0 = 28
+    if (workflow_result == 28) {
+        println("✅ Test 4 passed\n");
+    } else {
+        println("❌ Test 4 failed: expected 28, got {workflow_result}\n");
+    }
+    
+    println("=== All Complex Async Pattern Tests Completed ===");
+}

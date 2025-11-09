@@ -1,0 +1,6 @@
+void main() {
+    println("Before await");
+    await sleep(100);
+    println("After await");
+    println("Done");
+}

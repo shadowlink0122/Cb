@@ -3568,8 +3568,9 @@ void Interpreter::call_destructor(const std::string &var_name,
             if (it == struct_destructors_.end() || !it->second) {
                 // デストラクタが定義されていない場合は何もしない
                 if (debug_mode) {
-                    debug_msg(DebugMsgId::GENERIC_DEBUG,
-                              "No destructor defined for struct: %s ");
+                    debug_msg(
+                        DebugMsgId::GENERIC_DEBUG,
+                        "[DESTRUCTOR] No destructor defined for struct: %s ");
                 }
                 return;
             }

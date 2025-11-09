@@ -58,7 +58,8 @@ class StatementParser {
     ASTNode *parseDeclarationStatement(bool isStatic, bool isConst,
                                        bool isExported = false);
     ASTNode *parseTypedefTypeStatement(const std::string &type_name,
-                                       bool isStatic, bool isConst);
+                                       bool isStatic, bool isConst,
+                                       bool isAsync = false);
     ASTNode *parseBasicTypeStatement(bool isStatic, bool isConst,
                                      bool isUnsigned, bool isAsync = false);
     ASTNode *parseControlFlowStatement();

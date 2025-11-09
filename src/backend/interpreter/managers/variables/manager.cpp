@@ -1396,7 +1396,7 @@ void VariableManager::assign_variable(const std::string &name,
             if (interpreter_->is_debug_mode()) {
                 debug_msg(
                     DebugMsgId::GENERIC_DEBUG,
-                    "ASSIGN_DEBUG: name=%s target_type=%d resolved_type=%d ");
+                    "[ASSIGN_DEBUG] name=%s target_type=%d resolved_type=%d ");
             }
             TypeInfo range_check_type = resolved_type;
             if (target.type != TYPE_UNKNOWN && target.type != TYPE_UNION &&

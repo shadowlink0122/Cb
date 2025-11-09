@@ -443,17 +443,11 @@ enum class DebugMsgId {
     AWAIT_EXPRESSION_START,   // await式評価開始
     AWAIT_FUTURE_READY_CHECK, // Futureのis_readyチェック
     AWAIT_VALUE_EXTRACTED,    // Futureから値を抽出
+    AWAIT_FUTURE_RECEIVED,    // awaitがFutureを受け取った
+    AWAIT_RUN_UNTIL_COMPLETE, // run_until_complete呼び出し
 
     // v0.13.0: async/await Phase 2 - Event Loop & yield
-    ASYNC_TASK_REGISTER,          // タスクをイベントループに登録
-    ASYNC_TASK_REGISTER_DEFERRED, // タスクを遅延実行として登録
-    ASYNC_YIELD_CONTROL,          // yieldで制御を渡す
-    EVENT_LOOP_START,             // イベントループ開始
-    EVENT_LOOP_EXECUTE,       // タスク実行（task_id, statement_index）
-    EVENT_LOOP_TASK_YIELD,    // タスクがyield
-    EVENT_LOOP_TASK_COMPLETE, // タスク完了
-    EVENT_LOOP_COMPLETE,      // イベントループ終了
-    EVENT_LOOP_EMPTY_QUEUE,   // キューが空
+    ASYNC_YIELD_CONTROL, // yieldで制御を渡す
 
     // 低レベルデバッグメッセージ (GENERIC_DEBUG置き換え用)
     // Method call / Self関連
@@ -543,6 +537,30 @@ enum class DebugMsgId {
     REGISTER_UNION_DEBUG, // REGISTER_UNION_DEBUG:
     VAR_DEBUG,            // VAR_DEBUG:
     GET_TYPE_SIZE_DEBUG,  // [get_type_size]
+
+    // v0.12.0: Async/Await 関連のデバッグメッセージ
+    ASYNC_TASK_REGISTER,           // async タスク登録
+    ASYNC_TASK_ID_SET,             // Future.task_id 設定
+    ASYNC_TASK_RETURN_FUTURE,      // async から Future を返す
+    ASYNC_INTERNAL_FUTURE_MEMBERS, // internal_future メンバー数
+    AWAIT_TASK_WAITING,            // await で親タスク待機中
+    AWAIT_VALUE_EXTRACT,           // await で値を抽出
+    AWAIT_INTERNAL_FUTURE,         // internal_future から値取得
+    AWAIT_TASK_COMPLETED,          // await で既に完了済みのタスク
+    EVENT_LOOP_REGISTER_TASK,      // イベントループにタスク登録
+    EVENT_LOOP_STORE_TASK,         // イベントループにタスク保存
+    EVENT_LOOP_RUN_ONE_CYCLE,  // イベントループの1サイクル実行
+    EVENT_LOOP_SKIP_EXECUTING, // 実行中タスクをスキップ
+    EVENT_LOOP_TASK_RESUME,    // イベントループでタスク再開
+    EVENT_LOOP_TASK_SKIP,      // イベントループでタスクスキップ
+    EVENT_LOOP_TASK_COMPLETED, // タスクが完了してis_ready設定
+    EVENT_LOOP_SET_VALUE,      // タスクの戻り値を設定
+    EVENT_LOOP_GET_TASK,       // get_task でタスク取得
+    EVENT_LOOP_RUN_UNTIL_COMPLETE, // run_until_complete 実行
+    SLEEP_TASK_REGISTER,           // sleep タスク登録
+    SLEEP_RETURN_FUTURE,           // sleep から Future を返す
+    SLEEP_TASK_SLEEPING,           // タスクがまだsleep中
+    SLEEP_TASK_WOKE_UP,            // タスクがsleepから起床
 
     // 汎用デバッグ（最後の手段として残す）
     GENERIC_DEBUG, // 汎用デバッグライン出力

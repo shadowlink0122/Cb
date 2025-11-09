@@ -91,7 +91,7 @@ void ControlFlowExecutor::execute_for_statement(const ASTNode *node) {
     // v0.10.0: forループにもdeferスコープを作成
     // forループ内でdeferが使えるようにする
     debug_msg(DebugMsgId::GENERIC_DEBUG,
-              "FOR LOOP: About to call push_defer_scope()");
+              "[FOR_LOOP] About to call push_defer_scope()");
     interpreter_->push_defer_scope();
 
     // v0.13.0 Phase 2.0 FIX: init式で宣言された変数名を記憶
@@ -194,10 +194,10 @@ void ControlFlowExecutor::execute_for_statement(const ASTNode *node) {
 
     // forループのdeferスコープを終了（deferを実行）
     debug_msg(DebugMsgId::GENERIC_DEBUG,
-              "FOR LOOP: About to call pop_defer_scope()");
+              "[FOR_LOOP] About to call pop_defer_scope()");
     interpreter_->pop_defer_scope();
     debug_msg(DebugMsgId::GENERIC_DEBUG,
-              "FOR LOOP: Finished pop_defer_scope()");
+              "[FOR_LOOP] Finished pop_defer_scope()");
 }
 
 // SWITCH文の実行

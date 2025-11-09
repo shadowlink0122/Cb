@@ -5,7 +5,7 @@ import stdlib.std.future;
 // ========================================
 // パターン1: カウントダウン - 最もシンプルな例
 // ========================================
-Future<int> countdown_task(string name, int seconds) {
+async int countdown_task(string name, int seconds) {
     println("[START] {name} - {seconds}秒カウント開始");
     
     int count = seconds;
@@ -16,11 +16,7 @@ Future<int> countdown_task(string name, int seconds) {
     }
     
     println("[COMPLETE] {name} - 発射!");
-    
-    Future<int> result;
-    result.value = seconds;
-    result.is_ready = true;
-    return result;
+    return seconds;
 }
 
 void demo_countdown() {
@@ -52,7 +48,7 @@ void demo_countdown() {
 // ========================================
 // パターン2: 進行状況表示
 // ========================================
-Future<int> progress_task(string name, int steps) {
+async int progress_task(string name, int steps) {
     println("[START] {name} - {steps}ステップ処理開始");
     
     int current = 1;
@@ -64,11 +60,7 @@ Future<int> progress_task(string name, int steps) {
     }
     
     println("[COMPLETE] {name} - 全ステップ完了");
-    
-    Future<int> result;
-    result.value = steps * 10;
-    result.is_ready = true;
-    return result;
+    return steps * 10;
 }
 
 void demo_progress() {
@@ -100,7 +92,7 @@ void demo_progress() {
 // ========================================
 // パターン3: ビジーインジケーター
 // ========================================
-Future<string> busy_task(string operation, int duration_ms) {
+async string busy_task(string operation, int duration_ms) {
     println("[START] {operation} を実行中...");
     
     int steps = duration_ms / 200;
@@ -117,11 +109,7 @@ Future<string> busy_task(string operation, int duration_ms) {
     }
     
     println("[COMPLETE] {operation} - 完了!");
-    
-    Future<string> result;
-    result.value = operation;
-    result.is_ready = true;
-    return result;
+    return operation;
 }
 
 void demo_busy() {
@@ -147,7 +135,7 @@ void demo_busy() {
 // ========================================
 // パターン4: リアルタイム監視
 // ========================================
-Future<int> monitor_service(string service_name, int checks) {
+async int monitor_service(string service_name, int checks) {
     println("[MONITOR] {service_name} の監視開始");
     
     int check_num = 1;
@@ -167,11 +155,7 @@ Future<int> monitor_service(string service_name, int checks) {
     }
     
     println("[MONITOR] {service_name} の監視完了 ({checks}回チェック)");
-    
-    Future<int> result;
-    result.value = ok_count;
-    result.is_ready = true;
-    return result;
+    return ok_count;
 }
 
 void demo_monitor() {
@@ -199,7 +183,7 @@ void demo_monitor() {
 // ========================================
 // パターン5: データ処理バッチ
 // ========================================
-Future<int> process_batch(string data_type, int items) {
+async int process_batch(string data_type, int items) {
     println("[BATCH] {data_type} の処理開始 ({items}件)");
     
     int processed = 0;
@@ -216,11 +200,7 @@ Future<int> process_batch(string data_type, int items) {
     }
     
     println("[BATCH] {data_type} の処理完了");
-    
-    Future<int> result;
-    result.value = processed;
-    result.is_ready = true;
-    return result;
+    return processed;
 }
 
 void demo_batch() {

@@ -956,9 +956,109 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             return; // struct member access代入処理完了後は早期リターン
 
         } else if (var.is_struct &&
-                   node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL) {
+                   (node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL ||
+                    (node->init_expr->node_type == ASTNodeType::AST_UNARY_OP &&
+                     node->init_expr->is_await_expression))) {
             // 構造体変数の関数呼び出し初期化: Calculator add_result =
             // math.add(10, 5);
+            // または await式初期化: Point result = await compute_point();
+
+            // await式の場合は直接evaluate_typedを使用
+            if (node->init_expr->node_type == ASTNodeType::AST_UNARY_OP &&
+                node->init_expr->is_await_expression) {
+                if (interpreter_->debug_mode) {
+                    debug_msg(DebugMsgId::GENERIC_DEBUG,
+                              "[VAR_DECL_AWAIT] Evaluating await expression ");
+                }
+
+                TypedValue await_result =
+                    interpreter_->evaluate_typed(node->init_expr.get());
+
+                if (interpreter_->debug_mode) {
+                    {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[VAR_DECL_AWAIT] await returned: is_struct=%d",
+                            await_result.is_struct());
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
+                }
+
+                if (await_result.is_struct() && await_result.struct_data) {
+                    // 構造体値を変数に設定
+                    const Variable &struct_val = *await_result.struct_data;
+                    var.is_struct = true;
+                    var.struct_type_name = struct_val.struct_type_name;
+                    var.struct_members = struct_val.struct_members;
+                    var.is_assigned = true;
+
+                    if (interpreter_->debug_mode) {
+                        {
+                            char dbg_buf[512];
+                            snprintf(
+                                dbg_buf, sizeof(dbg_buf),
+                                "[VAR_DECL_AWAIT] struct_type=%s, members=%zu",
+                                struct_val.struct_type_name.c_str(),
+                                struct_val.struct_members.size());
+                            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                        }
+                    }
+
+                    // マップの再ハッシュを防ぐため、全ての変数を一時マップに収集してから一括登録
+                    std::map<std::string, Variable> vars_batch;
+
+                    // 再帰的にネストされた構造体メンバーを収集する関数
+                    std::function<void(const std::string &,
+                                       const std::map<std::string, Variable> &)>
+                        collect_nested_members;
+                    collect_nested_members =
+                        [&](const std::string &base_path,
+                            const std::map<std::string, Variable> &members) {
+                            for (const auto &member : members) {
+                                std::string member_path =
+                                    base_path + "." + member.first;
+                                vars_batch[member_path] = member.second;
+
+                                // ネストされた構造体の場合、再帰的に処理
+                                if (member.second.is_struct &&
+                                    !member.second.struct_members.empty()) {
+                                    collect_nested_members(
+                                        member_path,
+                                        member.second.struct_members);
+                                }
+                            }
+                        };
+
+                    // トップレベルのメンバーから再帰的に収集を開始
+                    collect_nested_members(node->name,
+                                           struct_val.struct_members);
+
+                    // 親構造体変数も追加
+                    vars_batch[node->name] = var;
+
+                    // 一括登録: std::mapに順次追加
+                    for (const auto &var_pair : vars_batch) {
+                        current_scope().variables[var_pair.first] =
+                            var_pair.second;
+
+                        if (interpreter_->debug_mode) {
+                            {
+                                char dbg_buf[512];
+                                snprintf(dbg_buf, sizeof(dbg_buf),
+                                         "[VAR_DECL_AWAIT] Registered %s",
+                                         var_pair.first.c_str());
+                                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                            }
+                        }
+                    }
+
+                    return; // await式処理完了後は早期リターン
+                } else {
+                    throw std::runtime_error(
+                        "await expression did not return struct");
+                }
+            }
 
             try {
                 // 構造体戻り値を期待した関数実行（副作用のため実行）

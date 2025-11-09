@@ -1,0 +1,105 @@
+// Test: Async function with recursive calls
+// async関数内で再帰呼び出しを行い、ラウンドロビンが正しく動作するか検証
+
+async void background_monitor(string name) {
+    for (int i = 0; i < 10; i = i + 1) {
+        println("[Monitor-{name}] Tick {i}");
+    }
+}
+
+// Test 1: 単純なasync再帰関数
+async int async_factorial(int n) {
+    println("[AsyncFactorial] Computing factorial({n})");
+    
+    if (n <= 1) {
+        println("[AsyncFactorial] Base case: returning 1");
+        return 1;
+    }
+    
+    // 再帰呼び出し
+    int sub_result = await async_factorial(n - 1);
+    int result = n * sub_result;
+    
+    println("[AsyncFactorial] factorial({n}) = {result}");
+    return result;
+}
+
+// Test 2: async再帰でフィボナッチ数列
+async int async_fib(int n) {
+    println("[AsyncFib] Computing fib({n})");
+    
+    if (n <= 1) {
+        println("[AsyncFib] Base case: returning {n}");
+        return n;
+    }
+    
+    // 2つの再帰呼び出し（並行実行される）
+    Future<int> f1 = async_fib(n - 1);
+    Future<int> f2 = async_fib(n - 2);
+    
+    int r1 = await f1;
+    int r2 = await f2;
+    int result = r1 + r2;
+    
+    println("[AsyncFib] fib({n}) = {result}");
+    return result;
+}
+
+// Test 3: async再帰でカウントダウン
+async int async_countdown(int n) {
+    println("[AsyncCountdown] Level {n}");
+    
+    if (n <= 0) {
+        println("[AsyncCountdown] Base case reached");
+        return 0;
+    }
+    
+    int sub = await async_countdown(n - 1);
+    println("[AsyncCountdown] Returning from level {n}");
+    return sub + n;
+}
+
+void main() {
+    println("=== Async Recursive Function Tests ===\n");
+    
+    // Test 1: Factorial with background task
+    println("[Test 1] Async Factorial with background monitoring");
+    background_monitor("Test1");
+    
+    int fact5 = await async_factorial(5);
+    println("Result: factorial(5) = {fact5}");
+    
+    if (fact5 == 120) {
+        println("✅ Test 1 passed: factorial(5) = 120\n");
+    } else {
+        println("❌ Test 1 failed: expected 120, got {fact5}\n");
+    }
+    
+    // Test 2: Fibonacci (smaller value to avoid deep recursion)
+    println("[Test 2] Async Fibonacci with background monitoring");
+    background_monitor("Test2");
+    
+    int fib5 = await async_fib(5);
+    println("Result: fib(5) = {fib5}");
+    
+    if (fib5 == 5) {
+        println("✅ Test 2 passed: fib(5) = 5\n");
+    } else {
+        println("❌ Test 2 failed: expected 5, got {fib5}\n");
+    }
+    
+    // Test 3: Countdown
+    println("[Test 3] Async Countdown with background monitoring");
+    background_monitor("Test3");
+    
+    int sum = await async_countdown(5);
+    println("Result: countdown(5) = {sum}");
+    
+    if (sum == 15) {
+        println("✅ Test 3 passed: countdown sum = 15\n");
+    } else {
+        println("❌ Test 3 failed: expected 15, got {sum}\n");
+    }
+    
+    println("=== All Async Recursive Tests Completed ===");
+}

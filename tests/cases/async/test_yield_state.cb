@@ -1,0 +1,173 @@
+// Test: State preservation after yield
+// yield後にローカル変数や状態が正しく保持されることを確認
+
+async void test_local_variables() {
+    println("Task: Start");
+    int x = 10;
+    string name = "Alice";
+    
+    println("Task: Before yield (x={x}, name={name})");
+    yield;
+    println("Task: After yield (x={x}, name={name})");
+    
+    // yieldを挟んで変数を変更
+    x = x + 5;
+    name = "Bob";
+    
+    println("Task: Before 2nd yield (x={x}, name={name})");
+    yield;
+    println("Task: After 2nd yield (x={x}, name={name})");
+}
+
+async int test_accumulator() {
+    println("Accumulator: Start");
+    int sum = 0;
+    
+    for (int i = 0; i < 5; i = i + 1) {
+        sum = sum + i;
+        println("Accumulator: i={i}, sum={sum}");
+        yield;  // 各イテレーションでyield
+    }
+    
+    println("Accumulator: Final sum={sum}");
+    return sum;
+}
+
+async void test_array_state() {
+    println("Array: Start");
+    int[3] arr;
+    arr[0] = 1;
+    arr[1] = 2;
+    arr[2] = 3;
+    
+    println("Array: Before yield [{arr[0]}, {arr[1]}, {arr[2]}]");
+    yield;
+    println("Array: After yield [{arr[0]}, {arr[1]}, {arr[2]}]");
+    
+    // 配列を変更
+    arr[0] = arr[0] * 10;
+    arr[1] = arr[1] * 10;
+    arr[2] = arr[2] * 10;
+    
+    println("Array: Before 2nd yield [{arr[0]}, {arr[1]}, {arr[2]}]");
+    yield;
+    println("Array: After 2nd yield [{arr[0]}, {arr[1]}, {arr[2]}]");
+}
+
+struct Counter {
+    int value;
+    string label;
+};
+
+async int test_struct_state() {
+    println("Struct: Start");
+    Counter c;
+    c.value = 0;
+    c.label = "MyCounter";
+    
+    println("Struct: Before yield (value={c.value}, label={c.label})");
+    yield;
+    println("Struct: After yield (value={c.value}, label={c.label})");
+    
+    c.value = 42;
+    c.label = "Updated";
+    
+    println("Struct: Before 2nd yield (value={c.value}, label={c.label})");
+    yield;
+    println("Struct: After 2nd yield (value={c.value}, label={c.label})");
+    
+    return c.value;
+}
+
+// ネストしたループでのyield
+async void test_nested_loops_state() {
+    println("Nested: Start");
+    int total = 0;
+    
+    for (int i = 0; i < 3; i = i + 1) {
+        for (int j = 0; j < 2; j = j + 1) {
+            total = total + (i * 10 + j);
+            println("Nested: i={i}, j={j}, total={total}");
+            yield;
+        }
+    }
+    
+    println("Nested: Final total={total}");
+}
+
+// yield + sleep の組み合わせ
+async void test_yield_with_sleep() {
+    println("YieldSleep: Start");
+    int counter = 0;
+    
+    for (int i = 0; i < 3; i = i + 1) {
+        counter = counter + 1;
+        println("YieldSleep: Before yield {i} (counter={counter})");
+        yield;
+        
+        println("YieldSleep: After yield, before sleep (counter={counter})");
+        await sleep(10);
+        
+        println("YieldSleep: After sleep (counter={counter})");
+    }
+    
+    println("YieldSleep: Done (final counter={counter})");
+}
+
+void main() {
+    println("=== Yield State Preservation Test ===\n");
+    
+    // Test 1: ローカル変数の保持
+    println("[Test 1] Local variables preservation");
+    await test_local_variables();
+    println("✅ Test 1 completed\n");
+    
+    // Test 2: ループ内の累積状態
+    println("[Test 2] Accumulator in loop");
+    int sum = await test_accumulator();
+    println("Result: {sum} (expected: 10)");
+    if (sum == 10) {
+        println("✅ Test 2 passed\n");
+    } else {
+        println("❌ Test 2 failed\n");
+    }
+    
+    // Test 3: 配列の状態保持
+    println("[Test 3] Array state preservation");
+    await test_array_state();
+    println("✅ Test 3 completed\n");
+    
+    // Test 4: 構造体の状態保持
+    println("[Test 4] Struct state preservation");
+    int struct_result = await test_struct_state();
+    println("Result: {struct_result} (expected: 42)");
+    if (struct_result == 42) {
+        println("✅ Test 4 passed\n");
+    } else {
+        println("❌ Test 4 failed\n");
+    }
+    
+    // Test 5: ネストしたループでの状態保持
+    println("[Test 5] Nested loops state");
+    await test_nested_loops_state();
+    println("✅ Test 5 completed\n");
+    
+    // Test 6: yield + sleep の組み合わせ
+    println("[Test 6] Yield with sleep");
+    await test_yield_with_sleep();
+    println("✅ Test 6 completed\n");
+    
+    // Test 7: 複数タスクの状態が独立していることを確認
+    println("[Test 7] Multiple tasks with independent state");
+    test_accumulator();  // バックグラウンド
+    test_accumulator();  // バックグラウンド
+    int result = await test_accumulator();  // 待機
+    println("Awaited result: {result} (expected: 10)");
+    if (result == 10) {
+        println("✅ Test 7 passed\n");
+    } else {
+        println("❌ Test 7 failed\n");
+    }
+    
+    println("=== All Yield State Tests Completed ===");
+}

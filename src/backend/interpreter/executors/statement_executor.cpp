@@ -7,6 +7,7 @@
 #include "core/pointer_metadata.h"
 #include "core/type_inference.h"
 #include "evaluator/core/evaluator.h"
+#include "event_loop/simple_event_loop.h" // v0.12.0: バックグラウンドタスク実行
 #include "executors/assignments/member_assignment.h"
 #include "executors/assignments/simple_assignment.h"
 #include "executors/declarations/array_declaration.h"
@@ -21,6 +22,12 @@ StatementExecutor::StatementExecutor(Interpreter &interpreter)
 
 void StatementExecutor::execute_statement(const ASTNode *node) {
     execute(node);
+
+    // v0.12.0: バックグラウンドタスクを1サイクル実行
+    // async関数呼び出し（awaitなし）時に、ラウンドロビンでタスクを進める
+    if (interpreter_.get_simple_event_loop().has_tasks()) {
+        interpreter_.get_simple_event_loop().run_one_cycle();
+    }
 }
 
 void StatementExecutor::execute(const ASTNode *node) {

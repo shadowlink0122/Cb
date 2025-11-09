@@ -4,6 +4,13 @@
 #include "../core/interpreter.h"
 #include <iostream>
 
+// プラットフォーム固有のヘッダー (sleep_task用)
+#ifdef _WIN32
+#include <windows.h> // GetSystemTimeAsFileTime()
+#else
+#include <sys/time.h> // gettimeofday()
+#endif
+
 namespace cb {
 
 // 関数内にyield文があるかどうかを再帰的にチェック
@@ -49,14 +56,16 @@ int SimpleEventLoop::register_task(AsyncTask task) {
     // 各ステートメント実行後に自動的にyieldして協調的マルチタスクを実現
     if (task.function_node && !has_yield_statement(task.function_node)) {
         task.auto_yield = true;
-        if (debug_mode) {
-            std::cerr << "[SIMPLE_EVENT_LOOP] Auto-yield enabled for "
-                      << task.function_name << " (no explicit yield found)"
-                      << std::endl;
-        }
     }
 
+    debug_msg(DebugMsgId::EVENT_LOOP_REGISTER_TASK, task_id,
+              static_cast<int>(task.internal_future.struct_members.size()));
+
+    // Store task before potentially being moved
+    debug_msg(DebugMsgId::EVENT_LOOP_STORE_TASK, task_id);
+
     tasks_[task_id] = task;
+
     task_queue_.push_back(task_id);
 
     debug_msg(DebugMsgId::ASYNC_TASK_REGISTER, task.function_name.c_str(),
@@ -67,12 +76,8 @@ int SimpleEventLoop::register_task(AsyncTask task) {
 
 void SimpleEventLoop::run() {
     if (task_queue_.empty()) {
-        debug_msg(DebugMsgId::EVENT_LOOP_EMPTY_QUEUE);
         return;
     }
-
-    debug_msg(DebugMsgId::EVENT_LOOP_START,
-              static_cast<int>(task_queue_.size()));
 
     // 全タスクが完了するまでラウンドロビン実行
     while (!task_queue_.empty()) {
@@ -86,11 +91,9 @@ void SimpleEventLoop::run() {
             task_queue_.push_back(task_id);
         } else {
             // タスク完了
-            debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETE, task_id);
+            debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETED, task_id);
         }
     }
-
-    debug_msg(DebugMsgId::EVENT_LOOP_COMPLETE);
 }
 
 // v0.12.0: イベントループを1サイクル実行（1タスクを1ステップだけ）
@@ -101,14 +104,19 @@ void SimpleEventLoop::run_one_cycle() {
         return;
     }
 
-    if (debug_mode) {
-        std::cerr << "[SIMPLE_EVENT_LOOP] run_one_cycle: processing 1 task"
-                  << std::endl;
-    }
+    debug_msg(DebugMsgId::EVENT_LOOP_RUN_ONE_CYCLE, 1);
 
     // キューの先頭タスクを1ステップだけ実行
     int task_id = task_queue_.front();
     task_queue_.pop_front();
+
+    // v0.13.0: 現在実行中のタスクはスキップ（再帰実行を防ぐ）
+    if (task_id == current_executing_task_id_) {
+        debug_msg(DebugMsgId::EVENT_LOOP_SKIP_EXECUTING, task_id);
+        // キューに戻す
+        task_queue_.push_back(task_id);
+        return;
+    }
 
     bool should_continue = execute_one_step(task_id);
 
@@ -117,11 +125,29 @@ void SimpleEventLoop::run_one_cycle() {
         task_queue_.push_back(task_id);
     } else {
         // タスク完了
-        debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETE, task_id);
+        debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETED, task_id);
     }
 }
 
 bool SimpleEventLoop::execute_one_step(int task_id) {
+    // 現在実行中のタスクを記録（RAII パターンで自動リセット）
+    struct ExecutingTaskGuard {
+        int &loop_ref;
+        Interpreter &interpreter;
+        int prev_loop;
+        int prev_interpreter;
+        ExecutingTaskGuard(int &lr, Interpreter &interp, int new_val)
+            : loop_ref(lr), interpreter(interp), prev_loop(lr),
+              prev_interpreter(interp.get_current_executing_task_id()) {
+            lr = new_val;
+            interp.set_current_executing_task_id(new_val);
+        }
+        ~ExecutingTaskGuard() {
+            loop_ref = prev_loop;
+            interpreter.set_current_executing_task_id(prev_interpreter);
+        }
+    } guard(current_executing_task_id_, interpreter_, task_id);
+
     auto it = tasks_.find(task_id);
     if (it == tasks_.end()) {
         return false;
@@ -133,10 +159,71 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
         return false;
     }
 
-    // 初回実行時: タスクスコープを初期化
-    if (!task.is_started) {
-        initialize_task_scope(task);
-        task.is_started = true;
+    // v0.13.0: 待機中のタスクはスキップ
+    if (task.is_waiting) {
+        // 待機中のタスクが完了したかチェック
+        auto waited_it = tasks_.find(task.waiting_for_task_id);
+        if (waited_it != tasks_.end() && waited_it->second.is_executed) {
+            // 待機タスクが完了したので、待機状態を解除
+            task.is_waiting = false;
+            task.waiting_for_task_id = -1;
+            debug_msg(DebugMsgId::EVENT_LOOP_TASK_RESUME, task_id);
+        } else {
+            // まだ待機中
+            return true; // キューに戻す
+        }
+    }
+
+    // v0.12.0: sleep中のタスクをチェック
+    if (task.is_sleeping) {
+        // 現在時刻を取得
+        int64_t current_time_ms;
+#ifdef _WIN32
+        FILETIME ft;
+        GetSystemTimeAsFileTime(&ft);
+        ULARGE_INTEGER uli;
+        uli.LowPart = ft.dwLowDateTime;
+        uli.HighPart = ft.dwHighDateTime;
+        current_time_ms = (uli.QuadPart / 10000) - 11644473600000LL;
+#else
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        current_time_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                          static_cast<int64_t>(tv.tv_usec) / 1000;
+#endif
+
+        if (current_time_ms < task.wake_up_time_ms) {
+            // まだsleep中
+            debug_msg(DebugMsgId::SLEEP_TASK_SLEEPING, task_id,
+                      task.wake_up_time_ms - current_time_ms);
+            return true; // 継続（まだsleep中）
+        } else {
+            // sleep完了
+            task.is_sleeping = false;
+            debug_msg(DebugMsgId::SLEEP_TASK_WOKE_UP, task_id);
+
+            // sleep専用タスク（function_nodeがnullptr）の場合、即座に完了
+            if (task.function_node == nullptr) {
+                task.is_executed = true;
+
+                // Future.is_readyをtrueに設定
+                if (task.use_internal_future) {
+                    auto ready_it =
+                        task.internal_future.struct_members.find("is_ready");
+                    if (ready_it != task.internal_future.struct_members.end()) {
+                        ready_it->second.value = 1;
+                    }
+                } else if (task.future_var) {
+                    auto ready_it =
+                        task.future_var->struct_members.find("is_ready");
+                    if (ready_it != task.future_var->struct_members.end()) {
+                        ready_it->second.value = 1;
+                    }
+                }
+
+                return false; // タスク完了
+            }
+        }
     }
 
     // v0.12.0: auto_yieldモードを設定（forループなどで自動yieldするため）
@@ -145,12 +232,35 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
         interpreter_.set_auto_yield_mode(true);
     }
 
-    // タスクスコープに切り替え
-    interpreter_.push_scope();
-    interpreter_.current_scope() = *task.task_scope;
+    // v0.13.2 FIX: タスクスコープに切り替え
+    // 初回実行時はタスクスコープを初期化
+    if (!task.is_started) {
+        initialize_task_scope(task);
+        task.is_started = true;
+    }
 
-    debug_msg(DebugMsgId::EVENT_LOOP_EXECUTE, task_id,
-              task.current_statement_index);
+    // sleep専用タスク（function_nodeがnullptr）の場合、スコープ操作は不要
+    if (task.function_node == nullptr) {
+        // sleep専用タスクはsleep完了後に即座に完了するため、ここには到達しない
+        task.is_executed = true;
+        return false;
+    }
+
+    // スコープスタックのサイズを記録
+    size_t scope_stack_size_before = interpreter_.get_scope_stack().size();
+
+    // 新しいスコープをpushする前に、タスクスコープの内容を一時保存
+    Scope task_scope_copy = *task.task_scope;
+
+    // 新しいスコープをpush
+    interpreter_.push_scope();
+
+    // pushされたスコープにタスクスコープの変数をコピー
+    // (上書きではなく、変数だけをコピー)
+    for (auto &var_pair : task_scope_copy.variables) {
+        interpreter_.current_scope().variables[var_pair.first] =
+            var_pair.second;
+    }
 
     try {
         // トップレベルのステートメントを1つ実行
@@ -167,9 +277,14 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
                 // 次のステートメントへ進む
                 task.current_statement_index++;
 
-                // スコープを保存
+                // タスクスコープを保存
                 *task.task_scope = interpreter_.current_scope();
-                interpreter_.pop_scope();
+
+                // スコープをpopして元のサイズに戻す
+                while (interpreter_.get_scope_stack().size() >
+                       scope_stack_size_before) {
+                    interpreter_.pop_scope();
+                }
 
                 // auto_yieldモードを元に戻す
                 interpreter_.set_auto_yield_mode(prev_auto_yield_mode);
@@ -179,12 +294,7 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
                     // v0.13.0 Phase 2.0:
                     // auto_yieldが有効な場合、毎ステートメント後にyield
                     if (task.auto_yield) {
-                        if (debug_mode) {
-                            std::cerr
-                                << "[SIMPLE_EVENT_LOOP] Auto-yield after stmt "
-                                << (task.current_statement_index - 1)
-                                << " in task " << task_id << std::endl;
-                        }
+                        // Auto-yield after statement
                     }
                     return true; // 次のステートメントがあるので継続
                 } else {
@@ -192,7 +302,15 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
                     task.is_executed = true;
 
                     // Future.is_readyをtrueに設定
-                    if (task.future_var) {
+                    if (task.use_internal_future) {
+                        auto ready_it =
+                            task.internal_future.struct_members.find(
+                                "is_ready");
+                        if (ready_it !=
+                            task.internal_future.struct_members.end()) {
+                            ready_it->second.value = 1;
+                        }
+                    } else if (task.future_var) {
                         auto ready_it =
                             task.future_var->struct_members.find("is_ready");
                         if (ready_it != task.future_var->struct_members.end()) {
@@ -206,7 +324,10 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
                 // 既に全ステートメント実行済み
                 task.is_executed = true;
                 interpreter_.set_auto_yield_mode(prev_auto_yield_mode);
-                interpreter_.pop_scope();
+                while (interpreter_.get_scope_stack().size() >
+                       scope_stack_size_before) {
+                    interpreter_.pop_scope();
+                }
                 return false;
             }
         } else {
@@ -214,7 +335,13 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
             interpreter_.execute_statement(body);
             task.is_executed = true;
 
-            if (task.future_var) {
+            if (task.use_internal_future) {
+                auto ready_it =
+                    task.internal_future.struct_members.find("is_ready");
+                if (ready_it != task.internal_future.struct_members.end()) {
+                    ready_it->second.value = 1;
+                }
+            } else if (task.future_var) {
                 auto ready_it =
                     task.future_var->struct_members.find("is_ready");
                 if (ready_it != task.future_var->struct_members.end()) {
@@ -223,17 +350,24 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
             }
 
             interpreter_.set_auto_yield_mode(prev_auto_yield_mode);
-            interpreter_.pop_scope();
+            while (interpreter_.get_scope_stack().size() >
+                   scope_stack_size_before) {
+                interpreter_.pop_scope();
+            }
             return false;
         }
     } catch (const YieldException &e) {
         // yieldで中断
-        debug_msg(DebugMsgId::EVENT_LOOP_TASK_YIELD, task_id);
 
-        // スコープを保存
+        // タスクスコープを保存
         *task.task_scope = interpreter_.current_scope();
+
+        // スコープをpopして元のサイズに戻す
         interpreter_.set_auto_yield_mode(prev_auto_yield_mode);
-        interpreter_.pop_scope();
+        while (interpreter_.get_scope_stack().size() >
+               scope_stack_size_before) {
+            interpreter_.pop_scope();
+        }
 
         // v0.13.0 Phase 2.0:
         // - ループ内の自動yield (e.is_from_loop == true):
@@ -248,14 +382,53 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
     } catch (const ReturnException &e) {
         // return文で完了
         task.is_executed = true;
+        task.has_return_value = true;
+        task.return_type = e.type;
+
+        // タスクに戻り値を保存
+        if (e.is_struct) {
+            task.return_is_struct = true;
+            task.return_struct_value = e.struct_value;
+        } else if (e.type == TYPE_STRING) {
+            task.return_string_value = e.str_value;
+        } else if (e.type == TYPE_FLOAT || e.type == TYPE_DOUBLE ||
+                   e.type == TYPE_QUAD) {
+            task.return_double_value = e.double_value;
+        } else {
+            task.return_value = e.value;
+        }
 
         // Future.valueに値を設定
-        if (task.future_var) {
-            if (debug_mode) {
-                std::cerr << "[SIMPLE_EVENT_LOOP] Setting return value "
-                          << e.value << " to Future" << std::endl;
+        if (task.use_internal_future) {
+            debug_msg(DebugMsgId::EVENT_LOOP_SET_VALUE,
+                      static_cast<int>(e.type));
+
+            auto value_it = task.internal_future.struct_members.find("value");
+            if (value_it != task.internal_future.struct_members.end()) {
+                if (e.type == TYPE_STRING) {
+                    value_it->second.type = TYPE_STRING;
+                    value_it->second.str_value = e.str_value;
+                } else if (e.type == TYPE_FLOAT || e.type == TYPE_DOUBLE ||
+                           e.type == TYPE_QUAD) {
+                    value_it->second.type = e.type;
+                    value_it->second.double_value = e.double_value;
+                } else if (e.is_struct) {
+                    value_it->second = e.struct_value;
+                } else {
+                    value_it->second.type = TYPE_INT;
+                    value_it->second.value = e.value;
+                }
+                value_it->second.is_assigned = true;
             }
 
+            // is_readyをtrueに設定
+            auto ready_it =
+                task.internal_future.struct_members.find("is_ready");
+            if (ready_it != task.internal_future.struct_members.end()) {
+                ready_it->second.value = 1;
+                debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETED, task_id);
+            }
+        } else if (task.future_var) {
             auto value_it = task.future_var->struct_members.find("value");
             if (value_it != task.future_var->struct_members.end()) {
                 if (e.type == TYPE_STRING) {
@@ -278,27 +451,23 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
             auto ready_it = task.future_var->struct_members.find("is_ready");
             if (ready_it != task.future_var->struct_members.end()) {
                 ready_it->second.value = 1;
-
-                if (debug_mode) {
-                    std::cerr << "[SIMPLE_EVENT_LOOP] Set is_ready=true"
-                              << std::endl;
-                }
-            }
-        } else {
-            if (debug_mode) {
-                std::cerr
-                    << "[SIMPLE_EVENT_LOOP] Warning: task.future_var is null!"
-                    << std::endl;
+                debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETED, task_id);
             }
         }
 
         interpreter_.set_auto_yield_mode(prev_auto_yield_mode);
-        interpreter_.pop_scope();
+        while (interpreter_.get_scope_stack().size() >
+               scope_stack_size_before) {
+            interpreter_.pop_scope();
+        }
         return false;
     } catch (...) {
         // その他の例外
         interpreter_.set_auto_yield_mode(prev_auto_yield_mode);
-        interpreter_.pop_scope();
+        while (interpreter_.get_scope_stack().size() >
+               scope_stack_size_before) {
+            interpreter_.pop_scope();
+        }
         throw;
     }
 }
@@ -324,9 +493,82 @@ size_t SimpleEventLoop::task_count() const { return tasks_.size(); }
 AsyncTask *SimpleEventLoop::get_task(int task_id) {
     auto it = tasks_.find(task_id);
     if (it != tasks_.end()) {
+        debug_msg(DebugMsgId::EVENT_LOOP_GET_TASK, task_id, "found");
         return &it->second;
     }
+    debug_msg(DebugMsgId::EVENT_LOOP_GET_TASK, task_id, "not found");
     return nullptr;
+}
+
+// v0.12.0: 特定のタスクが完了するまで実行（await用）
+void SimpleEventLoop::run_until_complete(int task_id) {
+    auto it = tasks_.find(task_id);
+    if (it == tasks_.end()) {
+        debug_msg(DebugMsgId::EVENT_LOOP_RUN_UNTIL_COMPLETE, task_id,
+                  "not found");
+        return;
+    }
+
+    if (it->second.is_executed) {
+        // 既に完了している
+        debug_msg(DebugMsgId::EVENT_LOOP_RUN_UNTIL_COMPLETE, task_id,
+                  "already completed");
+        return;
+    }
+
+    debug_msg(DebugMsgId::EVENT_LOOP_RUN_UNTIL_COMPLETE, task_id, "waiting");
+
+    // ターゲットタスクが完了するまで run_one_cycle を繰り返し呼び出す
+    // これにより、すべてのタスクが平等にラウンドロビンで実行される
+    while (true) {
+        auto target_it = tasks_.find(task_id);
+        if (target_it == tasks_.end() || target_it->second.is_executed) {
+            debug_msg(DebugMsgId::EVENT_LOOP_RUN_UNTIL_COMPLETE, task_id,
+                      "completed");
+            break;
+        }
+
+        // キューが空で、ターゲットタスクが未完了の場合
+        if (task_queue_.empty()) {
+            break;
+        }
+
+        // 1サイクル実行
+        run_one_cycle();
+    }
+}
+
+// v0.12.0: タスクをsleep状態にする
+void SimpleEventLoop::sleep_task(int task_id, int64_t duration_ms) {
+    auto it = tasks_.find(task_id);
+    if (it == tasks_.end()) {
+        return;
+    }
+
+    AsyncTask &task = it->second;
+
+    // 現在時刻を取得してwake_up_timeを設定
+    // now()関数と同じ実装
+    int64_t current_time_ms;
+#ifdef _WIN32
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    ULARGE_INTEGER uli;
+    uli.LowPart = ft.dwLowDateTime;
+    uli.HighPart = ft.dwHighDateTime;
+    current_time_ms = (uli.QuadPart / 10000) - 11644473600000LL;
+#else
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    current_time_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                      static_cast<int64_t>(tv.tv_usec) / 1000;
+#endif
+
+    task.is_sleeping = true;
+    task.wake_up_time_ms = current_time_ms + duration_ms;
+
+    debug_msg(DebugMsgId::SLEEP_TASK_REGISTER, task_id, duration_ms,
+              task.wake_up_time_ms);
 }
 
 } // namespace cb

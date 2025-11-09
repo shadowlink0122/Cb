@@ -113,7 +113,21 @@ TypedValue ExpressionEvaluator::evaluate_typed_expression(const ASTNode *node) {
         }
 
         if (ret_ex.is_struct || TypeHelpers::isStruct(ret_ex.type)) {
-            // 構造体の場合、ReturnExceptionを再スロー（メンバアクセスで処理される）
+            // v0.12.0: Future構造体の場合はTypedValueとして返す
+            // （awaitで使用できるようにする）
+            if (ret_ex.struct_value.struct_type_name.find("Future") == 0) {
+                if (debug_mode) {
+                    std::cerr << "[TYPED_EVAL] Converting Future to "
+                                 "TypedValue: struct_type_name="
+                              << ret_ex.struct_value.struct_type_name
+                              << std::endl;
+                }
+                return TypedValue(
+                    ret_ex.struct_value,
+                    InferredType(TYPE_STRUCT,
+                                 ret_ex.struct_value.struct_type_name));
+            }
+            // その他の構造体の場合、ReturnExceptionを再スロー（メンバアクセスで処理される）
             throw;
         }
 

@@ -85,7 +85,7 @@ ASTNode *StatementParser::parseStatement() {
     if (parser_->check(TokenType::TOK_IDENTIFIER)) {
         std::string type_name = parser_->current_token_.value;
         ASTNode *result =
-            parseTypedefTypeStatement(type_name, isStatic, isConst);
+            parseTypedefTypeStatement(type_name, isStatic, isConst, isAsync);
         if (result) {
             // exportフラグが設定されている場合、関数宣言・変数宣言にフラグを設定
             if (isExported &&
@@ -278,9 +278,8 @@ ASTNode *StatementParser::parseExpressionOrAssignmentStatement() {
 }
 
 // typedef型・構造体型・インターフェース型の変数宣言/関数定義
-ASTNode *
-StatementParser::parseTypedefTypeStatement(const std::string &type_name,
-                                           bool isStatic, bool isConst) {
+ASTNode *StatementParser::parseTypedefTypeStatement(
+    const std::string &type_name, bool isStatic, bool isConst, bool isAsync) {
     // typedef型か構造体型かをチェック
     bool is_typedef =
         parser_->typedef_map_.find(type_name) != parser_->typedef_map_.end();
@@ -625,6 +624,12 @@ StatementParser::parseTypedefTypeStatement(const std::string &type_name,
             func_node->is_pointee_const_qualifier =
                 return_type_info.is_pointee_const;
         }
+
+        // v0.12.0: async関数フラグを設定
+        if (func_node && isAsync) {
+            func_node->is_async_function = true;
+        }
+
         return func_node;
     } else if (is_struct_type) {
         ASTNode *node = parser_->parseVariableDeclaration();

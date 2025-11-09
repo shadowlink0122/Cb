@@ -1,0 +1,8 @@
+void main() {
+    long start = now();
+    long end = 0;  // 先に宣言
+    await sleep(120);
+    end = now();  // await後は代入のみ
+    long elapsed = end - start;
+    println("Elapsed: {elapsed}ms");
+}

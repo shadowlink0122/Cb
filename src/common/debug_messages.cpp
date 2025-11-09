@@ -1377,33 +1377,83 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     messages[static_cast<int>(DebugMsgId::AWAIT_VALUE_EXTRACTED)] = {
         "[AWAIT] Extracted value: %lld (type=%d)",
         "[AWAIT] 抽出された値: %lld (型=%d)"};
+    messages[static_cast<int>(DebugMsgId::AWAIT_FUTURE_RECEIVED)] = {
+        "[AWAIT] Received Future: is_struct=%d, type_name=%s, task_id=%d",
+        "[AWAIT] Future受信: is_struct=%d, 型名=%s, task_id=%d"};
+    messages[static_cast<int>(DebugMsgId::AWAIT_RUN_UNTIL_COMPLETE)] = {
+        "[AWAIT] Running until complete for task_id=%lld",
+        "[AWAIT] task_id=%lldの完了まで実行"};
 
     // v0.13.0: async/await Phase 2 - Event Loop & yield
-    messages[static_cast<int>(DebugMsgId::ASYNC_TASK_REGISTER)] = {
-        "[ASYNC] Registering async task: %s (task_id=%d)",
-        "[ASYNC] asyncタスク登録: %s (task_id=%d)"};
-    messages[static_cast<int>(DebugMsgId::ASYNC_TASK_REGISTER_DEFERRED)] = {
-        "[ASYNC] Registering deferred task (not executing immediately)",
-        "[ASYNC] 遅延タスクを登録（即座実行なし）"};
     messages[static_cast<int>(DebugMsgId::ASYNC_YIELD_CONTROL)] = {
         "[ASYNC] Task yielded control to event loop",
         "[ASYNC] タスクがイベントループに制御を渡しました"};
-    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_START)] = {
-        "[EVENT_LOOP] Starting event loop with %d task(s)",
-        "[EVENT_LOOP] イベントループ開始 (%d個のタスク)"};
-    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_EXECUTE)] = {
-        "[EVENT_LOOP] Executing task %d, statement %zu",
-        "[EVENT_LOOP] タスク %d を実行中, ステートメント %zu"};
-    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_TASK_YIELD)] = {
-        "[EVENT_LOOP] Task %d yielded", "[EVENT_LOOP] タスク %d がyield"};
-    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_TASK_COMPLETE)] = {
-        "[EVENT_LOOP] Task %d completed", "[EVENT_LOOP] タスク %d が完了"};
-    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_COMPLETE)] = {
-        "[EVENT_LOOP] Event loop finished (all tasks completed)",
-        "[EVENT_LOOP] イベントループ終了（全タスク完了）"};
-    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_EMPTY_QUEUE)] = {
-        "[EVENT_LOOP] Task queue is empty",
-        "[EVENT_LOOP] タスクキューが空です"};
+
+    // v0.13.0: 追加の async/await デバッグメッセージ
+    messages[static_cast<int>(DebugMsgId::ASYNC_TASK_ID_SET)] = {
+        "[ASYNC] Task registered with ID: %d, Future.task_id set to: %d",
+        "[ASYNC] タスク登録 ID: %d, Future.task_id設定: %d"};
+    messages[static_cast<int>(DebugMsgId::ASYNC_TASK_RETURN_FUTURE)] = {
+        "[ASYNC] Returning Future: struct_type_name=%s, members=%d",
+        "[ASYNC] Futureを返す: struct_type_name=%s, メンバー数=%d"};
+    messages[static_cast<int>(DebugMsgId::ASYNC_INTERNAL_FUTURE_MEMBERS)] = {
+        "[ASYNC] Before register_task, internal_future members: %d",
+        "[ASYNC] register_task前、internal_futureメンバー数: %d"};
+    messages[static_cast<int>(DebugMsgId::AWAIT_TASK_WAITING)] = {
+        "[AWAIT] Task %d is now waiting for task %d",
+        "[AWAIT] タスク %d がタスク %d を待機中"};
+    messages[static_cast<int>(DebugMsgId::AWAIT_VALUE_EXTRACT)] = {
+        "[AWAIT] Extracting value from Future: type=%d, value=%lld",
+        "[AWAIT] Futureから値を抽出: 型=%d, 値=%lld"};
+    messages[static_cast<int>(DebugMsgId::AWAIT_INTERNAL_FUTURE)] = {
+        "[AWAIT] Value found in internal_future",
+        "[AWAIT] internal_futureから値を取得"};
+    messages[static_cast<int>(DebugMsgId::AWAIT_TASK_COMPLETED)] = {
+        "[AWAIT] Task already ready, retrieving value from task %d",
+        "[AWAIT] タスクは既に完了、タスク %d から値を取得"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_REGISTER_TASK)] = {
+        "[SIMPLE_EVENT_LOOP] Registering task %d with %d members",
+        "[SIMPLE_EVENT_LOOP] タスク %d を登録、メンバー数 %d"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_STORE_TASK)] = {
+        "[SIMPLE_EVENT_LOOP] About to store task %d",
+        "[SIMPLE_EVENT_LOOP] タスク %d を保存"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_RUN_ONE_CYCLE)] = {
+        "[SIMPLE_EVENT_LOOP] run_one_cycle: processing %d task(s)",
+        "[SIMPLE_EVENT_LOOP] run_one_cycle: %d タスク処理中"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_SKIP_EXECUTING)] = {
+        "[SIMPLE_EVENT_LOOP] run_one_cycle: skipping task %d (currently "
+        "executing)",
+        "[SIMPLE_EVENT_LOOP] run_one_cycle: タスク %d をスキップ（実行中）"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_TASK_RESUME)] = {
+        "[EVENT_LOOP] Task %d resumed (waited task completed)",
+        "[EVENT_LOOP] タスク %d 再開（待機タスク完了）"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_TASK_SKIP)] = {
+        "[EVENT_LOOP] Skipping task %d (currently executing)",
+        "[EVENT_LOOP] タスク %d をスキップ（実行中）"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_TASK_COMPLETED)] = {
+        "[SIMPLE_EVENT_LOOP] Task %d completed, set is_ready=true",
+        "[SIMPLE_EVENT_LOOP] タスク %d 完了、is_ready=trueに設定"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_SET_VALUE)] = {
+        "[SIMPLE_EVENT_LOOP] Setting return value to internal_future (type=%d)",
+        "[SIMPLE_EVENT_LOOP] internal_futureに戻り値を設定（型=%d）"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_GET_TASK)] = {
+        "[SIMPLE_EVENT_LOOP] get_task(%d) returned: %s",
+        "[SIMPLE_EVENT_LOOP] get_task(%d) の結果: %s"};
+    messages[static_cast<int>(DebugMsgId::EVENT_LOOP_RUN_UNTIL_COMPLETE)] = {
+        "[SIMPLE_EVENT_LOOP] run_until_complete: task %d, status: %s",
+        "[SIMPLE_EVENT_LOOP] run_until_complete: タスク %d、ステータス: %s"};
+    messages[static_cast<int>(DebugMsgId::SLEEP_TASK_REGISTER)] = {
+        "[SLEEP] Registered sleep task %d for %lldms (wake_up_time=%lld)",
+        "[SLEEP] sleepタスク %d を登録、%lldミリ秒（wake_up_time=%lld）"};
+    messages[static_cast<int>(DebugMsgId::SLEEP_RETURN_FUTURE)] = {
+        "[SLEEP] Returning Future with task_id=%d",
+        "[SLEEP] task_id=%d のFutureを返す"};
+    messages[static_cast<int>(DebugMsgId::SLEEP_TASK_SLEEPING)] = {
+        "[SIMPLE_EVENT_LOOP] Task %d still sleeping (remaining: %lldms)",
+        "[SIMPLE_EVENT_LOOP] タスク %d はまだsleep中（残り: %lldミリ秒）"};
+    messages[static_cast<int>(DebugMsgId::SLEEP_TASK_WOKE_UP)] = {
+        "[SIMPLE_EVENT_LOOP] Task %d woke up",
+        "[SIMPLE_EVENT_LOOP] タスク %d が起床"};
 
     // 他の未設定のメッセージにはデフォルト値を設定
     for (size_t i = 0; i < messages.size(); ++i) {

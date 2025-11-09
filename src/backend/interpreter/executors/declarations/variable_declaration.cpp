@@ -347,11 +347,32 @@ void execute_variable_declaration(StatementExecutor *executor,
                            node->name + " of type: " + node->type_name);
         }
 
-        interpreter.create_struct_variable(node->name, node->type_name);
+        // v0.12.0:
+        // Future<T>のようなジェネリック型の場合、基底型（Future）を使用
+        // これにより、Future<Point>がPointとして扱われる問題を回避
+        std::string actual_type_name = node->type_name;
+        size_t angle_bracket = actual_type_name.find('<');
+        if (angle_bracket != std::string::npos) {
+            // ジェネリック型の基底名を取得（Future<Point> -> Future）
+            std::string base_type = actual_type_name.substr(0, angle_bracket);
+            if (base_type == "Future") {
+                actual_type_name = "Future";
+                if (debug_mode) {
+                    debug_log_line("[DEBUG_STMT] Generic type detected, using "
+                                   "base type: " +
+                                   actual_type_name);
+                }
+            }
+        }
+
+        interpreter.create_struct_variable(node->name, actual_type_name);
 
         // 初期化式がある場合は評価して代入
         if (init_node) {
-            if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+            // v0.12.0: await式やその他の式も処理できるように
+            if (init_node->node_type == ASTNodeType::AST_FUNC_CALL ||
+                init_node->node_type == ASTNodeType::AST_UNARY_OP ||
+                init_node->is_await_expression) {
                 try {
                     TypedValue typed_value =
                         interpreter.evaluate_typed(init_node);
@@ -359,8 +380,20 @@ void execute_variable_declaration(StatementExecutor *executor,
                         // 構造体の値を代入
                         Variable &target_var =
                             interpreter.current_scope().variables[node->name];
+
+                        // v0.12.0: 実際の構造体データをコピー
                         target_var = *typed_value.struct_data;
                         target_var.is_assigned = true;
+
+                        // v0.12.0: 代入後、型名が正しく保持されているか確認
+                        if (debug_mode) {
+                            debug_log_line(
+                                "[DEBUG_STMT] After assignment, "
+                                "struct_type_name=" +
+                                target_var.struct_type_name + ", members=" +
+                                std::to_string(
+                                    target_var.struct_members.size()));
+                        }
 
                         // ネストされたメンバー変数を同期
                         interpreter.sync_direct_access_from_struct_value(
@@ -373,8 +406,18 @@ void execute_variable_declaration(StatementExecutor *executor,
                     if (ret.is_struct) {
                         Variable &target_var =
                             interpreter.current_scope().variables[node->name];
+
+                        // v0.12.0: 実際の構造体データをコピー
                         target_var = ret.struct_value;
                         target_var.is_assigned = true;
+
+                        // v0.12.0: 代入後、型名が正しく保持されているか確認
+                        if (debug_mode) {
+                            debug_log_line(
+                                "[DEBUG_STMT] After assignment "
+                                "(ReturnException), struct_type_name=" +
+                                target_var.struct_type_name);
+                        }
 
                         // ネストされたメンバー変数を同期
                         interpreter.sync_direct_access_from_struct_value(

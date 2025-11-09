@@ -310,54 +310,58 @@ $(TESTS_DIR)/stdlib/test_main: $(TESTS_DIR)/stdlib/main.cpp $(MAIN_TARGET)
 	@cd tests/stdlib && $(CC) $(CFLAGS) -I../../$(SRC_DIR) -I. -o test_main main.cpp
 
 # Stdlib tests (C++ infrastructure tests)
-stdlib-test-cpp: $(TESTS_DIR)/stdlib/test_main
+stdlib-cpp-test: $(TESTS_DIR)/stdlib/test_main
 	@echo "============================================================="
-	@echo "Running Cb Standard Library Tests (C++)"
+	@echo "[1/4] Running Standard Library Tests (C++ Infrastructure)"
 	@echo "============================================================="
 	@cd tests/stdlib && ./test_main
 
 # Stdlib tests (Cb language tests) - 1つのファイルで全テスト実行
-stdlib-test-cb: $(MAIN_TARGET)
+stdlib-cb-test: $(MAIN_TARGET)
 	@echo "============================================================="
-	@echo "Running Cb Standard Library Tests (Cb)"
-	@echo "Single file test runner with Result-based error detection"
+	@echo "[2/4] Running Standard Library Tests (Cb Language)"
+	@echo "Testing stdlib modules written in Cb"
 	@echo "============================================================="
 	@./$(MAIN_TARGET) tests/cases/stdlib/test_stdlib_all.cb || exit 1
 
 # Run both C++ and Cb stdlib tests
 stdlib-test:
+	@echo "============================================================="
+	@echo "Running Standard Library Test Suite"
+	@echo "============================================================="
 	@CPP_RESULT=0; CB_RESULT=0; \
-	$(MAKE) stdlib-test-cpp || CPP_RESULT=$$?; \
-	$(MAKE) stdlib-test-cb || CB_RESULT=$$?; \
+	$(MAKE) stdlib-cpp-test || CPP_RESULT=$$?; \
+	$(MAKE) stdlib-cb-test || CB_RESULT=$$?; \
 	if [ $$CPP_RESULT -eq 0 ] && [ $$CB_RESULT -eq 0 ]; then \
 		echo ""; \
-		echo "╔════════════════════════════════════════════════════════════╗"; \
-		echo "║    All Standard Library Tests Completed Successfully!     ║"; \
-		echo "╚════════════════════════════════════════════════════════════╝"; \
+		echo "✅ All Standard Library Tests PASSED"; \
 		exit 0; \
 	else \
 		echo ""; \
-		echo "⚠️  Some stdlib tests failed"; \
-		if [ $$CPP_RESULT -ne 0 ]; then echo "   - C++ tests: FAILED"; fi; \
-		if [ $$CB_RESULT -ne 0 ]; then echo "   - Cb tests: FAILED"; fi; \
+		echo "❌ Some stdlib tests FAILED:"; \
+		if [ $$CPP_RESULT -ne 0 ]; then echo "   - C++ infrastructure tests: FAILED"; fi; \
+		if [ $$CB_RESULT -ne 0 ]; then echo "   - Cb language tests: FAILED"; fi; \
 		exit 1; \
 	fi
 
 test:
 	@echo "============================================================="
-	@echo "Running All Cb Test Suites"
+	@echo "Running All Cb Test Suites (4 suites)"
 	@echo "============================================================="
 	@START_TIME=$$(date +%s); \
-	INTEGRATION_RESULT=0; UNIT_RESULT=0; STDLIB_RESULT=0; \
+	INTEGRATION_RESULT=0; UNIT_RESULT=0; STDLIB_CPP_RESULT=0; STDLIB_CB_RESULT=0; \
 	echo ""; \
-	echo "[1/3] Running Integration Tests..."; \
+	echo "[1/4] Running Integration Tests..."; \
 	$(MAKE) integration-test || INTEGRATION_RESULT=$$?; \
 	echo ""; \
-	echo "[2/3] Running Unit Tests..."; \
+	echo "[2/4] Running Unit Tests..."; \
 	$(MAKE) unit-test || UNIT_RESULT=$$?; \
 	echo ""; \
-	echo "[3/3] Running Stdlib Tests..."; \
-	$(MAKE) stdlib-test || STDLIB_RESULT=$$?; \
+	echo "[3/4] Running Stdlib C++ Tests..."; \
+	$(MAKE) stdlib-cpp-test || STDLIB_CPP_RESULT=$$?; \
+	echo ""; \
+	echo "[4/4] Running Stdlib Cb Tests..."; \
+	$(MAKE) stdlib-cb-test || STDLIB_CB_RESULT=$$?; \
 	END_TIME=$$(date +%s); \
 	ELAPSED=$$((END_TIME - START_TIME)); \
 	echo ""; \
@@ -366,47 +370,58 @@ test:
 	echo "============================================================="; \
 	TOTAL_PASS=0; TOTAL_FAIL=0; \
 	if [ $$INTEGRATION_RESULT -eq 0 ]; then \
-		echo "✅ Integration tests: PASSED"; \
+		echo "✅ [1/4] Integration tests: PASSED"; \
 		TOTAL_PASS=$$((TOTAL_PASS + 1)); \
 	else \
-		echo "❌ Integration tests: FAILED (exit code $$INTEGRATION_RESULT)"; \
+		echo "❌ [1/4] Integration tests: FAILED (exit code $$INTEGRATION_RESULT)"; \
 		TOTAL_FAIL=$$((TOTAL_FAIL + 1)); \
 		if [ -f /tmp/cb_integration_raw.log ]; then \
 			FAILED_COUNT=$$(grep "^Failed:" /tmp/cb_integration_raw.log | head -1 | awk '{print $$2}' || echo "0"); \
 			if [ "$$FAILED_COUNT" != "0" ]; then \
-				echo ""; \
-				echo "Integration test failures: $$FAILED_COUNT tests failed"; \
-				grep -E "^(Total:|Passed:|Failed:)" /tmp/cb_integration_raw.log | head -3 || true; \
+				echo "   └─ $$FAILED_COUNT integration tests failed"; \
 			fi; \
 		fi; \
 	fi; \
 	if [ $$UNIT_RESULT -eq 0 ]; then \
-		echo "✅ Unit tests: PASSED"; \
+		echo "✅ [2/4] Unit tests: PASSED"; \
 		TOTAL_PASS=$$((TOTAL_PASS + 1)); \
 	else \
-		echo "❌ Unit tests: FAILED (exit code $$UNIT_RESULT)"; \
+		echo "❌ [2/4] Unit tests: FAILED (exit code $$UNIT_RESULT)"; \
 		TOTAL_FAIL=$$((TOTAL_FAIL + 1)); \
 	fi; \
-	if [ $$STDLIB_RESULT -eq 0 ]; then \
-		echo "✅ Stdlib tests: PASSED"; \
+	if [ $$STDLIB_CPP_RESULT -eq 0 ]; then \
+		echo "✅ [3/4] Stdlib C++ tests: PASSED"; \
 		TOTAL_PASS=$$((TOTAL_PASS + 1)); \
 	else \
-		echo "❌ Stdlib tests: FAILED (exit code $$STDLIB_RESULT)"; \
+		echo "❌ [3/4] Stdlib C++ tests: FAILED (exit code $$STDLIB_CPP_RESULT)"; \
+		TOTAL_FAIL=$$((TOTAL_FAIL + 1)); \
+	fi; \
+	if [ $$STDLIB_CB_RESULT -eq 0 ]; then \
+		echo "✅ [4/4] Stdlib Cb tests: PASSED"; \
+		TOTAL_PASS=$$((TOTAL_PASS + 1)); \
+	else \
+		echo "❌ [4/4] Stdlib Cb tests: FAILED (exit code $$STDLIB_CB_RESULT)"; \
 		TOTAL_FAIL=$$((TOTAL_FAIL + 1)); \
 	fi; \
 	echo "============================================================="; \
-	echo "Test suites: $$TOTAL_PASS passed, $$TOTAL_FAIL failed"; \
+	echo "Test suites: $$TOTAL_PASS/4 passed, $$TOTAL_FAIL/4 failed"; \
 	echo "Total time: $${ELAPSED}s"; \
 	echo "============================================================="; \
 	if [ $$TOTAL_FAIL -eq 0 ]; then \
-		echo "🎉 All test suites passed!"; \
+		echo ""; \
+		echo "╔════════════════════════════════════════════════════════════╗"; \
+		echo "║        🎉 All 4 Test Suites Passed Successfully! 🎉       ║"; \
+		echo "╚════════════════════════════════════════════════════════════╝"; \
 		exit 0; \
 	else \
-		echo "⚠️  $$TOTAL_FAIL test suite(s) failed. Review output above for details."; \
-		if [ $$INTEGRATION_RESULT -ne 0 ]; then \
-			echo ""; \
-			echo "💡 Tip: Run 'make integration-test' separately for detailed failure info"; \
-		fi; \
+		echo ""; \
+		echo "⚠️  $$TOTAL_FAIL of 4 test suite(s) failed"; \
+		echo ""; \
+		echo "💡 Run individual test suites for details:"; \
+		if [ $$INTEGRATION_RESULT -ne 0 ]; then echo "   - make integration-test"; fi; \
+		if [ $$UNIT_RESULT -ne 0 ]; then echo "   - make unit-test"; fi; \
+		if [ $$STDLIB_CPP_RESULT -ne 0 ]; then echo "   - make stdlib-cpp-test"; fi; \
+		if [ $$STDLIB_CB_RESULT -ne 0 ]; then echo "   - make stdlib-cb-test"; fi; \
 		exit 1; \
 	fi
 
@@ -452,19 +467,32 @@ backup-old:
 # 開発用のヘルプ
 help:
 	@echo "Available targets:"
+	@echo ""
+	@echo "Build targets:"
 	@echo "  all                    - Build main executable"
 	@echo "  main                   - Build main executable"
 	@echo "  debug                  - Build with debug flags"
+	@echo "  main-asan              - Build with AddressSanitizer"
+	@echo ""
+	@echo "Test targets:"
+	@echo "  test                   - Run all 4 test suites"
+	@echo "  integration-test       - Run integration tests"
+	@echo "  unit-test              - Run unit tests (30 tests)"
+	@echo "  stdlib-cpp-test        - Run stdlib C++ infrastructure tests"
+	@echo "  stdlib-cb-test         - Run stdlib Cb language tests"
+	@echo "  stdlib-test            - Run both stdlib C++ and Cb tests"
+	@echo ""
+	@echo "Code quality:"
+	@echo "  lint                   - Check code formatting"
+	@echo "  fmt                    - Format code"
+	@echo ""
+	@echo "Cleanup:"
 	@echo "  clean                  - Remove generated files"
 	@echo "  deep-clean             - Remove all generated files (thorough cleanup)"
 	@echo "  clean-all              - Clean all subdirectories too"
-	@echo "  lint                   - Check code formatting"
-	@echo "  fmt                    - Format code"
-	@echo "  test                   - Run all tests (integration + unit + stdlib)"
-	@echo "  unit-test              - Run unit tests (30 tests)"
-	@echo "  integration-test       - Run integration tests (formatted output)"
-	@echo "  integration-test-verbose - Run integration tests (full output)"
-	@echo "  stdlib-test            - Run stdlib tests (C++ + Cb)"
-	@echo "  stdlib-test-cpp        - Run stdlib C++ infrastructure tests"
-	@echo "  stdlib-test-cb         - Run stdlib Cb language tests"
-	@echo "  help                   - Show this help"
+	@echo ""
+	@echo "Test suites breakdown:"
+	@echo "  1. Integration tests   - End-to-end testing of language features"
+	@echo "  2. Unit tests          - Testing of individual components"
+	@echo "  3. Stdlib C++ tests    - Testing of C++ infrastructure for stdlib"
+	@echo "  4. Stdlib Cb tests     - Testing of Cb stdlib modules"

@@ -1,0 +1,142 @@
+// Test: Multiple concurrent sleep operations
+// 複数のsleep()が並行実行される動作を検証
+
+async void sleep_task(string name, int duration_ms) {
+    println("{name}: Start (sleep {duration_ms}ms)");
+    long start = now();
+    await sleep(duration_ms);
+    long end = now();
+    long elapsed = end - start;
+    println("{name}: Done (elapsed {elapsed}ms)");
+}
+
+async int sleep_with_return(int value, int duration_ms) {
+    println("Task {value}: Sleeping {duration_ms}ms");
+    await sleep(duration_ms);
+    println("Task {value}: Woke up");
+    return value * 10;
+}
+
+// 0ms sleep（即座に戻るはず）
+async void zero_sleep() {
+    println("Zero sleep: Before");
+    await sleep(0);
+    println("Zero sleep: After (should be immediate)");
+}
+
+// 短いsleepの連続
+async void rapid_sleep() {
+    println("Rapid: Start");
+    for (int i = 0; i < 5; i = i + 1) {
+        await sleep(10);
+        println("Rapid: Step {i}");
+    }
+    println("Rapid: Done");
+}
+
+void main() {
+    println("=== Multiple Sleep Concurrent Test ===\n");
+    
+    // Test 1: 3つのsleepを並行実行
+    println("[Test 1] Three concurrent sleeps");
+    long test1_start = now();
+    
+    sleep_task("Task-A", 100);  // 100ms
+    sleep_task("Task-B", 80);   // 80ms
+    sleep_task("Task-C", 60);   // 60ms
+    
+    // 最長の100msを待つ
+    await sleep(120);
+    long test1_end = now();
+    long test1_elapsed = test1_end - test1_start;
+    
+    println("Total time: {test1_elapsed}ms (expected: ~120ms)");
+    if (test1_elapsed >= 100 && test1_elapsed <= 150) {
+        println("✅ Test 1 passed (concurrent execution)\n");
+    } else {
+        println("❌ Test 1 failed (time: {test1_elapsed}ms)\n");
+    }
+    
+    // Test 2: sleep with return values
+    println("[Test 2] Sleep with return values");
+    long test2_start = now();
+    
+    // 3つのタスクを並行起動
+    Future<int> f1 = sleep_with_return(1, 50);
+    Future<int> f2 = sleep_with_return(2, 30);
+    Future<int> f3 = sleep_with_return(3, 10);
+    
+    // 順番にawait（後から起動したものが先に完了する可能性）
+    int r1 = await f1;
+    int r2 = await f2;
+    int r3 = await f3;
+    
+    long test2_end = now();
+    long test2_elapsed = test2_end - test2_start;
+    
+    println("Results: {r1}, {r2}, {r3}");
+    println("Total time: {test2_elapsed}ms (expected: ~50ms)");
+    
+    if (r1 == 10 && r2 == 20 && r3 == 30) {
+        println("✅ Test 2 passed (correct return values)\n");
+    } else {
+        println("❌ Test 2 failed (values: {r1}, {r2}, {r3})\n");
+    }
+    
+    // Test 3: 0ms sleep
+    println("[Test 3] Zero millisecond sleep");
+    long test3_start = now();
+    await zero_sleep();
+    long test3_end = now();
+    long test3_elapsed = test3_end - test3_start;
+    
+    println("Time for 0ms sleep: {test3_elapsed}ms (expected: <5ms)");
+    if (test3_elapsed < 10) {
+        println("✅ Test 3 passed (immediate return)\n");
+    } else {
+        println("❌ Test 3 failed (too slow: {test3_elapsed}ms)\n");
+    }
+    
+    // Test 4: 短いsleepの連続実行
+    println("[Test 4] Rapid consecutive sleeps");
+    long test4_start = now();
+    await rapid_sleep();
+    long test4_end = now();
+    long test4_elapsed = test4_end - test4_start;
+    
+    println("Time for 5x10ms sleeps: {test4_elapsed}ms (expected: ~50ms)");
+    if (test4_elapsed >= 40 && test4_elapsed <= 80) {
+        println("✅ Test 4 passed\n");
+    } else {
+        println("❌ Test 4 failed (time: {test4_elapsed}ms)\n");
+    }
+    
+    // Test 5: 大量の並行sleep
+    println("[Test 5] Many concurrent sleeps");
+    long test5_start = now();
+    
+    // Note: 文字列補間がループ内で動作しない問題を回避
+    sleep_task("Batch-0", 30);
+    sleep_task("Batch-1", 30);
+    sleep_task("Batch-2", 30);
+    sleep_task("Batch-3", 30);
+    sleep_task("Batch-4", 30);
+    sleep_task("Batch-5", 30);
+    sleep_task("Batch-6", 30);
+    sleep_task("Batch-7", 30);
+    sleep_task("Batch-8", 30);
+    sleep_task("Batch-9", 30);
+    
+    await sleep(50);
+    long test5_end = now();
+    long test5_elapsed = test5_end - test5_start;
+    
+    println("Time for 10 concurrent 30ms sleeps: {test5_elapsed}ms (expected: ~50ms)");
+    if (test5_elapsed >= 30 && test5_elapsed <= 100) {
+        println("✅ Test 5 passed (all concurrent)\n");
+    } else {
+        println("❌ Test 5 failed (time: {test5_elapsed}ms)\n");
+    }
+    
+    println("=== All Sleep Tests Completed ===");
+}

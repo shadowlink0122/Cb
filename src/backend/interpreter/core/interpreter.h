@@ -410,37 +410,67 @@ struct Variable {
 struct Scope;
 
 // v0.12.0: 非同期タスク情報（Future実行に使用）
-// Phase 1: 即座実行のみ
-// v0.13.0 Phase 2.0: トップレベルyieldサポート追加
+// v0.13.0: EventLoopベースのバックグラウンド実行サポート
 struct AsyncTask {
     int task_id;                  // 一意なタスクID
     const ASTNode *function_node; // 実行する関数のASTノード
     std::string function_name;    // 関数名
     std::vector<Variable> args; // 引数リスト（完全なVariable情報を保存）
-    Variable *future_var;     // 紐づくFuture変数へのポインタ
-    bool is_executed = false; // 実行済みフラグ
+    Variable *future_var; // 紐づくFuture変数へのポインタ（外部管理）
 
-    // v0.13.0 Phase 2.0: トップレベルyield実行制御
-    bool is_started = false;            // 開始済みフラグ
-    size_t current_statement_index = 0; // トップレベルのステートメント番号
+    // v0.13.0: Future情報を内部で保持（寿命管理）
+    Variable internal_future; // タスク内部で管理するFuture変数
+    bool use_internal_future = true; // internal_futureを使用するか
+
+    // 実行状態
+    bool is_started = false;  // 実行開始済みか
+    bool is_executed = false; // 実行完了したか
+    size_t current_statement_index =
+        0; // 現在実行中のステートメントインデックス
     std::shared_ptr<Scope> task_scope; // タスク専用スコープ
-    bool auto_yield =
-        false; // 自動yield（yield文がない場合に各ステートメント後にyield）
-    bool is_statement_first_time =
-        true; // 現在のステートメントが初回実行かどうか
+
+    // 戻り値
+    bool has_return_value = false;    // 戻り値があるか
+    int64_t return_value = 0;         // 戻り値（int型の場合）
+    double return_double_value = 0.0; // 戻り値（浮動小数点の場合）
+    std::string return_string_value;  // 戻り値（string型の場合）
+    Variable return_struct_value;     // 戻り値（構造体の場合）
+    TypeInfo return_type = TYPE_VOID; // 戻り値の型
+    bool return_is_struct = false;    // 戻り値が構造体か
+
+    // 協調的マルチタスク用
+    bool auto_yield = true; // 各ステートメント後に自動yield（デフォルトtrue）
+    bool is_statement_first_time = true; // 現在のステートメントが初回実行か
+
+    // v0.12.0: 非同期sleep対応
+    bool is_sleeping = false; // sleep中か
+    int64_t wake_up_time_ms = 0; // 起床時刻（エポックからのミリ秒）
+
+    // v0.13.0: await対応 - 待機中のタスク管理
+    bool is_waiting = false;      // 別のタスクの完了を待機中か
+    int waiting_for_task_id = -1; // 待機中のタスクID (-1=待機なし)
 
     AsyncTask()
         : task_id(0), function_node(nullptr), function_name(""),
-          future_var(nullptr), is_executed(false), is_started(false),
-          current_statement_index(0), task_scope(nullptr), auto_yield(false),
-          is_statement_first_time(true) {}
+          future_var(nullptr), use_internal_future(true), is_started(false),
+          is_executed(false), current_statement_index(0), task_scope(nullptr),
+          has_return_value(false), return_value(0), return_double_value(0.0),
+          return_string_value(""), return_type(TYPE_VOID),
+          return_is_struct(false), auto_yield(true),
+          is_statement_first_time(true), is_sleeping(false), wake_up_time_ms(0),
+          is_waiting(false), waiting_for_task_id(-1) {}
 
     AsyncTask(int id, const ASTNode *node, const std::string &name,
               std::vector<Variable> arguments, Variable *future)
         : task_id(id), function_node(node), function_name(name),
-          args(std::move(arguments)), future_var(future), is_executed(false),
-          is_started(false), current_statement_index(0), task_scope(nullptr),
-          auto_yield(false), is_statement_first_time(true) {}
+          args(std::move(arguments)), future_var(future),
+          use_internal_future(true), is_started(false), is_executed(false),
+          current_statement_index(0), task_scope(nullptr),
+          has_return_value(false), return_value(0), return_double_value(0.0),
+          return_string_value(""), return_type(TYPE_VOID),
+          return_is_struct(false), auto_yield(true),
+          is_statement_first_time(true), is_sleeping(false), wake_up_time_ms(0),
+          is_waiting(false), waiting_for_task_id(-1) {}
 };
 
 // 関数ポインタ情報
@@ -723,6 +753,9 @@ class Interpreter : public EvaluatorInterface {
     // v0.12.0: auto_yieldタスク実行中フラグ
     // forループやwhileループの各イテレーション後に自動yieldするために使用
     bool is_in_auto_yield_task_ = false;
+
+    // v0.13.0: 現在実行中のタスクID（await時の親タスク特定用）
+    int current_executing_task_id_ = -1;
 
     // Manager instances
     std::unique_ptr<VariableManager> variable_manager_;
@@ -1326,4 +1359,12 @@ class Interpreter : public EvaluatorInterface {
 
     // v0.12.0: Event Loop アクセス
     cb::EventLoop &get_event_loop();
+
+    // v0.13.0: 現在実行中のタスクID管理
+    void set_current_executing_task_id(int task_id) {
+        current_executing_task_id_ = task_id;
+    }
+    int get_current_executing_task_id() const {
+        return current_executing_task_id_;
+    }
 };

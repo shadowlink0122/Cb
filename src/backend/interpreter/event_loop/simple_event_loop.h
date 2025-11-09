@@ -10,13 +10,9 @@ struct AsyncTask;
 
 namespace cb {
 
-// v0.13.0 Phase 2.0: SimpleEventLoop
-// トップレベルyieldのみをサポートする最小限のイベントループ
-//
-// 制限事項:
-// - トップレベルのyield文のみサポート
-// - ループ内、if文内のyieldは未サポート
-// - async関数からのasync呼び出しは未サポート
+// v0.12.0: SimpleEventLoop
+// async関数をラウンドロビン方式で実行する
+// バックグラウンドタスクはメインプログラム終了時に自動的に破棄される
 class SimpleEventLoop {
   public:
     SimpleEventLoop(Interpreter &interpreter);
@@ -33,6 +29,10 @@ class SimpleEventLoop {
     // v0.12.0: async関数呼び出し時にバックグラウンド実行を実現
     void run_one_cycle();
 
+    // 特定のタスクが完了するまで実行（await用）
+    // 指定されたタスクを優先的に実行し、完了するまでブロック
+    void run_until_complete(int task_id);
+
     // タスクキューが空かどうか
     bool is_empty() const;
 
@@ -44,6 +44,9 @@ class SimpleEventLoop {
 
     // タスクIDからタスクを取得
     AsyncTask *get_task(int task_id);
+
+    // v0.12.0: タスクをsleep状態にする（非同期sleep用）
+    void sleep_task(int task_id, int64_t duration_ms);
 
   private:
     // 1タスクを1ステートメント実行
@@ -57,6 +60,8 @@ class SimpleEventLoop {
     std::deque<int> task_queue_;     // 実行待ちタスクID
     std::map<int, AsyncTask> tasks_; // タスクID -> AsyncTask
     int next_task_id_ = 1;           // 次のタスクID
+    int current_executing_task_id_ =
+        -1; // 現在execute_one_step中のタスクID (-1=なし)
 };
 
 } // namespace cb
