@@ -631,6 +631,8 @@ struct ASTNode;
 struct InterfaceMember {
     std::string name;                // 関数名
     TypeInfo return_type;            // 戻り値の型
+    std::string return_type_name;    // v0.13.0: 戻り値の型名（Future<int>など複合型用）
+    std::string return_type_name_original; // v0.13.0: マングリング前の型名（Result<T,string>など）
     bool return_is_unsigned = false; // 戻り値がunsignedかどうか
     bool is_async = false;           // v0.13.0 Phase 2.0: asyncメソッドか
     std::vector<std::pair<std::string, TypeInfo>>
@@ -646,6 +648,8 @@ struct InterfaceMember {
     // v0.13.0 Phase 2.0: 明示的コピーコンストラクタ（is_asyncをコピー）
     InterfaceMember(const InterfaceMember &other)
         : name(other.name), return_type(other.return_type),
+          return_type_name(other.return_type_name),
+          return_type_name_original(other.return_type_name_original),
           return_is_unsigned(other.return_is_unsigned),
           is_async(other.is_async), parameters(other.parameters),
           parameter_is_unsigned(other.parameter_is_unsigned) {}
@@ -655,6 +659,8 @@ struct InterfaceMember {
         if (this != &other) {
             name = other.name;
             return_type = other.return_type;
+            return_type_name = other.return_type_name;
+            return_type_name_original = other.return_type_name_original;
             return_is_unsigned = other.return_is_unsigned;
             is_async = other.is_async;
             parameters = other.parameters;
@@ -920,8 +926,9 @@ enum class ASTNodeType {
     // 演算子
     AST_BINARY_OP,
     AST_UNARY_OP,
-    AST_TERNARY_OP, // 三項演算子 condition ? value1 : value2
-    AST_CAST_EXPR,  // 型キャスト (type)expr
+    AST_TERNARY_OP,        // 三項演算子 condition ? value1 : value2
+    AST_ERROR_PROPAGATION, // v0.12.1: エラー伝播演算子 expr?
+    AST_CAST_EXPR,         // 型キャスト (type)expr
     AST_ASSIGN,
     AST_ARRAY_ASSIGN, // 配列代入 (arr1 = arr2)
 
@@ -1020,7 +1027,13 @@ enum class ASTNodeType {
 
     // v0.11.0 文字列補間
     AST_INTERPOLATED_STRING, // 補間文字列全体
-    AST_STRING_INTERPOLATION_SEGMENT // 補間セグメント（文字列部分または式）
+    AST_STRING_INTERPOLATION_SEGMENT, // 補間セグメント（文字列部分または式）
+
+    // v0.14.0 包括的エラーハンドリング
+    AST_TRY_EXPR,     // try式 (try expression)
+    AST_CHECKED_EXPR, // checked式 (checked expression)
+    AST_PANIC_EXPR,   // panic式 (panic!(...))
+    AST_UNWRAP_EXPR   // unwrap式 (expr.unwrap())
 };
 
 // 位置情報構造体
