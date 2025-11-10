@@ -401,9 +401,91 @@ void test_integration_async() {
         }, execution_time);
     integration_test_passed_with_time("Yield state preservation", "test_yield_state.cb", execution_time);
     
-    // Test 19: Future multiple await (スキップ - 構造体型Futureに既知の問題)
+    // Test 19: Phase 2.0 - Async interface basic operations
+    run_cb_test_with_output_and_time("../cases/async/test_interface_basic.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_interface_basic.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "PASS: async interface basic test", "Should display success message");
+        }, execution_time);
+    integration_test_passed_with_time("Phase 2.0 async interface basic operations", "test_interface_basic.cb", execution_time);
+    
+    // Test 20: Phase 2.0 - Async interface with self
+    run_cb_test_with_output_and_time("../cases/async/test_interface_self.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_interface_self.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "PASS: async interface with self test", "Should display success message");
+        }, execution_time);
+    integration_test_passed_with_time("Phase 2.0 async interface with self", "test_interface_self.cb", execution_time);
+    
+    // Test 21: Phase 2.0 - Async interface concurrent execution
+    run_cb_test_with_output_and_time("../cases/async/test_interface_concurrent.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_interface_concurrent.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "PASS: async interface concurrent test", "Should display success message");
+        }, execution_time);
+    integration_test_passed_with_time("Phase 2.0 async interface concurrent execution", "test_interface_concurrent.cb", execution_time);
+    
+    // Test 22: Future multiple await (スキップ - 構造体型Futureに既知の問題)
     // run_cb_test_with_output_and_time("../cases/async/test_future_multiple_await.cb", ...
     // TODO: 構造体型Futureのサポート後に有効化
+    
+    // Test 23: v0.13.0 - Comprehensive async/await + Result integration
+    run_cb_test_with_output_and_time("../cases/async/comprehensive_async_result.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "comprehensive_async_result.cb should execute successfully");
+            
+            // Test headers
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Comprehensive Async/Await + Result Test ===", "Should contain test header");
+            
+            // Test 1: Basic success case
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 1: Basic async Result (success)", "Test 1 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 1.1: divide_async(10, 2) = 5 - PASSED", "Test 1.1 passed");
+            
+            // Test 2: Error case
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 2: Basic async Result (error)", "Test 2 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 2.1: Error caught: Division by zero - PASSED", "Test 2.1 passed");
+            
+            // Test 3: Variant access
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 3: Variant access", "Test 3 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 3.1: Result variant = Ok - PASSED", "Test 3.1 passed");
+            
+            // Test 4: Nested Result
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 4: Nested Result", "Test 4 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 4.1: Nested Result retrieved successfully - PASSED", "Test 4.1 passed");
+            
+            // Test 5: String Result
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 5: String Result", "Test 5 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 5.1: Success message = Success message - PASSED", "Test 5.1 passed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 5.2: Error message = Error message - PASSED", "Test 5.2 passed");
+            
+            // Test 6: Chained operations
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 6: Chained operations", "Test 6 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 6.1: chain_operations(20,2,5) = 2 - PASSED", "Test 6.1 passed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 6.2: Chained error caught: Division by zero - PASSED", "Test 6.2 passed");
+            
+            // Test 7: Early return cases
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 7: Early return cases", "Test 7 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 7.1: Negative error: Negative number - PASSED", "Test 7.1 passed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 7.2: early_return(0) = 0 - PASSED", "Test 7.2 passed");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 7.3: early_return(5) = 10 - PASSED", "Test 7.3 passed");
+            
+            // Test 8: Multiple sequential awaits
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 8: Multiple sequential awaits", "Test 8 header");
+            INTEGRATION_ASSERT_CONTAINS(output, "Test 8.1: Sum of multiple awaits = 60 - PASSED", "Test 8.1 passed");
+            
+            // Final message
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Tests Passed ===", "All tests should pass");
+        }, execution_time);
+    integration_test_passed_with_time("v0.13.0 async Result<T,E> comprehensive integration", "comprehensive_async_result.cb", execution_time);
+    
+    // Test 24: v0.13.0 - Basic async Result tests
+    run_cb_test_with_output_and_time("../cases/async/test_async_result_integration.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_async_result_integration.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "Success: 5", "Should show success result");
+            INTEGRATION_ASSERT_CONTAINS(output, "Error: Division by zero", "Should show error result");
+        }, execution_time);
+    integration_test_passed_with_time("v0.13.0 async Result<T,E> basic integration", "test_async_result_integration.cb", execution_time);
     
     std::cout << "[integration-test] Async/await tests completed" << std::endl;
 }
