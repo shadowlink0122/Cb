@@ -601,6 +601,9 @@ void execute_member_assignment(StatementExecutor *executor,
                 str_value = right_var->str_value;
             }
             interpreter.assign_struct_member(obj_name, member_name, str_value);
+        } else if (right_var->is_enum || right_var->type == TYPE_ENUM) {
+            // v0.12.1: enum変数の場合、Variable全体を渡してenum情報を保持
+            interpreter.assign_struct_member(obj_name, member_name, *right_var);
         } else {
             // TypedValueを使用して型情報を保持
             TypedValue typed_value =

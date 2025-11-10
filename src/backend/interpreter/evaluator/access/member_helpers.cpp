@@ -220,7 +220,37 @@ Variable get_struct_member_from_variable(const Variable &struct_var,
             debug_msg(DebugMsgId::GENERIC_DEBUG,
                       "[DEBUG] Found struct member '%s' (type=%d, ");
         }
-        return enforce_privacy(member_it->second);
+
+        // v0.13.0: デバッグ情報
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[MEMBER_DEBUG] member='%s', type=%d, is_enum=%d, "
+                     "enum_type_name='%s', enum_variant='%s'",
+                     member_name.c_str(), member_it->second.type,
+                     member_it->second.is_enum,
+                     member_it->second.enum_type_name.c_str(),
+                     member_it->second.enum_variant.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+
+        // v0.13.0: enum型メンバーの場合、is_enumフラグを修正
+        // structメンバーに代入された時にenum情報が失われる問題の回避策
+        Variable result = enforce_privacy(member_it->second);
+        if (result.type == TYPE_ENUM && !result.is_enum) {
+            // 型がTYPE_ENUMなのにis_enumがfalseの場合、修正
+            result.is_enum = true;
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[MEMBER_FIX] Corrected is_enum flag for member");
+        }
+        // enum_type_nameが設定されていればis_enumをtrueに
+        if (!result.enum_type_name.empty() && !result.is_enum) {
+            result.is_enum = true;
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[MEMBER_FIX] Set is_enum based on enum_type_name");
+        }
+
+        return result;
     }
 
     // 構造体の識別子（struct_type_name）を使用してメンバーを検索

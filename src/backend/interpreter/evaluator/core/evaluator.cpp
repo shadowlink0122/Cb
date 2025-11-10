@@ -1323,6 +1323,15 @@ TypedValue ExpressionEvaluator::evaluate_ternary_typed(const ASTNode *node) {
         evaluate_typed_expression_lambda, type_engine_, last_typed_result_);
 }
 
+// v0.12.1: エラー伝播演算子の評価
+int64_t ExpressionEvaluator::evaluate_error_propagation(const ASTNode *node) {
+    auto evaluate_expression_lambda = [this](const ASTNode *n) {
+        return this->evaluate_expression(n);
+    };
+    return TernaryHelpers::evaluate_error_propagation(
+        node, interpreter_, evaluate_expression_lambda);
+}
+
 // 遅延評価されたTypedValueを実際に評価する
 TypedValue ExpressionEvaluator::resolve_deferred_evaluation(
     const TypedValue &deferred_value) {

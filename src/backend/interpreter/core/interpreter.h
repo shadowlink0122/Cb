@@ -422,6 +422,10 @@ struct AsyncTask {
     Variable internal_future; // タスク内部で管理するFuture変数
     bool use_internal_future = true; // internal_futureを使用するか
 
+    // v0.13.0 Phase 2.0: メソッド呼び出し対応
+    bool has_self = false; // selfが存在するか
+    Variable self_value;   // selfの値
+
     // 実行状態
     bool is_started = false;  // 実行開始済みか
     bool is_executed = false; // 実行完了したか
@@ -452,11 +456,11 @@ struct AsyncTask {
 
     AsyncTask()
         : task_id(0), function_node(nullptr), function_name(""),
-          future_var(nullptr), use_internal_future(true), is_started(false),
-          is_executed(false), current_statement_index(0), task_scope(nullptr),
-          has_return_value(false), return_value(0), return_double_value(0.0),
-          return_string_value(""), return_type(TYPE_VOID),
-          return_is_struct(false), auto_yield(true),
+          future_var(nullptr), use_internal_future(true), has_self(false),
+          is_started(false), is_executed(false), current_statement_index(0),
+          task_scope(nullptr), has_return_value(false), return_value(0),
+          return_double_value(0.0), return_string_value(""),
+          return_type(TYPE_VOID), return_is_struct(false), auto_yield(true),
           is_statement_first_time(true), is_sleeping(false), wake_up_time_ms(0),
           is_waiting(false), waiting_for_task_id(-1) {}
 
@@ -464,8 +468,8 @@ struct AsyncTask {
               std::vector<Variable> arguments, Variable *future)
         : task_id(id), function_node(node), function_name(name),
           args(std::move(arguments)), future_var(future),
-          use_internal_future(true), is_started(false), is_executed(false),
-          current_statement_index(0), task_scope(nullptr),
+          use_internal_future(true), has_self(false), is_started(false),
+          is_executed(false), current_statement_index(0), task_scope(nullptr),
           has_return_value(false), return_value(0), return_double_value(0.0),
           return_string_value(""), return_type(TYPE_VOID),
           return_is_struct(false), auto_yield(true),
@@ -998,6 +1002,10 @@ class Interpreter : public EvaluatorInterface {
     void assign_struct_member(const std::string &var_name,
                               const std::string &member_name,
                               const TypedValue &typed_value);
+    // v0.12.1: enum変数などVariable全体を渡す版
+    void assign_struct_member(const std::string &var_name,
+                              const std::string &member_name,
+                              const Variable &value_var);
     // 構造体メンバーに構造体を代入
     void assign_struct_member_struct(const std::string &var_name,
                                      const std::string &member_name,

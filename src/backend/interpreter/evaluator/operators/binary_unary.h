@@ -53,9 +53,9 @@ namespace BinaryAndUnaryOperators {
  * @param node AST_UNARY_OPノード（awaitキーワード）
  * @param interpreter インタプリタインスタンス
  * @param evaluate_typed_func evaluate_typed_expressionの参照（再帰呼び出し用）
- * @return int64_t 評価結果（await式の結果値）
+ * @return TypedValue 評価結果（awaitの結果、enum情報を含む）
  */
-int64_t evaluate_await(
+TypedValue evaluate_await(
     const ASTNode *node, Interpreter &interpreter,
     const std::function<TypedValue(const ASTNode *)> &evaluate_typed_func);
 

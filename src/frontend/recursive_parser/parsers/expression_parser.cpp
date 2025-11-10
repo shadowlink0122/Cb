@@ -716,6 +716,10 @@ ASTNode *ExpressionParser::parsePostfix() {
         return postfix;
     }
 
+    // NOTE: Error propagation operator (expr?) removed from here
+    // because it conflicts with ternary operator (expr ? val : val).
+    // If error propagation is needed, it should be handled differently.
+
     return primary;
 }
 

@@ -124,6 +124,10 @@ enum class TokenType {
     TOK_EXPORT,     // export
     TOK_ASYNC,      // async (v0.12.0: async functions)
     TOK_AWAIT,      // await (v0.12.0: await expressions)
+    TOK_TRY,        // try (v0.14.0: try expressions for error handling)
+    TOK_CHECKED,    // checked (v0.14.0: checked operations)
+    TOK_PANIC,      // panic (v0.14.0: panic macro)
+    TOK_UNWRAP,     // unwrap (v0.14.0: unwrap method)
 
     // Special
     TOK_EOF,

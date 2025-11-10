@@ -147,6 +147,17 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         }
     }
 
+    // v0.12.1: デバッグ - type_infoを確認
+    {
+        char dbg_buf[512];
+        snprintf(dbg_buf, sizeof(dbg_buf),
+                 "[VAR_DECL_DEBUG] node='%s', type_info=%d, type_name='%s', "
+                 "TYPE_ENUM=%d",
+                 node->name.c_str(), static_cast<int>(node->type_info),
+                 node->type_name.c_str(), static_cast<int>(TYPE_ENUM));
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
+
     // enum変数の場合の追加設定 (v0.11.0 generics)
     if (node->type_info == TYPE_ENUM && !node->type_name.empty()) {
         debug_msg(DebugMsgId::GENERIC_DEBUG,
@@ -155,6 +166,8 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
         var.is_enum = true;
         var.enum_type_name = node->type_name; // 例: "Option_int"
         var.type = TYPE_ENUM;
+        var.is_struct = true; // v0.12.1: enumもstructとして扱う
+        var.struct_type_name = node->type_name;
 
         {
             char dbg_buf[512];
@@ -162,6 +175,16 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 dbg_buf, sizeof(dbg_buf),
                 "[ENUM_VAR_DECL_MANAGER] Set is_enum=true for variable '%s'",
                 node->name.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+
+        // v0.12.1: 直後の状態確認
+        {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[ENUM_VAR_DECL_MANAGER] After setting: var.is_enum=%d, "
+                     "var.is_struct=%d",
+                     var.is_enum, var.is_struct);
             debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
         }
 
@@ -295,74 +318,135 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                                   "[ENUM_VAR_DECL_MANAGER] After assignment: ");
                     }
                 } else {
-                    // その他の式（整数値として評価）
-                    int64_t result_value =
-                        interpreter_->eval_expression(init_node);
-                    var.value = result_value;
-                    var.is_assigned = true;
-
-                    debug_msg(DebugMsgId::GENERIC_DEBUG,
-                              "[ENUM_VAR_DECL_MANAGER] Enum initialized from ");
+                    // v0.12.1: その他の式（変数参照、メンバーアクセスなど）
+                    // まず変数として取得を試みる（enum情報保持のため）
+                    if (init_node->node_type == ASTNodeType::AST_VARIABLE) {
+                        Variable *source_var =
+                            interpreter_->find_variable(init_node->name);
+                        if (source_var && source_var->is_enum) {
+                            // enum変数の場合、全フィールドをコピー
+                            var = *source_var;
+                            var.is_assigned = true;
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "[ENUM_VAR_DECL_MANAGER] Enum "
+                                      "initialized from variable");
+                        } else {
+                            // fallback: 整数値として評価
+                            int64_t result_value =
+                                interpreter_->eval_expression(init_node);
+                            var.value = result_value;
+                            var.is_assigned = true;
+                        }
+                    } else if (init_node->node_type ==
+                                   ASTNodeType::AST_MEMBER_ACCESS &&
+                               init_node->left &&
+                               init_node->left->node_type ==
+                                   ASTNodeType::AST_VARIABLE) {
+                        // 単純なメンバーアクセス（obj.member）の場合
+                        std::string obj_name = init_node->left->name;
+                        std::string member_name = init_node->name;
+                        Variable *member_var = interpreter_->get_struct_member(
+                            obj_name, member_name);
+                        if (member_var && member_var->is_enum) {
+                            // enum変数の場合、全フィールドをコピー
+                            var = *member_var;
+                            var.is_assigned = true;
+                            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                      "[ENUM_VAR_DECL_MANAGER] Enum "
+                                      "initialized from member access");
+                        } else {
+                            // fallback: 整数値として評価
+                            int64_t result_value =
+                                interpreter_->eval_expression(init_node);
+                            var.value = result_value;
+                            var.is_assigned = true;
+                        }
+                    } else {
+                        // その他の式（整数値として評価）
+                        int64_t result_value =
+                            interpreter_->eval_expression(init_node);
+                        var.value = result_value;
+                        var.is_assigned = true;
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[ENUM_VAR_DECL_MANAGER] Enum initialized "
+                                  "from expression");
+                    }
                 }
             }
         }
 
-        // 変数をスコープに追加して早期リターン
-        debug_msg(
-            DebugMsgId::GENERIC_DEBUG,
-            "[ENUM_VAR_DECL_MANAGER] About to add variable '%s' to scope, ");
+        // 変数をスコープに追加
+        // v0.13.0: await式の場合は早期returnせず、後続の処理パスに進む
+        bool is_await_init =
+            (node->init_expr &&
+             node->init_expr->node_type == ASTNodeType::AST_UNARY_OP &&
+             node->init_expr->is_await_expression);
 
-        // emplaceを使って明示的に配置
-        auto &scope_map = interpreter_->current_scope().variables;
-        scope_map.erase(node->name); // 既存のエントリを削除
-        auto [iter, inserted] = scope_map.emplace(node->name, var);
+        if (!is_await_init) {
+            // 通常のenum初期化の場合は、スコープに追加して早期return
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[ENUM_VAR_DECL_MANAGER] About to add variable '%s' to "
+                      "scope, ");
 
-        // 手動でis_enumを設定（ワークアラウンド）
-        iter->second.is_enum = true;
-        iter->second.enum_type_name = var.enum_type_name;
-        iter->second.enum_variant = var.enum_variant;
-        iter->second.has_associated_value =
-            var.has_associated_value; // 元の値を保持
-        iter->second.associated_int_value = var.associated_int_value;
-        iter->second.associated_str_value = var.associated_str_value;
-        iter->second.value = var.value; // 古いスタイルenum用のvalueも保持
+            // emplaceを使って明示的に配置
+            auto &scope_map = interpreter_->current_scope().variables;
+            scope_map.erase(node->name); // 既存のエントリを削除
+            auto [iter, inserted] = scope_map.emplace(node->name, var);
 
-        debug_msg(DebugMsgId::GENERIC_DEBUG,
-                  "[ENUM_VAR_DECL_MANAGER] After manual fix: is_enum=%d, ");
+            // 手動でis_enumを設定（ワークアラウンド）
+            iter->second.is_enum = true;
+            iter->second.enum_type_name = var.enum_type_name;
+            iter->second.enum_variant = var.enum_variant;
+            iter->second.has_associated_value =
+                var.has_associated_value; // 元の値を保持
+            iter->second.associated_int_value = var.associated_int_value;
+            iter->second.associated_str_value = var.associated_str_value;
+            iter->second.value = var.value; // 古いスタイルenum用のvalueも保持
 
-        {
-            char dbg_buf[512];
-            snprintf(
-                dbg_buf, sizeof(dbg_buf),
-                "[ENUM_VAR_DECL_MANAGER] Enum variable '%s' added to scope",
-                node->name.c_str());
-            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
-        }
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[ENUM_VAR_DECL_MANAGER] After manual fix: is_enum=%d, ");
 
-        // 確認：スコープから直接アクセス
-        auto &scope_variables = interpreter_->current_scope().variables;
-        if (scope_variables.find(node->name) != scope_variables.end()) {
             {
                 char dbg_buf[512];
                 snprintf(
                     dbg_buf, sizeof(dbg_buf),
-                    "[ENUM_VAR_DECL_MANAGER] Direct map access: is_enum=%d",
-                    scope_variables[node->name].is_enum);
+                    "[ENUM_VAR_DECL_MANAGER] Enum variable '%s' added to scope",
+                    node->name.c_str());
                 debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
             }
-        }
 
-        // 確認：find_variableで取得
-        Variable *stored_var = interpreter_->find_variable(node->name);
-        if (stored_var) {
-            debug_msg(DebugMsgId::GENERIC_DEBUG,
-                      "[ENUM_VAR_DECL_MANAGER] Verification: stored variable ");
+            // 確認：スコープから直接アクセス
+            auto &scope_variables = interpreter_->current_scope().variables;
+            if (scope_variables.find(node->name) != scope_variables.end()) {
+                {
+                    char dbg_buf[512];
+                    snprintf(
+                        dbg_buf, sizeof(dbg_buf),
+                        "[ENUM_VAR_DECL_MANAGER] Direct map access: is_enum=%d",
+                        scope_variables[node->name].is_enum);
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
+            }
+
+            // 確認：find_variableで取得
+            Variable *stored_var = interpreter_->find_variable(node->name);
+            if (stored_var) {
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "[ENUM_VAR_DECL_MANAGER] Verification: stored variable ");
+            } else {
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[ENUM_VAR_DECL_MANAGER] ERROR: Variable '%s' not ");
+            }
+
+            return;
         } else {
+            // await式の場合は早期returnせず、後続の処理に進む
             debug_msg(DebugMsgId::GENERIC_DEBUG,
-                      "[ENUM_VAR_DECL_MANAGER] ERROR: Variable '%s' not ");
+                      "[ENUM_VAR_DECL_MANAGER] Await init detected, continuing "
+                      "to await path");
+            // varのis_enum情報は保持されたまま次のパスへ
         }
-
-        return;
     }
 
     // interface変数の場合の追加設定
@@ -959,6 +1043,17 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                    (node->init_expr->node_type == ASTNodeType::AST_FUNC_CALL ||
                     (node->init_expr->node_type == ASTNodeType::AST_UNARY_OP &&
                      node->init_expr->is_await_expression))) {
+            // v0.13.0: デバッグ - varの状態を確認
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[VAR_DECL_AWAIT_PATH] var: is_struct=%d, is_enum=%d, "
+                         "node_type=%d",
+                         var.is_struct, var.is_enum,
+                         static_cast<int>(node->init_expr->node_type));
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+
             // 構造体変数の関数呼び出し初期化: Calculator add_result =
             // math.add(10, 5);
             // または await式初期化: Point result = await compute_point();
@@ -966,24 +1061,18 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
             // await式の場合は直接evaluate_typedを使用
             if (node->init_expr->node_type == ASTNodeType::AST_UNARY_OP &&
                 node->init_expr->is_await_expression) {
-                if (interpreter_->debug_mode) {
-                    debug_msg(DebugMsgId::GENERIC_DEBUG,
-                              "[VAR_DECL_AWAIT] Evaluating await expression ");
-                }
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[VAR_DECL_AWAIT] Evaluating await expression");
+
+                // v0.13.0: enum情報を事前に保存
+                bool was_enum = var.is_enum;
+                std::string saved_enum_type_name = var.enum_type_name;
 
                 TypedValue await_result =
                     interpreter_->evaluate_typed(node->init_expr.get());
 
-                if (interpreter_->debug_mode) {
-                    {
-                        char dbg_buf[512];
-                        snprintf(
-                            dbg_buf, sizeof(dbg_buf),
-                            "[VAR_DECL_AWAIT] await returned: is_struct=%d",
-                            await_result.is_struct());
-                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
-                    }
-                }
+                debug_msg(DebugMsgId::GENERIC_DEBUG,
+                          "[VAR_DECL_AWAIT] await returned");
 
                 if (await_result.is_struct() && await_result.struct_data) {
                     // 構造体値を変数に設定
@@ -992,6 +1081,33 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     var.struct_type_name = struct_val.struct_type_name;
                     var.struct_members = struct_val.struct_members;
                     var.is_assigned = true;
+
+                    // v0.13.0: enum情報もコピー（await結果がenum型の場合）
+                    if (struct_val.is_enum) {
+                        var.is_enum = true;
+                        var.enum_type_name = struct_val.enum_type_name;
+                        var.enum_variant = struct_val.enum_variant;
+                        var.has_associated_value =
+                            struct_val.has_associated_value;
+                        var.associated_int_value =
+                            struct_val.associated_int_value;
+                        var.associated_str_value =
+                            struct_val.associated_str_value;
+
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[VAR_DECL_AWAIT] Copied enum info from "
+                                  "await result");
+                    } else if (was_enum && struct_val.struct_type_name ==
+                                               saved_enum_type_name) {
+                        // await結果にenum情報がないが、変数宣言時はenum型だった場合
+                        // これはバグなので、手動で復元
+                        var.is_enum = true;
+                        var.enum_type_name = saved_enum_type_name;
+
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[VAR_DECL_AWAIT] Restored enum info (was "
+                                  "lost in await)");
+                    }
 
                     if (interpreter_->debug_mode) {
                         {

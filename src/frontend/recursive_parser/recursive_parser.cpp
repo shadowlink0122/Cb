@@ -343,7 +343,7 @@ ASTNode *RecursiveParser::parseTernary() {
 
     if (check(TokenType::TOK_QUESTION)) {
         advance(); // consume '?'
-        ASTNode *true_expr = parseExpression();
+        ASTNode *true_expr = parseTernary();
         consume(TokenType::TOK_COLON, "Expected ':' in ternary expression");
         ASTNode *false_expr = parseTernary();
 
@@ -1765,6 +1765,47 @@ void RecursiveParser::instantiateGenericEnum(
     // インスタンス化されたenumを登録
     enum_definitions_[instantiated_name] = instantiated_enum;
 
+    // v0.13.0: マングリングされた名前でも登録（Result<int, string> ->
+    // Result_int_string） これにより変数の型名との一致を保証
+    std::string mangled_name = base_name + "_";
+    for (size_t i = 0; i < type_arguments.size(); ++i) {
+        if (i > 0)
+            mangled_name += "_";
+        // 型引数の特殊文字を置換
+        std::string arg = type_arguments[i];
+        for (char &c : arg) {
+            if (c == '<' || c == '>' || c == ',' || c == ' ' || c == '*') {
+                c = '_';
+            }
+        }
+        // 連続するアンダースコアを削除
+        std::string cleaned;
+        bool last_underscore = false;
+        for (char c : arg) {
+            if (c == '_') {
+                if (!last_underscore) {
+                    cleaned += c;
+                    last_underscore = true;
+                }
+            } else {
+                cleaned += c;
+                last_underscore = false;
+            }
+        }
+        // 末尾のアンダースコアを削除
+        while (!cleaned.empty() && cleaned.back() == '_') {
+            cleaned.pop_back();
+        }
+        mangled_name += cleaned;
+    }
+
+    // マングリング名でも同じenum定義を登録（instantiated_nameは保持）
+    if (mangled_name != instantiated_name) {
+        EnumDefinition mangled_enum = instantiated_enum;
+        mangled_enum.name = mangled_name;
+        enum_definitions_[mangled_name] = mangled_enum;
+    }
+
     if (debug_mode_) {
         std::cerr << "[GENERICS] Instantiated enum " << base_name << "<";
         for (size_t i = 0; i < type_arguments.size(); ++i) {
@@ -1772,7 +1813,11 @@ void RecursiveParser::instantiateGenericEnum(
                 std::cerr << ", ";
             std::cerr << type_arguments[i];
         }
-        std::cerr << "> as " << instantiated_name << std::endl;
+        std::cerr << "> as " << instantiated_name;
+        if (mangled_name != instantiated_name) {
+            std::cerr << " (also as " << mangled_name << ")";
+        }
+        std::cerr << std::endl;
     }
 }
 
@@ -1835,6 +1880,104 @@ void RecursiveParser::initialize_builtin_types() {
 
     enum_definitions_["Result"] = result_def;
 
+    // RuntimeError enum定義 (v0.14.0: Comprehensive error handling)
+    EnumDefinition runtime_error_def;
+    runtime_error_def.name = "RuntimeError";
+    runtime_error_def.is_generic = false;
+    runtime_error_def.has_associated_values = true;
+
+    // NullPointerError(string) variant
+    EnumMember null_pointer;
+    null_pointer.name = "NullPointerError";
+    null_pointer.value = 0;
+    null_pointer.explicit_value = true;
+    null_pointer.has_associated_value = true;
+    null_pointer.associated_type = TYPE_STRING;
+    null_pointer.associated_type_name = "string";
+    runtime_error_def.members.push_back(null_pointer);
+
+    // IndexOutOfBoundsError(string) variant
+    EnumMember index_error;
+    index_error.name = "IndexOutOfBoundsError";
+    index_error.value = 1;
+    index_error.explicit_value = true;
+    index_error.has_associated_value = true;
+    index_error.associated_type = TYPE_STRING;
+    index_error.associated_type_name = "string";
+    runtime_error_def.members.push_back(index_error);
+
+    // DivisionByZeroError(string) variant
+    EnumMember div_zero;
+    div_zero.name = "DivisionByZeroError";
+    div_zero.value = 2;
+    div_zero.explicit_value = true;
+    div_zero.has_associated_value = true;
+    div_zero.associated_type = TYPE_STRING;
+    div_zero.associated_type_name = "string";
+    runtime_error_def.members.push_back(div_zero);
+
+    // StackOverflowError(string) variant
+    EnumMember stack_overflow;
+    stack_overflow.name = "StackOverflowError";
+    stack_overflow.value = 3;
+    stack_overflow.explicit_value = true;
+    stack_overflow.has_associated_value = true;
+    stack_overflow.associated_type = TYPE_STRING;
+    stack_overflow.associated_type_name = "string";
+    runtime_error_def.members.push_back(stack_overflow);
+
+    // HeapExhaustionError(string) variant
+    EnumMember heap_exhaustion;
+    heap_exhaustion.name = "HeapExhaustionError";
+    heap_exhaustion.value = 4;
+    heap_exhaustion.explicit_value = true;
+    heap_exhaustion.has_associated_value = true;
+    heap_exhaustion.associated_type = TYPE_STRING;
+    heap_exhaustion.associated_type_name = "string";
+    runtime_error_def.members.push_back(heap_exhaustion);
+
+    // TypeCastError(string) variant
+    EnumMember type_cast;
+    type_cast.name = "TypeCastError";
+    type_cast.value = 5;
+    type_cast.explicit_value = true;
+    type_cast.has_associated_value = true;
+    type_cast.associated_type = TYPE_STRING;
+    type_cast.associated_type_name = "string";
+    runtime_error_def.members.push_back(type_cast);
+
+    // ArithmeticOverflowError(string) variant
+    EnumMember arithmetic_overflow;
+    arithmetic_overflow.name = "ArithmeticOverflowError";
+    arithmetic_overflow.value = 6;
+    arithmetic_overflow.explicit_value = true;
+    arithmetic_overflow.has_associated_value = true;
+    arithmetic_overflow.associated_type = TYPE_STRING;
+    arithmetic_overflow.associated_type_name = "string";
+    runtime_error_def.members.push_back(arithmetic_overflow);
+
+    // AssertionError(string) variant
+    EnumMember assertion_error;
+    assertion_error.name = "AssertionError";
+    assertion_error.value = 7;
+    assertion_error.explicit_value = true;
+    assertion_error.has_associated_value = true;
+    assertion_error.associated_type = TYPE_STRING;
+    assertion_error.associated_type_name = "string";
+    runtime_error_def.members.push_back(assertion_error);
+
+    // Custom(string) variant
+    EnumMember custom_error;
+    custom_error.name = "Custom";
+    custom_error.value = 8;
+    custom_error.explicit_value = true;
+    custom_error.has_associated_value = true;
+    custom_error.associated_type = TYPE_STRING;
+    custom_error.associated_type_name = "string";
+    runtime_error_def.members.push_back(custom_error);
+
+    enum_definitions_["RuntimeError"] = runtime_error_def;
+
     // Future<T> struct定義 (Phase 2.0 async/await support)
     StructDefinition future_def;
     future_def.name = "Future";
@@ -1862,8 +2005,9 @@ void RecursiveParser::initialize_builtin_types() {
     struct_definitions_["Future"] = future_def;
 
     if (debug_mode_) {
-        std::cerr << "[BUILTIN_TYPES] Registered Option<T>, Result<T, E> as "
-                     "builtin enum types and Future<T> as builtin struct type"
+        std::cerr << "[BUILTIN_TYPES] Registered Option<T>, Result<T, E>, "
+                     "RuntimeError as builtin enum types and Future<T> as "
+                     "builtin struct type"
                   << std::endl;
     }
 }

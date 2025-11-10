@@ -140,17 +140,29 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         }
     }
 
+    case ASTNodeType::AST_ERROR_PROPAGATION: {
+        // v0.12.1: エラー伝播演算子 expr?
+        return expression_evaluator_.evaluate_error_propagation(node);
+    }
+
     case ASTNodeType::AST_UNARY_OP: {
         debug_msg(DebugMsgId::UNARY_OP_DEBUG, node->op.c_str());
 
-        // v0.12.0: await式の処理
+        // v0.12.1: await式の処理（TypedValueを返すように変更）
         if (node->op == "await" || node->is_await_expression) {
             std::function<TypedValue(const ASTNode *)> eval_typed_func =
                 [this](const ASTNode *n) -> TypedValue {
                 return expression_evaluator_.evaluate_typed_expression(n);
             };
-            return BinaryAndUnaryOperators::evaluate_await(node, interpreter_,
-                                                           eval_typed_func);
+            TypedValue await_result = BinaryAndUnaryOperators::evaluate_await(
+                node, interpreter_, eval_typed_func);
+
+            // TypedValueをint64_tに変換（後方互換性のため）
+            if (await_result.is_string()) {
+                return 0;
+            } else {
+                return await_result.as_numeric();
+            }
         }
 
         if (node->op == "++_post" || node->op == "--_post") {
