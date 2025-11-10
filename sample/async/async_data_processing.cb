@@ -31,9 +31,7 @@ struct Order {
 // ============================================
 
 // ユーザーIDでユーザーを取得
-Future<User> fetch_user(int user_id) {
-    Future<User> result;
-    
+async User fetch_user(int user_id) {
     User user;
     if (user_id == 1) {
         user.id = 1;
@@ -49,15 +47,11 @@ Future<User> fetch_user(int user_id) {
         user.age = 0;
     }
     
-    result.value = user;
-    result.is_ready = true;
-    return result;
+    return user;
 }
 
 // 商品IDで商品を取得
-Future<Product> fetch_product(int product_id) {
-    Future<Product> result;
-    
+async Product fetch_product(int product_id) {
     Product product;
     if (product_id == 1) {
         product.id = 1;
@@ -77,15 +71,11 @@ Future<Product> fetch_product(int product_id) {
         product.price = 0;
     }
     
-    result.value = product;
-    result.is_ready = true;
-    return result;
+    return product;
 }
 
 // 注文データを取得
-Future<Order> fetch_order(int order_id) {
-    Future<Order> result;
-    
+async Order fetch_order(int order_id) {
     Order order;
     if (order_id == 1) {
         order.id = 1;
@@ -104,9 +94,7 @@ Future<Order> fetch_order(int order_id) {
         order.quantity = 0;
     }
     
-    result.value = order;
-    result.is_ready = true;
-    return result;
+    return order;
 }
 
 // ============================================
@@ -114,7 +102,7 @@ Future<Order> fetch_order(int order_id) {
 // ============================================
 
 // 注文詳細を表示（複数の非同期クエリを組み合わせ）
-void display_order_details(int order_id) {
+async void display_order_details(int order_id) {
     print("=== Order Details (ID: ");
     print(order_id);
     print(") ===\n");
@@ -159,7 +147,7 @@ void display_order_details(int order_id) {
 }
 
 // 複数の注文を並行処理（シミュレート）
-void process_multiple_orders() {
+async void process_multiple_orders() {
     print("=== Processing Multiple Orders ===\n");
     
     int total_revenue = 0;
@@ -199,9 +187,7 @@ void process_multiple_orders() {
 // データ分析（非同期データ集計）
 // ============================================
 
-Future<int> calculate_user_spending(int user_id) {
-    Future<int> result;
-    
+async int calculate_user_spending(int user_id) {
     // 簡易的にハードコードされた結果を返す
     int spending = 0;
     
@@ -211,12 +197,10 @@ Future<int> calculate_user_spending(int user_id) {
         spending = 125;   // Mouse x 5
     }
     
-    result.value = spending;
-    result.is_ready = true;
-    return result;
+    return spending;
 }
 
-void analyze_user_spending() {
+async void analyze_user_spending() {
     print("=== User Spending Analysis ===\n");
     
     // ユーザー1
@@ -250,22 +234,17 @@ struct CachedData {
 };
 
 // キャッシュをチェックしてから取得
-Future<int> fetch_with_cache(int key, bool use_cache) {
-    Future<int> result;
-    
+async int fetch_with_cache(int key, bool use_cache) {
     if (use_cache) {
         // キャッシュヒット
-        result.value = 42;  // キャッシュされた値
+        return 42;  // キャッシュされた値
     } else {
         // キャッシュミス - データベースから取得
-        result.value = 100;  // 新しく取得した値
+        return 100;  // 新しく取得した値
     }
-    
-    result.is_ready = true;
-    return result;
 }
 
-void demonstrate_caching() {
+async void demonstrate_caching() {
     print("=== Caching Demonstration ===\n");
     
     // 最初のアクセス（キャッシュなし）
@@ -285,27 +264,25 @@ void demonstrate_caching() {
 // メイン関数
 // ============================================
 
-int main() {
+void main() {
     print("========================================\n");
     print("  Cb Async Data Processing Demo\n");
     print("========================================\n\n");
     
     // 1. 単一の注文詳細を表示
-    display_order_details(1);
-    display_order_details(2);
+    await display_order_details(1);
+    await display_order_details(2);
     
     // 2. 複数の注文を処理
-    process_multiple_orders();
+    await process_multiple_orders();
     
     // 3. ユーザーの支出分析
-    analyze_user_spending();
+    await analyze_user_spending();
     
     // 4. キャッシングのデモ
-    demonstrate_caching();
+    await demonstrate_caching();
     
     print("========================================\n");
     print("  Demo Complete!\n");
     print("========================================\n");
-    
-    return 0;
 }

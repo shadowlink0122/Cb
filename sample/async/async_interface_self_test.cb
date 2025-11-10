@@ -1,0 +1,29 @@
+// async interface + self の基本テスト
+
+interface Greeter {
+    async string greet();
+}
+
+struct Person {
+    string name;
+};
+
+impl Greeter for Person {
+    async string greet() {
+        println("[greet] self.name = {self.name}");
+        await sleep(100);
+        return self.name;
+    }
+}
+
+void main() {
+    println("=== async interface + self テスト ===\n");
+    
+    Person p;
+    p.name = "Alice";
+    
+    Future<string> f = p.greet();
+    string result = await f;
+    
+    println("\n結果: {result}");
+}
