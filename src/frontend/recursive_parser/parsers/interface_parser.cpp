@@ -176,13 +176,6 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
                                return_parsed.is_unsigned);
         // v0.13.0: 戻り値の型名を設定（Future<int>など複合型のため）
         method.return_type_name = return_type;
-        // v0.13.0: マングリング前の型名も設定（Result<T, string>など）
-        if (!return_parsed.generic_original_type.empty()) {
-            method.return_type_name_original = return_parsed.generic_original_type;
-        } else {
-            // ジェネリック型でない場合は通常の型名を使用
-            method.return_type_name_original = return_type;
-        }
         // v0.13.0 Phase 2.0: asyncフラグを設定
         method.is_async = is_async_method;
 
@@ -852,20 +845,8 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                             }
 
                             // v0.13.0: 戻り値の型を文字列で比較（Future<int>などの複合型対応）
-                            // マングリング前の型名を使用
-                            std::string expected_return_type_str = interface_method.return_type_name_original;
-                            if (expected_return_type_str.empty()) {
-                                // フォールバック: 古いコードとの互換性
-                                expected_return_type_str = interface_method.return_type_name;
-                            }
-                            
-                            // impl側もマングリング前の型名を取得
-                            std::string actual_return_type_str;
-                            if (!return_type_parsed.generic_original_type.empty()) {
-                                actual_return_type_str = return_type_parsed.generic_original_type;
-                            } else {
-                                actual_return_type_str = return_type;
-                            }
+                            std::string expected_return_type_str = interface_method.return_type_name;
+                            std::string actual_return_type_str = return_type;
                             
                             // 型名が空の場合は、TypeInfoから文字列に変換（後方互換性）
                             if (expected_return_type_str.empty()) {

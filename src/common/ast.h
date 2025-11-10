@@ -632,7 +632,6 @@ struct InterfaceMember {
     std::string name;                // 関数名
     TypeInfo return_type;            // 戻り値の型
     std::string return_type_name;    // v0.13.0: 戻り値の型名（Future<int>など複合型用）
-    std::string return_type_name_original; // v0.13.0: マングリング前の型名（Result<T,string>など）
     bool return_is_unsigned = false; // 戻り値がunsignedかどうか
     bool is_async = false;           // v0.13.0 Phase 2.0: asyncメソッドか
     std::vector<std::pair<std::string, TypeInfo>>
@@ -649,7 +648,6 @@ struct InterfaceMember {
     InterfaceMember(const InterfaceMember &other)
         : name(other.name), return_type(other.return_type),
           return_type_name(other.return_type_name),
-          return_type_name_original(other.return_type_name_original),
           return_is_unsigned(other.return_is_unsigned),
           is_async(other.is_async), parameters(other.parameters),
           parameter_is_unsigned(other.parameter_is_unsigned) {}
@@ -660,7 +658,6 @@ struct InterfaceMember {
             name = other.name;
             return_type = other.return_type;
             return_type_name = other.return_type_name;
-            return_type_name_original = other.return_type_name_original;
             return_is_unsigned = other.return_is_unsigned;
             is_async = other.is_async;
             parameters = other.parameters;

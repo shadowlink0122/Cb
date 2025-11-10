@@ -1,0 +1,30 @@
+{
+  "name": "cb-presentation-exporter",
+  "version": "1.0.0",
+  "description": "Export tools for Cb interpreter presentation",
+  "main": "export_to_pdf_hq.js",
+  "scripts": {
+    "export:pdf": "node export_to_pdf_hq.js",
+    "export:images": "node export_to_images.js",
+    "export:all": "npm run export:pdf && npm run export:images",
+    "test": "node -e \"console.log('✓ Scripts are ready')\"",
+    "help": "cat QUICK_START.md"
+  },
+  "keywords": [
+    "reveal.js",
+    "presentation",
+    "export",
+    "pdf",
+    "google-slides",
+    "keynote",
+    "cb-language"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "puppeteer": "^21.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

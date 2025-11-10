@@ -1,0 +1,14 @@
+# Node modules
+node_modules/
+package-lock.json
+
+# Generated files
+cb_presentation.pdf
+slides/
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
