@@ -1,0 +1,15 @@
+Result<int, string> get_value() {
+    return Result<int, string>::Ok("NG");
+}
+
+void main() {
+    Result<int, string> r = get_value();
+    match (r) {
+        Ok(value) => {
+            println("x = {value}");
+        }
+        Err(msg) => {
+            println("Error: {msg}");
+        }
+    }
+}

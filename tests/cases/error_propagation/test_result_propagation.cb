@@ -1,0 +1,35 @@
+// Test ? operator with Result<T, E>
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+Result<int, string> compute(int a, int b, int c) {
+    int x = divide(a, b)?;  // エラーなら即return
+    int y = divide(x, c)?;  // エラーなら即return
+    return Result<int, string>::Ok(y);
+}
+
+void main() {
+    Result<int, string> r1 = compute(10, 2, 5);
+    match (r1) {
+        Ok(value) => {
+            println("Success: {value}");
+        }
+        Err(msg) => {
+            println("Error: {msg}");
+        }
+    }
+    
+    Result<int, string> r2 = compute(10, 0, 5);
+    match (r2) {
+        Ok(value) => {
+            println("Success: {value}");
+        }
+        Err(msg) => {
+            println("Error: {msg}");
+        }
+    }
+}

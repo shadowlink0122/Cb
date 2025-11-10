@@ -1,0 +1,14 @@
+async Future<Result<int, string>> simple_async() {
+    println("Inside async, creating Result");
+    Result<int, string> r = Result<int, string>::Ok(42);
+    println("About to return, variant: {r.variant}");
+    return r;
+}
+
+void main() {
+    println("Calling async function");
+    Future<Result<int, string>> f = simple_async();
+    println("Got Future, calling await");
+    Result<int, string> result = await f;
+    println("After await, variant: {result.variant}");
+}

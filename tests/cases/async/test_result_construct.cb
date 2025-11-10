@@ -1,0 +1,5 @@
+void main() {
+    println("Creating Result in main");
+    Result<int, string> r = Result<int, string>::Ok(42);
+    println("variant: {r.variant}");
+}

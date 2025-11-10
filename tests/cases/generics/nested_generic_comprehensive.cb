@@ -62,8 +62,8 @@ void main() {
     
     // Test 5: Type substitution check
     println("Test 5: Type parameter substitution");
-    println("  Wrapper<Box<T>> + {T->int} = Wrapper_Box_int");
-    println("  Wrapper<Box<T>> + {T->long} = Wrapper_Box_long");
+    println("  Wrapper<Box<T>> + {{T->int}} = Wrapper_Box_int");
+    println("  Wrapper<Box<T>> + {{T->long}} = Wrapper_Box_long");
     println("  ✅ PASS (verified by successful execution)");
     println("");
     

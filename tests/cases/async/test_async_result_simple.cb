@@ -1,0 +1,10 @@
+// Simpler test
+async Future<int> async_compute() {
+    return 42;
+}
+
+void main() {
+    Future<int> f = async_compute();
+    int v = await f;
+    println("Value: {v}");
+}

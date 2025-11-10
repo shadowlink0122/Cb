@@ -1,0 +1,11 @@
+async Future<Result<int, string>> test_async() {
+    Result<int, string> r = Result<int, string>::Ok(42);
+    println("Inside async after creation, variant: {r.variant}");
+    return r;
+}
+
+void main() {
+    Future<Result<int, string>> f = test_async();
+    Result<int, string> result = await f;
+    println("After await, variant: {result.variant}");
+}

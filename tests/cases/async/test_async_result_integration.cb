@@ -1,0 +1,33 @@
+// Test async function returning Result<T, E>
+async Future<Result<int, string>> async_divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+void main() {
+    Future<Result<int, string>> f1 = async_divide(10, 2);
+    Result<int, string> r1 = await f1;
+    
+    match (r1) {
+        Ok(value) => {
+            println("Success: {value}");
+        }
+        Err(msg) => {
+            println("Error: {msg}");
+        }
+    }
+    
+    Future<Result<int, string>> f2 = async_divide(10, 0);
+    Result<int, string> r2 = await f2;
+    
+    match (r2) {
+        Ok(value) => {
+            println("Success: {value}");
+        }
+        Err(msg) => {
+            println("Error: {msg}");
+        }
+    }
+}

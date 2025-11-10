@@ -1,0 +1,17 @@
+// Test nested generic type without async
+Result<int, string> get_result() {
+    Result<int, string> ok = Result<int, string>::Ok(42);
+    return ok;
+}
+
+void main() {
+    Result<int, string> r = get_result();
+    match (r) {
+        Ok(value) => {
+            println("Ok: {value}");
+        }
+        Err(msg) => {
+            println("Err: {msg}");
+        }
+    }
+}

@@ -1,0 +1,90 @@
+// Test: async/awaitとResult<T, E>の基本的な統合
+// v0.13.0: Future<Result<T, E>>パターンのテスト
+
+// エラーを返す可能性のあるasync関数
+async Future<Result<int, string>> divide_async(int a, int b) {
+    await sleep(10);
+    
+    if (b == 0) {
+        Result<int, string> err = Result<int, string>::Err("division by zero");
+        return err;
+    }
+    
+    Result<int, string> ok = Result<int, string>::Ok(a / b);
+    return ok;
+}
+
+// 別のasync関数でResultを使用
+async Future<Result<string, string>> format_result(int value) {
+    await sleep(5);
+    
+    if (value < 0) {
+        Result<string, string> err = Result<string, string>::Err("negative value");
+        return err;
+    }
+    
+    Result<string, string> ok = Result<string, string>::Ok("Value: {value}");
+    return ok;
+}
+
+void main() {
+    println("=== Async Result Basic Test ===");
+    
+    // Test 1: 成功ケース
+    Future<Result<int, string>> f1 = divide_async(10, 2);
+    Result<int, string> r1 = await f1;
+    
+    match (r1) {
+        Ok(value) => {
+            println("Test 1 Ok: {value}");
+            assert(value == 5);
+        }
+        Err(msg) => {
+            println("ERROR: Should not reach here");
+            assert(false);
+        }
+    }
+    
+    // Test 2: エラーケース
+    Future<Result<int, string>> f2 = divide_async(10, 0);
+    Result<int, string> r2 = await f2;
+    
+    match (r2) {
+        Ok(value) => {
+            println("ERROR: Should not reach here");
+            assert(false);
+        }
+        Err(msg) => {
+            println("Test 2 Err: {msg}");
+            assert(msg == "division by zero");
+        }
+    }
+    
+    // Test 3: ネストされたasync + Result
+    Future<Result<int, string>> f3 = divide_async(20, 4);
+    Result<int, string> r3 = await f3;
+    
+    match (r3) {
+        Ok(value) => {
+            println("Test 3 intermediate: {value}");
+            Future<Result<string, string>> f4 = format_result(value);
+            Result<string, string> r4 = await f4;
+            
+            match (r4) {
+                Ok(msg) => {
+                    println("Test 3 final Ok: {msg}");
+                }
+                Err(error) => {
+                    println("ERROR: Should not reach here");
+                    assert(false);
+                }
+            }
+        }
+        Err(msg) => {
+            println("ERROR: Should not reach here");
+            assert(false);
+        }
+    }
+    
+    println("=== All tests passed ===");
+}
