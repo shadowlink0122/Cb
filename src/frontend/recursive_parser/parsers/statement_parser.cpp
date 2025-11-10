@@ -373,6 +373,8 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
 
     // v0.11.0: 戻り値型がジェネリック型の場合、型引数をスキップ
     // 例: Box<T> の <T> 部分
+    // v0.13.0: >> トークンを > > として扱う（ネストされたジェネリクス対応）
+    // 注意: ここは型宣言の先読みなので、>> はジェネリクスの閉じと解釈して安全
     if (parser_->check(TokenType::TOK_LT)) {
         int depth = 1;
         parser_->advance(); // '<' をスキップ
@@ -382,6 +384,15 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
                 depth++;
             } else if (parser_->check(TokenType::TOK_GT)) {
                 depth--;
+            } else if (parser_->check(TokenType::TOK_RIGHT_SHIFT)) {
+                // >> を 2つの > として扱う（型文脈内でのみ有効）
+                // depthが2以上の場合のみ適用（ネストされたジェネリクス）
+                if (depth >= 2) {
+                    depth -= 2;
+                } else {
+                    // depth=1の場合は1つの>として扱う（安全側）
+                    depth--;
+                }
             }
             if (depth > 0) {
                 parser_->advance();
@@ -390,6 +401,9 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
 
         if (parser_->check(TokenType::TOK_GT)) {
             parser_->advance(); // '>' をスキップ
+        } else if (parser_->check(TokenType::TOK_RIGHT_SHIFT) && depth <= 0) {
+            // 最後が >> の場合もスキップ
+            parser_->advance();
         }
     }
 
@@ -508,9 +522,18 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
         }
 
         // 関数定義 - parseType()を使ってconst修飾子を含む完全な型情報を取得
+        // v0.13.0: parseType()が自動的に>>分割用のスタック管理を行う
         std::string return_type =
             parser_->parseType(); // const修飾子を含む完全な型
         ParsedTypeInfo return_type_info = parser_->getLastParsedTypeInfo();
+
+        // v0.13.0: async関数の戻り値をFuture<T>で自動ラッピング
+        if (isAsync) {
+            // 戻り値がすでにFuture<>で始まっている場合はラップしない
+            if (return_type.find("Future<") != 0) {
+                return_type = "Future<" + return_type + ">";
+            }
+        }
 
         std::string function_name = parser_->advance().value;
         debug_msg(DebugMsgId::PARSE_FUNCTION_DECL_FOUND, function_name.c_str(),
@@ -1184,6 +1207,15 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
             if (isConst && pointer_depth > 0) {
                 full_return_type = "const " + full_return_type;
             }
+
+            // v0.13.0: async関数の戻り値をFuture<T>で自動ラッピング
+            if (isAsync) {
+                // 戻り値がすでにFuture<>で始まっている場合はラップしない
+                if (full_return_type.find("Future<") != 0) {
+                    full_return_type = "Future<" + full_return_type + ">";
+                }
+            }
+
             ASTNode *func_node = parser_->parseFunctionDeclarationAfterName(
                 full_return_type, name_token.value);
 

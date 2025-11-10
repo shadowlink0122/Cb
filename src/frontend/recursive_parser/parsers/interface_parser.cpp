@@ -120,6 +120,14 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
         std::string return_type = parser_->parseType();
         ParsedTypeInfo return_parsed = parser_->getLastParsedTypeInfo();
 
+        // v0.13.0: async関数の戻り値をFuture<T>で自動ラッピング
+        if (is_async_method) {
+            // 戻り値がすでにFuture<>で始まっている場合はラップしない
+            if (return_type.find("Future<") != 0) {
+                return_type = "Future<" + return_type + ">";
+            }
+        }
+
         if (return_type.empty()) {
             parser_->error(
                 "Expected return type in interface method declaration");
@@ -166,6 +174,15 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
 
         InterfaceMember method(method_name, resolved_return_type,
                                return_parsed.is_unsigned);
+        // v0.13.0: 戻り値の型名を設定（Future<int>など複合型のため）
+        method.return_type_name = return_type;
+        // v0.13.0: マングリング前の型名も設定（Result<T, string>など）
+        if (!return_parsed.generic_original_type.empty()) {
+            method.return_type_name_original = return_parsed.generic_original_type;
+        } else {
+            // ジェネリック型でない場合は通常の型名を使用
+            method.return_type_name_original = return_type;
+        }
         // v0.13.0 Phase 2.0: asyncフラグを設定
         method.is_async = is_async_method;
 
@@ -673,9 +690,19 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
         // メソッド実装をパース（関数宣言として）
         // impl内では戻り値の型から始まるメソッド定義
         std::string return_type = parser_->parseType();
+        ParsedTypeInfo return_type_parsed = parser_->getLastParsedTypeInfo();  // v0.13.0: 直後に取得
+        
         if (return_type.empty()) {
             parser_->error("Expected return type in method implementation");
             return nullptr;
+        }
+
+        // v0.13.0: async関数の戻り値をFuture<T>で自動ラッピング
+        if (is_async_method) {
+            // 戻り値がすでにFuture<>で始まっている場合はラップしない
+            if (return_type.find("Future<") != 0) {
+                return_type = "Future<" + return_type + ">";
+            }
         }
 
         // メソッド名を解析（予約キーワードも許可）
@@ -705,6 +732,8 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
             // v0.13.0 Phase 2.0: asyncフラグを設定
             if (is_async_method) {
                 method_impl->is_async = true;
+                method_impl->is_async_function =
+                    true; // FuncDeclarationのフラグも設定
             }
             // privateメソッドの場合はinterface署名チェックをスキップ
             if (!is_private_method) {
@@ -725,6 +754,7 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                     // 型パラメータの置換マップを作成
                     // 例: QueueOps<int> の場合、T -> TYPE_INT
                     std::unordered_map<std::string, TypeInfo> type_substitution;
+                    std::unordered_map<std::string, std::string> type_name_substitution; // v0.13.0: 文字列版
                     if (interface_def.is_generic &&
                         lt_pos != std::string::npos) {
                         // <int>部分を解析
@@ -759,6 +789,8 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                                 type_substitution[interface_def
                                                       .type_parameters[0]] =
                                     concrete_type;
+                                // v0.13.0: 文字列版も作成
+                                type_name_substitution[interface_def.type_parameters[0]] = generic_part;
                             }
                         }
                     }
@@ -819,21 +851,74 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                                 return nullptr;
                             }
 
-                            if (expected_return_type_info !=
-                                    actual_return_type_info ||
-                                expected_return_unsigned !=
-                                    actual_return_unsigned) {
+                            // v0.13.0: 戻り値の型を文字列で比較（Future<int>などの複合型対応）
+                            // マングリング前の型名を使用
+                            std::string expected_return_type_str = interface_method.return_type_name_original;
+                            if (expected_return_type_str.empty()) {
+                                // フォールバック: 古いコードとの互換性
+                                expected_return_type_str = interface_method.return_type_name;
+                            }
+                            
+                            // impl側もマングリング前の型名を取得
+                            std::string actual_return_type_str;
+                            if (!return_type_parsed.generic_original_type.empty()) {
+                                actual_return_type_str = return_type_parsed.generic_original_type;
+                            } else {
+                                actual_return_type_str = return_type;
+                            }
+                            
+                            // 型名が空の場合は、TypeInfoから文字列に変換（後方互換性）
+                            if (expected_return_type_str.empty()) {
+                                expected_return_type_str = format_type(expected_return_type_info, expected_return_unsigned);
+                            }
+                            
+                            // v0.13.0: ジェネリックinterfaceの場合、型パラメータを置換
+                            // 例: Container<int>の場合、"T" -> "int" に置換
+                            if (!type_name_substitution.empty()) {
+                                for (const auto& subst : type_name_substitution) {
+                                    const std::string& type_param = subst.first;   // "T"
+                                    const std::string& concrete_type = subst.second; // "int"
+                                    
+                                    // 単純な置換: "T" -> "int"
+                                    if (expected_return_type_str == type_param) {
+                                        expected_return_type_str = concrete_type;
+                                    }
+                                    // v0.13.0: 複合型内の型パラメータも置換
+                                    // 例: "Result<T, string>" -> "Result<int, string>"
+                                    // 例: "Future<Result<T, string>>" -> "Future<Result<int, string>>"
+                                    else {
+                                        size_t pos = 0;
+                                        while ((pos = expected_return_type_str.find(type_param, pos)) != std::string::npos) {
+                                            // 型パラメータの前後が記号であることを確認（単語境界チェック）
+                                            bool is_start_ok = (pos == 0 || 
+                                                              expected_return_type_str[pos-1] == '<' || 
+                                                              expected_return_type_str[pos-1] == ',' ||
+                                                              expected_return_type_str[pos-1] == ' ');
+                                            bool is_end_ok = (pos + type_param.length() >= expected_return_type_str.length() ||
+                                                            expected_return_type_str[pos + type_param.length()] == '>' ||
+                                                            expected_return_type_str[pos + type_param.length()] == ',' ||
+                                                            expected_return_type_str[pos + type_param.length()] == ' ');
+                                            
+                                            if (is_start_ok && is_end_ok) {
+                                                expected_return_type_str.replace(pos, type_param.length(), concrete_type);
+                                                pos += concrete_type.length();
+                                            } else {
+                                                pos += type_param.length();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (expected_return_type_str != actual_return_type_str) {
                                 parser_->error(
                                     "Method signature mismatch: Expected "
-                                    "return type '" +
-                                    format_type(expected_return_type_info,
-                                                expected_return_unsigned) +
-                                    "' but got '" +
-                                    format_type(actual_return_type_info,
-                                                actual_return_unsigned) +
+                                    "return type '" + expected_return_type_str +
+                                    "' but got '" + actual_return_type_str +
                                     "' for method '" + method_name + "'");
                                 return nullptr;
                             }
+                            
                             // 引数の数をチェック
                             if (interface_method.parameters.size() !=
                                 method_impl->parameters.size()) {
