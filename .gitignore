@@ -61,4 +61,3 @@ parser.output
 
 # debug information files
 *.dwo
-presentation/
