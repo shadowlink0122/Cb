@@ -535,5 +535,33 @@ void test_integration_async() {
         }, execution_time);
     integration_test_passed_with_time("v0.13.0 Result type construction", "test_result_construct.cb", execution_time);
     
-    std::cout << "[integration-test] Async/await tests completed (30 tests)" << std::endl;
+    // Test 31: v0.13.0 - Async syntax simplification (async T)
+    run_cb_test_with_output_and_time("../cases/async/integration_async_syntax.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "integration_async_syntax.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Async Syntax Integration Test ===", "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "compute(21) = 42", "async int should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "Message: Hello from async!", "async string should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "Result: 5", "async Result Ok should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "Error (expected): Division by zero", "async Result Err should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "Found: 42", "async Option Some should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "None (expected)", "async Option None should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Tests Passed! ===", "Should pass all tests");
+        }, execution_time);
+    integration_test_passed_with_time("v0.13.0 async syntax (async T)", "integration_async_syntax.cb", execution_time);
+    
+    // Test 32: v0.13.0 - Direct return enum variants (Option::None fix)
+    run_cb_test_with_output_and_time("../cases/async/test_direct_return_enum.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_direct_return_enum.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Direct Return Enum Variants Test ===", "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "SUCCESS: Got None", "Direct return Option::None should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "SUCCESS: Got Some(99)", "Direct return Option::Some should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "SUCCESS: Got Ok(123)", "Direct return Result::Ok should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "SUCCESS: Got Err(test error)", "Direct return Result::Err should work");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Direct Return Tests Passed! ===", "Should pass all tests");
+        }, execution_time);
+    integration_test_passed_with_time("v0.13.0 direct return enum variants", "test_direct_return_enum.cb", execution_time);
+    
+    std::cout << "[integration-test] Async/await tests completed (33 tests)" << std::endl;
 }

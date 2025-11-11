@@ -304,7 +304,19 @@ void run_all_generics_tests() {
         }, execution_time);
     integration_test_passed_with_time("Advanced Nested Generic Struct", "advanced_nested_struct.cb", execution_time);
     
-    std::cout << "[integration-test] Generics tests completed (23 tests)" << std::endl;
+    // Test 24: Nested generics with Option and Result
+    run_cb_test_with_output_and_time("../cases/generics/test_nested_generics_simple.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_nested_generics_simple.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Test 1: Option<Result<int, string> > ===", "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "✅ Case 1: Some(Ok(42)) - Success", "Should handle Some(Ok)");
+            INTEGRATION_ASSERT_CONTAINS(output, "✅ Case 2: Some(Err) - Success", "Should handle Some(Err)");
+            INTEGRATION_ASSERT_CONTAINS(output, "✅ Case 3: None - Success", "Should handle None");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All nested generic tests passed ===", "Should pass all tests");
+        }, execution_time);
+    integration_test_passed_with_time("Nested generics with Option/Result", "test_nested_generics_simple.cb", execution_time);
+    
+    std::cout << "[integration-test] Generics tests completed (24 tests)" << std::endl;
 }
 
 } // namespace GenericsTests

@@ -1,5 +1,5 @@
 // Simple test for nested generic return type
-async Future<int> simple_async() {
+async int simple_async() {
     await sleep(10);
     return 42;
 }

@@ -1,5 +1,5 @@
 // Test async function returning Result<T, E>
-async Future<Result<int, string>> async_divide(int a, int b) {
+async Result<int, string> async_divide(int a, int b) {
     if (b == 0) {
         return Result<int, string>::Err("Division by zero");
     }

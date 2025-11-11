@@ -1,0 +1,103 @@
+// Test: Multiple type parameters (3+)
+// Priority 1: Test for 3 or more type parameters
+
+struct Triple<T, U, V> {
+    T first;
+    U second;
+    V third;
+};
+
+struct Quad<A, B, C, D> {
+    A value_a;
+    B value_b;
+    C value_c;
+    D value_d;
+};
+
+// Generic function with 3 type parameters
+T first_of_three<T, U, V>(T a, U b, V c) {
+    return a;
+}
+
+U second_of_three<T, U, V>(T a, U b, V c) {
+    return b;
+}
+
+V third_of_three<T, U, V>(T a, U b, V c) {
+    return c;
+}
+
+void main() {
+    println("=== Test 1: Triple<int, string, bool> ===");
+    
+    Triple<int, string, bool> triple;
+    triple.first = 42;
+    triple.second = "Hello";
+    triple.third = true;
+    
+    println("First: {triple.first}");
+    println("Second: {triple.second}");
+    println("Third: {triple.third}");
+    
+    assert(triple.first == 42);
+    assert(triple.second == "Hello");
+    assert(triple.third == true);
+    
+    println("\n=== Test 2: Quad<int, int, int, int> ===");
+    
+    Quad<int, int, int, int> quad_struct;
+    quad_struct.value_a = 10;
+    quad_struct.value_b = 20;
+    quad_struct.value_c = 30;
+    quad_struct.value_d = 40;
+    
+    int sum = quad_struct.value_a + quad_struct.value_b + quad_struct.value_c + quad_struct.value_d;
+    println("Sum of quad: {sum}");
+    assert(sum == 100);
+    
+    println("\n=== Test 3: Generic functions with 3 parameters ===");
+    
+    int result1 = first_of_three<int, string, bool>(100, "test", false);
+    println("First result: {result1}");
+    assert(result1 == 100);
+    
+    string result2 = second_of_three<int, string, bool>(100, "test", false);
+    println("Second result: {result2}");
+    assert(result2 == "test");
+    
+    bool result3 = third_of_three<int, string, bool>(100, "test", true);
+    println("Third result: {result3}");
+    assert(result3 == true);
+    
+    println("\n=== Test 4: Nested Triple and Quad ===");
+    
+    Triple<int, int, int> inner_triple;
+    inner_triple.first = 1;
+    inner_triple.second = 2;
+    inner_triple.third = 3;
+    
+    Triple<Triple<int, int, int>, int, int> nested;
+    nested.first = inner_triple;
+    nested.second = 10;
+    nested.third = 20;
+    
+    int nested_sum = nested.first.first + nested.first.second + nested.first.third + nested.second + nested.third;
+    println("Nested sum: {nested_sum}");
+    assert(nested_sum == 36);
+    
+    println("\n=== Test 5: Mixed types in Quad ===");
+    
+    Quad<int, string, bool, int> mixed;
+    mixed.value_a = 5;
+    mixed.value_b = "World";
+    mixed.value_c = false;
+    mixed.value_d = 15;
+    
+    println("Mixed quad - A: {mixed.value_a}, B: {mixed.value_b}, C: {mixed.value_c}, D: {mixed.value_d}");
+    assert(mixed.value_a == 5);
+    assert(mixed.value_b == "World");
+    assert(mixed.value_c == false);
+    assert(mixed.value_d == 15);
+    
+    println("\n=== All multiple type parameter tests passed! ===");
+}

@@ -1,0 +1,196 @@
+// Test: Nested Option and Result types
+// Priority 2: Complex nested enum handling
+
+void main() {
+    println("=== Test 1: Result<Option<int>, string> ===");
+    
+    // Case 1: Ok(Some(value))
+    Option<int> some_val = Option<int>::Some(42);
+    Result<Option<int>, string> ok_some = Result<Option<int>, string>::Ok(some_val);
+    
+    match (ok_some) {
+        Ok(opt) => {
+            println("Got Ok, checking option...");
+            match (opt) {
+                Some(value) => {
+                    println("Value: {value}");
+                    assert(value == 42);
+                }
+                None => {
+                    println("ERROR: Expected Some");
+                    assert(false);
+                }
+            }
+        }
+        Err(msg) => {
+            println("ERROR: Expected Ok, got: {msg}");
+            assert(false);
+        }
+    }
+    
+    // Case 2: Ok(None)
+    Option<int> none_val = Option<int>::None;
+    Result<Option<int>, string> ok_none = Result<Option<int>, string>::Ok(none_val);
+    
+    match (ok_none) {
+        Ok(opt) => {
+            println("Got Ok with None");
+            match (opt) {
+                Some(value) => {
+                    println("ERROR: Expected None, got: {value}");
+                    assert(false);
+                }
+                None => {
+                    println("Correctly got None");
+                }
+            }
+        }
+        Err(msg) => {
+            println("ERROR: Expected Ok, got: {msg}");
+            assert(false);
+        }
+    }
+    
+    // Case 3: Err
+    Result<Option<int>, string> err_result = Result<Option<int>, string>::Err("Error occurred");
+    
+    match (err_result) {
+        Ok(opt) => {
+            println("ERROR: Expected Err");
+            assert(false);
+        }
+        Err(msg) => {
+            println("Got error: {msg}");
+            assert(msg == "Error occurred");
+        }
+    }
+    
+    println("\n=== Test 2: Option<Result<int, string> > ===");
+    
+    // Case 1: Some(Ok(value))
+    Result<int, string> ok_val = Result<int, string>::Ok(100);
+    Option<Result<int, string> > some_ok = Option<Result<int, string> >::Some(ok_val);
+    
+    match (some_ok) {
+        Some(res) => {
+            println("Got Some, checking result...");
+            match (res) {
+                Ok(value) => {
+                    println("Value: {value}");
+                    assert(value == 100);
+                }
+                Err(msg) => {
+                    println("ERROR: Expected Ok, got: {msg}");
+                    assert(false);
+                }
+            }
+        }
+        None => {
+            println("ERROR: Expected Some");
+            assert(false);
+        }
+    }
+    
+    // Case 2: Some(Err(msg))
+    Result<int, string> err_val = Result<int, string>::Err("Computation failed");
+    Option<Result<int, string> > some_err = Option<Result<int, string> >::Some(err_val);
+    
+    match (some_err) {
+        Some(res) => {
+            println("Got Some with error result");
+            match (res) {
+                Ok(value) => {
+                    println("ERROR: Expected Err, got: {value}");
+                    assert(false);
+                }
+                Err(msg) => {
+                    println("Error message: {msg}");
+                    assert(msg == "Computation failed");
+                }
+            }
+        }
+        None => {
+            println("ERROR: Expected Some");
+            assert(false);
+        }
+    }
+    
+    // Case 3: None
+    Option<Result<int, string> > none_opt = Option<Result<int, string> >::None;
+    
+    match (none_opt) {
+        Some(res) => {
+            println("ERROR: Expected None");
+            assert(false);
+        }
+        None => {
+            println("Correctly got None");
+        }
+    }
+    
+    println("\n=== Test 3: Result<Result<int, string>, string> ===");
+    
+    // Nested Result - Ok(Ok(value))
+    Result<int, string> inner_ok = Result<int, string>::Ok(50);
+    Result<Result<int, string>, string> outer_ok = Result<Result<int, string>, string>::Ok(inner_ok);
+    
+    match (outer_ok) {
+        Ok(inner) => {
+            println("Outer Ok, checking inner...");
+            match (inner) {
+                Ok(value) => {
+                    println("Inner Ok: {value}");
+                    assert(value == 50);
+                }
+                Err(msg) => {
+                    println("ERROR: Expected inner Ok, got: {msg}");
+                    assert(false);
+                }
+            }
+        }
+        Err(msg) => {
+            println("ERROR: Expected outer Ok, got: {msg}");
+            assert(false);
+        }
+    }
+    
+    // Nested Result - Ok(Err(msg))
+    Result<int, string> inner_err = Result<int, string>::Err("Inner error");
+    Result<Result<int, string>, string> ok_with_inner_err = Result<Result<int, string>, string>::Ok(inner_err);
+    
+    match (ok_with_inner_err) {
+        Ok(inner) => {
+            println("Outer Ok with inner error");
+            match (inner) {
+                Ok(value) => {
+                    println("ERROR: Expected inner Err, got: {value}");
+                    assert(false);
+                }
+                Err(msg) => {
+                    println("Inner error: {msg}");
+                    assert(msg == "Inner error");
+                }
+            }
+        }
+        Err(msg) => {
+            println("ERROR: Expected outer Ok, got: {msg}");
+            assert(false);
+        }
+    }
+    
+    // Nested Result - Err(msg)
+    Result<Result<int, string>, string> outer_err = Result<Result<int, string>, string>::Err("Outer error");
+    
+    match (outer_err) {
+        Ok(inner) => {
+            println("ERROR: Expected outer Err");
+            assert(false);
+        }
+        Err(msg) => {
+            println("Outer error: {msg}");
+            assert(msg == "Outer error");
+        }
+    }
+    
+    println("\n=== All nested enum tests passed! ===");
+}

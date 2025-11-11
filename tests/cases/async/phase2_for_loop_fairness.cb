@@ -1,7 +1,7 @@
 // v0.13.0 Phase 2.0: forループでの協調マルチタスク
 // forループの各イテレーションでバックグラウンドタスクと交互実行される
 
-async Future<void> background_task() {
+async void background_task() {
     for (int i = 0; i < 5; i = i + 1) {
         println("[BG] Step %d", i);
     }

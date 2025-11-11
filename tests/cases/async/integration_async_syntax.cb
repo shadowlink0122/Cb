@@ -1,0 +1,105 @@
+// Integration test for async syntax simplification
+// v0.13.0: async T instead of async Future<T>
+
+async int compute(int value) {
+    return value * 2;
+}
+
+async string get_message() {
+    return "Hello from async!";
+}
+
+async Result<int, string> safe_divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+async Option<int> find_value(int id) {
+    if (id == 1) {
+        return Option<int>::Some(42);
+    }
+    // Variable workaround for None
+    Option<int> none = Option<int>::None;
+    return none;
+}
+
+void main() {
+    println("=== Async Syntax Integration Test ===");
+    
+    // Test 1: async int
+    println("\n--- Test 1: async int ---");
+    Future<int> f1 = compute(21);
+    int result1 = await f1;
+    println("compute(21) = {result1}");
+    assert(result1 == 42);
+    
+    // Test 2: async string
+    println("\n--- Test 2: async string ---");
+    Future<string> f2 = get_message();
+    string result2 = await f2;
+    println("Message: {result2}");
+    assert(result2 == "Hello from async!");
+    
+    // Test 3: async Result<T,E> - Ok case
+    println("\n--- Test 3: async Result (Ok) ---");
+    Future<Result<int, string>> f3 = safe_divide(10, 2);
+    Result<int, string> result3 = await f3;
+    match (result3) {
+        Ok(v) => {
+            println("Result: {v}");
+            assert(v == 5);
+        }
+        Err(e) => {
+            println("ERROR: {e}");
+            assert(false);
+        }
+    }
+    
+    // Test 4: async Result<T,E> - Err case
+    println("\n--- Test 4: async Result (Err) ---");
+    Future<Result<int, string>> f4 = safe_divide(10, 0);
+    Result<int, string> result4 = await f4;
+    match (result4) {
+        Ok(v) => {
+            println("ERROR: Got {v}");
+            assert(false);
+        }
+        Err(e) => {
+            println("Error (expected): {e}");
+            assert(e == "Division by zero");
+        }
+    }
+    
+    // Test 5: async Option<T> - Some case
+    println("\n--- Test 5: async Option (Some) ---");
+    Future<Option<int>> f5 = find_value(1);
+    Option<int> result5 = await f5;
+    match (result5) {
+        Some(v) => {
+            println("Found: {v}");
+            assert(v == 42);
+        }
+        None => {
+            println("ERROR: Got None");
+            assert(false);
+        }
+    }
+    
+    // Test 6: async Option<T> - None case (with workaround)
+    println("\n--- Test 6: async Option (None) ---");
+    Future<Option<int>> f6 = find_value(99);
+    Option<int> result6 = await f6;
+    match (result6) {
+        Some(v) => {
+            println("ERROR: Found {v}");
+            assert(false);
+        }
+        None => {
+            println("None (expected)");
+        }
+    }
+    
+    println("\n=== All Tests Passed! ===");
+}

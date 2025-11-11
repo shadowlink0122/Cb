@@ -1,5 +1,5 @@
 // Simpler test
-async Future<int> async_compute() {
+async int async_compute() {
     return 42;
 }
 

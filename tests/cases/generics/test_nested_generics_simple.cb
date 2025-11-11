@@ -1,0 +1,49 @@
+// Test: Nested generics with Option and Result
+// Simple version without nested match
+
+void main() {
+    println("=== Test 1: Option<Result<int, string> > ===");
+    
+    // Case 1: Some(Ok(value))
+    Result<int, string> ok_val = Result<int, string>::Ok(42);
+    Option<Result<int, string> > some_ok = Option<Result<int, string> >::Some(ok_val);
+    
+    match (some_ok) {
+        Some(res) => {
+            println("✅ Case 1: Some(Ok(42)) - Success");
+        }
+        None => {
+            println("ERROR: Expected Some");
+            assert(false);
+        }
+    }
+    
+    // Case 2: Some(Err(msg))
+    Result<int, string> err_val = Result<int, string>::Err("Error occurred");
+    Option<Result<int, string> > some_err = Option<Result<int, string> >::Some(err_val);
+    
+    match (some_err) {
+        Some(res) => {
+            println("✅ Case 2: Some(Err) - Success");
+        }
+        None => {
+            println("ERROR: Expected Some");
+            assert(false);
+        }
+    }
+    
+    // Case 3: None
+    Option<Result<int, string> > none_opt = Option<Result<int, string> >::None;
+    
+    match (none_opt) {
+        Some(res) => {
+            println("ERROR: Expected None");
+            assert(false);
+        }
+        None => {
+            println("✅ Case 3: None - Success");
+        }
+    }
+    
+    println("\n=== All nested generic tests passed ===");
+}

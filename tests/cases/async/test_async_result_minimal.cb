@@ -1,4 +1,4 @@
-async Future<Result<int, string>> simple_async() {
+async Result<int, string> simple_async() {
     println("Inside async, creating Result");
     Result<int, string> r = Result<int, string>::Ok(42);
     println("About to return, variant: {r.variant}");

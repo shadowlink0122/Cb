@@ -1,0 +1,133 @@
+// Test: Comprehensive async + generic interface implementation
+// v0.13.0: Support for async methods with complex generic types
+// Using simplified async T syntax (recommended)
+
+// Test 1: Single type parameter with async Result
+interface AsyncProcessor<T> {
+    async Result<T, string> process(T value);
+}
+
+struct IntProcessor {
+    int multiplier;
+};
+
+impl AsyncProcessor<int> for IntProcessor {
+    async Result<int, string> process(int value) {
+        if (value < 0) {
+            return Result<int, string>::Err("Negative value not allowed");
+        }
+        return Result<int, string>::Ok(value * 2);
+    }
+}
+
+// Test 2: Multiple type parameters with async Result
+interface AsyncConverter<T, U> {
+    async Result<U, string> convert(T input);
+}
+
+struct StringToIntConverter {};
+
+impl AsyncConverter<string, int> for StringToIntConverter {
+    async Result<int, string> convert(string input) {
+        if (input == "42") {
+            return Result<int, string>::Ok(42);
+        } else if (input == "100") {
+            return Result<int, string>::Ok(100);
+        } else {
+            return Result<int, string>::Err("Invalid input");
+        }
+    }
+}
+
+// Test 3: Nested generic types without async
+interface Container<T> {
+    T get_value();
+    void set_value(T val);
+}
+
+struct Box {
+    int value;
+};
+
+impl Container<int> for Box {
+    int get_value() {
+        return 42;
+    }
+    
+    void set_value(int val) {
+        // Not used in this test
+    }
+}
+
+void main() {
+    println("=== Test 1: Single type parameter ===");
+    IntProcessor processor;
+    processor.multiplier = 2;
+    
+    Future<Result<int, string>> f1 = processor.process(5);
+    Result<int, string> r1 = await f1;
+    
+    match (r1) {
+        Ok(val) => {
+            println("Test 1.1 Success: {val}");
+            assert(val == 10);
+        }
+        Err(msg) => {
+            println("Test 1.1 Error: {msg}");
+            assert(false);
+        }
+    }
+    
+    Future<Result<int, string>> f2 = processor.process(-5);
+    Result<int, string> r2 = await f2;
+    
+    match (r2) {
+        Ok(val) => {
+            println("Test 1.2 Success: {val}");
+            assert(false);
+        }
+        Err(msg) => {
+            println("Test 1.2 Error: {msg}");
+            assert(msg == "Negative value not allowed");
+        }
+    }
+    
+    println("\n=== Test 2: Multiple type parameters ===");
+    StringToIntConverter converter;
+    
+    Future<Result<int, string>> f3 = converter.convert("42");
+    Result<int, string> r3 = await f3;
+    
+    match (r3) {
+        Ok(val) => {
+            println("Test 2.1 Success: {val}");
+            assert(val == 42);
+        }
+        Err(msg) => {
+            println("Test 2.1 Error: {msg}");
+            assert(false);
+        }
+    }
+    
+    Future<Result<int, string>> f4 = converter.convert("invalid");
+    Result<int, string> r4 = await f4;
+    
+    match (r4) {
+        Ok(val) => {
+            println("Test 2.2 Success: {val}");
+            assert(false);
+        }
+        Err(msg) => {
+            println("Test 2.2 Error: {msg}");
+            assert(msg == "Invalid input");
+        }
+    }
+    
+    println("\n=== Test 3: Non-async generic interface ===");
+    Box box;
+    int value = box.get_value();
+    println("Box value: {value}");
+    assert(value == 42);
+    
+    println("\n=== All tests passed! ===");
+}

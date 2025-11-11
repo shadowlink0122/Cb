@@ -3,13 +3,13 @@
 
 // Future定義なし！組み込み型として提供される
 
-async Future<int> task1() {
+async int task1() {
     println("Task1: Statement 1");
     println("Task1: Statement 2");
     return 100;
 }
 
-async Future<int> task2() {
+async int task2() {
     println("Task2: Statement 1");
     println("Task2: Statement 2");
     return 200;

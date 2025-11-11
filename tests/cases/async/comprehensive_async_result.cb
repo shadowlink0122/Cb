@@ -2,7 +2,7 @@
 // v0.13.0
 
 // Test 1: Basic async function returning Result
-async Future<Result<int, string>> divide_async(int a, int b) {
+async Result<int, string> divide_async(int a, int b) {
     if (b == 0) {
         return Result<int, string>::Err("Division by zero");
     }
@@ -10,13 +10,13 @@ async Future<Result<int, string>> divide_async(int a, int b) {
 }
 
 // Test 2: Nested Result types
-async Future<Result<Result<int, string>, string>> nested_result() {
+async Result<Result<int, string>, string> nested_result() {
     Result<int, string> inner = Result<int, string>::Ok(42);
     return Result<Result<int, string>, string>::Ok(inner);
 }
 
 // Test 3: String Result
-async Future<Result<string, string>> get_message(bool success) {
+async Result<string, string> get_message(bool success) {
     if (success) {
         return Result<string, string>::Ok("Success message");
     }
@@ -24,7 +24,7 @@ async Future<Result<string, string>> get_message(bool success) {
 }
 
 // Test 4: Multiple await operations
-async Future<Result<int, string>> chain_operations(int a, int b, int c) {
+async Result<int, string> chain_operations(int a, int b, int c) {
     Future<Result<int, string>> f1 = divide_async(a, b);
     Result<int, string> r1 = await f1;
     
@@ -41,7 +41,7 @@ async Future<Result<int, string>> chain_operations(int a, int b, int c) {
 }
 
 // Test 5: async with early return
-async Future<Result<int, string>> early_return(int x) {
+async Result<int, string> early_return(int x) {
     if (x < 0) {
         return Result<int, string>::Err("Negative number");
     }

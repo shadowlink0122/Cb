@@ -2,7 +2,7 @@
 // async関数を呼び出すとタスクが登録され、awaitで結果を待機する
 // 複数のタスクを登録してから一斉にawaitすることで並行実行を確認
 
-async Future<int> task1() {
+async int task1() {
     println("Task1: Start");
     println("Task1: Step 1");
     println("Task1: Step 2");
@@ -10,14 +10,14 @@ async Future<int> task1() {
     return 100;
 }
 
-async Future<int> task2() {
+async int task2() {
     println("Task2: Start");
     println("Task2: Step 1");
     println("Task2: Done");
     return 200;
 }
 
-async Future<int> task3() {
+async int task3() {
     println("Task3: Start");
     println("Task3: Processing");
     println("Task3: Done");

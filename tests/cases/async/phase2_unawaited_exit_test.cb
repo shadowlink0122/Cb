@@ -3,7 +3,7 @@
 // block waiting for it; the program may exit while the async task is not
 // completed.
 
-async Future<void> background_task() {
+async void background_task() {
     // 複数の独立したステートメント（auto-yieldで各ステートメント後にyield）
     println("Background: Step 1");
     println("Background: Step 2");

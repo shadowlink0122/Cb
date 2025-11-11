@@ -2,7 +2,7 @@
 // v0.13.0: Future<Result<T, E>>パターンのテスト
 
 // エラーを返す可能性のあるasync関数
-async Future<Result<int, string>> divide_async(int a, int b) {
+async Result<int, string> divide_async(int a, int b) {
     await sleep(10);
     
     if (b == 0) {
@@ -15,7 +15,7 @@ async Future<Result<int, string>> divide_async(int a, int b) {
 }
 
 // 別のasync関数でResultを使用
-async Future<Result<string, string>> format_result(int value) {
+async Result<string, string> format_result(int value) {
     await sleep(5);
     
     if (value < 0) {

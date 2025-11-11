@@ -2,7 +2,7 @@
 // v0.13.0: ?オペレーターを使ったエラー伝播のテスト
 
 // エラーを返す可能性のあるasync関数
-async Future<Result<int, string>> safe_divide(int a, int b) {
+async Result<int, string> safe_divide(int a, int b) {
     await sleep(5);
     
     if (b == 0) {
@@ -14,7 +14,7 @@ async Future<Result<int, string>> safe_divide(int a, int b) {
     return ok;
 }
 
-async Future<Result<int, string>> parse_number(string s) {
+async Result<int, string> parse_number(string s) {
     await sleep(5);
     
     if (s == "invalid") {
@@ -27,7 +27,7 @@ async Future<Result<int, string>> parse_number(string s) {
 }
 
 // 複数のResult操作を組み合わせる（手動エラーチェック版）
-async Future<Result<int, string>> compute_manual(int a, int b, string s) {
+async Result<int, string> compute_manual(int a, int b, string s) {
     // Step 1: 除算
     Future<Result<int, string>> f1 = safe_divide(a, b);
     Result<int, string> r1 = await f1;

@@ -2,7 +2,7 @@
 // interfaceとimplの両方でasyncキーワードをサポート
 
 interface Worker {
-    async Future<int> process_async(int value);
+    async int process_async(int value);
     int process_sync(int value);
 }
 
@@ -11,7 +11,7 @@ struct AsyncProcessor {
 };
 
 impl Worker for AsyncProcessor {
-    async Future<int> process_async(int value) {
+    async int process_async(int value) {
         println("[Impl] Processing async: %d", value);
         yield;
         println("[Impl] After yield");
@@ -26,7 +26,7 @@ impl Worker for AsyncProcessor {
     }
 }
 
-async Future<void> background_task() {
+async void background_task() {
     for (int i = 0; i < 5; i = i + 1) {
         println("[BG] Step %d", i);
     }
