@@ -629,14 +629,17 @@ struct ASTNode;
 
 // Interface定義情報を格納する構造体
 struct InterfaceMember {
-    std::string name;                // 関数名
-    TypeInfo return_type;            // 戻り値の型
-    std::string return_type_name;    // v0.13.0: 戻り値の型名（Future<int>など複合型用）
+    std::string name;     // 関数名
+    TypeInfo return_type; // 戻り値の型
+    std::string
+        return_type_name; // v0.13.0: 戻り値の型名（Future<int>など複合型用）
     bool return_is_unsigned = false; // 戻り値がunsignedかどうか
     bool is_async = false;           // v0.13.0 Phase 2.0: asyncメソッドか
     std::vector<std::pair<std::string, TypeInfo>>
         parameters; // パラメータのリスト (名前, 型)
     std::vector<bool> parameter_is_unsigned; // 各パラメータがunsignedかどうか
+    std::vector<std::string>
+        parameter_type_names; // v0.13.1: 型パラメータ名保存用（"T", "U"など）
 
     InterfaceMember() : return_type(TYPE_UNKNOWN), is_async(false) {}
     InterfaceMember(const std::string &n, TypeInfo ret_type,
@@ -650,7 +653,8 @@ struct InterfaceMember {
           return_type_name(other.return_type_name),
           return_is_unsigned(other.return_is_unsigned),
           is_async(other.is_async), parameters(other.parameters),
-          parameter_is_unsigned(other.parameter_is_unsigned) {}
+          parameter_is_unsigned(other.parameter_is_unsigned),
+          parameter_type_names(other.parameter_type_names) {}
 
     // v0.13.0 Phase 2.0: 明示的コピー代入演算子（is_asyncをコピー）
     InterfaceMember &operator=(const InterfaceMember &other) {
@@ -662,14 +666,17 @@ struct InterfaceMember {
             is_async = other.is_async;
             parameters = other.parameters;
             parameter_is_unsigned = other.parameter_is_unsigned;
+            parameter_type_names = other.parameter_type_names;
         }
         return *this;
     }
 
     void add_parameter(const std::string &param_name, TypeInfo param_type,
-                       bool is_unsigned = false) {
+                       bool is_unsigned = false,
+                       const std::string &type_name = "") {
         parameters.emplace_back(param_name, param_type);
         parameter_is_unsigned.push_back(is_unsigned);
+        parameter_type_names.push_back(type_name); // v0.13.1: 型名を保存
     }
 
     bool get_parameter_is_unsigned(size_t index) const {
@@ -677,6 +684,14 @@ struct InterfaceMember {
             return false;
         }
         return parameter_is_unsigned[index];
+    }
+
+    // v0.13.1: パラメータの型名を取得
+    std::string get_parameter_type_name(size_t index) const {
+        if (index >= parameter_type_names.size()) {
+            return "";
+        }
+        return parameter_type_names[index];
     }
 };
 

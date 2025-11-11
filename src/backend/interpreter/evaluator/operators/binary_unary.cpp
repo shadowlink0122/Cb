@@ -1114,6 +1114,18 @@ TypedValue evaluate_await(
                     // v0.12.1:
                     // valueメンバーをTypedValueとして返す（enum情報を保持）
 
+                    // v0.13.0: デバッグ
+                    if (interpreter.is_debug_mode()) {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[AWAIT_VALUE] is_enum=%d, is_struct=%d, type=%d",
+                            value_member_updated.is_enum ? 1 : 0,
+                            value_member_updated.is_struct ? 1 : 0,
+                            static_cast<int>(value_member_updated.type));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
+
                     if (value_member_updated.is_enum ||
                         value_member_updated.is_struct) {
                         // enum/struct

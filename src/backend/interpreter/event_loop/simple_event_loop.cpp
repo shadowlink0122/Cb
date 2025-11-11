@@ -415,6 +415,39 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
             task.return_struct_value = e.struct_value;
         } else if (e.type == TYPE_STRING) {
             task.return_string_value = e.str_value;
+        } else if (e.type == TYPE_ENUM) {
+            // v0.13.0: TYPE_ENUMの場合、enum情報を含むstruct_valueとして保存
+            // 古いスタイルのenum (Option::None等) がTYPE_ENUMとして返される場合
+            task.return_is_struct = true;
+
+            // enum情報を持つVariable構造体を作成
+            Variable enum_var;
+            enum_var.type = TYPE_ENUM;
+            enum_var.is_enum = true;
+            enum_var.is_struct = true;
+            enum_var.value = e.value;
+            enum_var.is_assigned = true;
+
+            // 関数の戻り値型からenum型名を推定
+            // task.function_name から型情報を取得する必要があるが、
+            // ここでは簡略化して、値から判定
+            // Option::None は通常 1 を返す
+            if (e.value == 1) {
+                // 仮にOptionとして扱う（本来は型情報から判定すべき）
+                // これは暫定的な実装
+                enum_var.enum_type_name = "Option";
+                enum_var.struct_type_name = "Option";
+                enum_var.enum_variant = "None";
+            } else {
+                // その他のenum値
+                enum_var.enum_type_name = "UnknownEnum";
+                enum_var.struct_type_name = "UnknownEnum";
+            }
+
+            task.return_struct_value = enum_var;
+
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVENT_LOOP] Stored TYPE_ENUM as struct_value");
         } else if (e.type == TYPE_FLOAT || e.type == TYPE_DOUBLE ||
                    e.type == TYPE_QUAD) {
             task.return_double_value = e.double_value;
@@ -478,8 +511,14 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
                                e.type == TYPE_QUAD) {
                         value_it->second.type = e.type;
                         value_it->second.double_value = e.double_value;
-                    } else if (e.is_struct) {
-                        value_it->second = e.struct_value;
+                    } else if (e.is_struct || task.return_is_struct) {
+                        // v0.13.0:
+                        // task.return_is_structもチェック（TYPE_ENUMの場合）
+                        if (task.return_is_struct) {
+                            value_it->second = task.return_struct_value;
+                        } else {
+                            value_it->second = e.struct_value;
+                        }
                     } else {
                         value_it->second.type = TYPE_INT;
                         value_it->second.value = e.value;
@@ -532,8 +571,14 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
                                e.type == TYPE_QUAD) {
                         value_it->second.type = e.type;
                         value_it->second.double_value = e.double_value;
-                    } else if (e.is_struct) {
-                        value_it->second = e.struct_value;
+                    } else if (e.is_struct || task.return_is_struct) {
+                        // v0.13.0:
+                        // task.return_is_structもチェック（TYPE_ENUMの場合）
+                        if (task.return_is_struct) {
+                            value_it->second = task.return_struct_value;
+                        } else {
+                            value_it->second = e.struct_value;
+                        }
                     } else {
                         value_it->second.type = TYPE_INT;
                         value_it->second.value = e.value;

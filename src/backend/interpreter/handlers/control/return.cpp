@@ -23,6 +23,15 @@ void ReturnHandler::execute_return_statement(const ASTNode *node) {
 
     debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
 
+    // v0.13.0: デバッグ - return式のノードタイプを確認
+    if (interpreter_->debug_mode) {
+        char dbg_buf[512];
+        snprintf(
+            dbg_buf, sizeof(dbg_buf), "[RETURN_DEBUG] node_type=%d, name='%s'",
+            static_cast<int>(node->left->node_type), node->left->name.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
+
     // ノードタイプに応じて処理を分岐
     switch (node->left->node_type) {
     case ASTNodeType::AST_ARRAY_LITERAL:
@@ -370,6 +379,25 @@ void ReturnHandler::handle_enum_construct_return(const ASTNode *node) {
     enum_var.is_enum = true;
     enum_var.enum_variant = enum_construct->enum_member;
 
+    // v0.13.0: enum_type_nameとstruct_type_nameを設定
+    // Option::Noneのような場合、enum_construct->nameに"Option"が入っている
+    enum_var.enum_type_name = enum_construct->name;
+    enum_var.struct_type_name =
+        enum_construct->name;  // enumはstruct表現でもある
+    enum_var.is_struct = true; // enumはstruct表現でもある
+    enum_var.type = TYPE_ENUM;
+
+    // v0.13.0: デバッグ
+    if (interpreter_->debug_mode) {
+        char dbg_buf[512];
+        snprintf(dbg_buf, sizeof(dbg_buf),
+                 "[ENUM_RETURN] name='%s', variant='%s', is_struct=%d",
+                 enum_construct->name.c_str(),
+                 enum_construct->enum_member.c_str(),
+                 enum_var.is_struct ? 1 : 0);
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
+
     // 関連値を評価（型に応じて適切なフィールドに格納）
     if (!enum_construct->arguments.empty()) {
         TypedValue typed_result =
@@ -409,8 +437,8 @@ void ReturnHandler::handle_enum_access_return(const ASTNode *node) {
     enum_var.has_associated_value = false;
     enum_var.is_assigned = true;
 
-    // 整数値として返す（古いスタイルenum）
-    throw ReturnException(enum_value, TYPE_INT);
+    // v0.13.0: TYPE_ENUMとして返す（asyncで正しく処理されるように）
+    throw ReturnException(enum_value, TYPE_ENUM);
 }
 
 // 配列変数のreturn処理

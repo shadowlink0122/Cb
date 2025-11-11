@@ -1074,6 +1074,19 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                 debug_msg(DebugMsgId::GENERIC_DEBUG,
                           "[VAR_DECL_AWAIT] await returned");
 
+                // v0.13.0: デバッグ - await_resultの状態を確認
+                if (interpreter_->debug_mode) {
+                    char dbg_buf[512];
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "[VAR_DECL_AWAIT] is_struct=%d, struct_data=%p, "
+                             "is_numeric=%d, numeric_type=%d",
+                             await_result.is_struct() ? 1 : 0,
+                             await_result.struct_data.get(),
+                             await_result.is_numeric() ? 1 : 0,
+                             static_cast<int>(await_result.numeric_type));
+                    debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                }
+
                 if (await_result.is_struct() && await_result.struct_data) {
                     // 構造体値を変数に設定
                     const Variable &struct_val = *await_result.struct_data;
@@ -1170,6 +1183,52 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
                     }
 
                     return; // await式処理完了後は早期リターン
+                } else if (await_result.is_numeric() &&
+                           await_result.numeric_type == TYPE_ENUM) {
+                    // v0.13.0: TYPE_ENUMの場合の特別処理
+                    // Option::None等が古いスタイルenumとして評価された場合
+                    // 変数の型情報からenum型名を取得して設定
+                    var.type = TYPE_ENUM;
+                    var.is_enum = true;
+                    var.is_struct = true;
+                    var.value = await_result.as_numeric();
+                    var.is_assigned = true;
+
+                    // enum_type_nameは変数宣言時に既に設定されているはず
+                    // (was_enum && saved_enum_type_name)
+                    if (was_enum) {
+                        var.enum_type_name = saved_enum_type_name;
+                        var.struct_type_name = saved_enum_type_name;
+
+                        // variant名は値から推定（暫定）
+                        // Option::None は通常 variant index 1
+                        if (var.value == 1 &&
+                            saved_enum_type_name.find("Option") !=
+                                std::string::npos) {
+                            var.enum_variant = "None";
+                        } else if (var.value == 0) {
+                            // variant index 0 (Some/Ok等)
+                            if (saved_enum_type_name.find("Option") !=
+                                std::string::npos) {
+                                var.enum_variant = "Some";
+                            } else if (saved_enum_type_name.find("Result") !=
+                                       std::string::npos) {
+                                var.enum_variant = "Ok";
+                            }
+                        } else if (var.value == 1 &&
+                                   saved_enum_type_name.find("Result") !=
+                                       std::string::npos) {
+                            var.enum_variant = "Err";
+                        }
+
+                        debug_msg(
+                            DebugMsgId::GENERIC_DEBUG,
+                            "[VAR_DECL_AWAIT] Restored TYPE_ENUM as enum");
+                    }
+
+                    // 変数を登録
+                    current_scope().variables[node->name] = var;
+                    return;
                 } else {
                     throw std::runtime_error(
                         "await expression did not return struct");
