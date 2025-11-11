@@ -1,0 +1,30 @@
+<section class="left-align">
+  <h2>ユニオン型 - TypeScriptから</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <h3 style="font-size: 0.75em; color: #4ec9b0; margin-bottom: 0.3em">複数の型を持てる変数</h3>
+    <pre style="font-size: 0.45em; margin: 0.3em 0">
+<code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// ユニオン型の定義（TypeScript風）</span>
+<span style="color: #c586c0; font-weight: bold;">typedef</span> Value = <span style="color: #4ec9b0;">int</span> | <span style="color: #4ec9b0;">string</span> | <span style="color: #4ec9b0;">bool</span>;
+
+<span style="color: #6a9955;">// 異なる型の値を代入可能</span>
+<span style="color: #4ec9b0;">Value</span> value;
+value = <span style="color: #b5cea8;">42</span>;                    <span style="color: #6a9955;">// int</span>
+value = <span style="color: #ce9178;">"Hello"</span>;              <span style="color: #6a9955;">// string</span>
+value = <span style="color: #569cd6;">true</span>;                 <span style="color: #6a9955;">// bool</span>
+
+<span style="color: #6a9955;">// パターンマッチングで型チェック</span>
+<span style="color: #c586c0; font-weight: bold;">match</span> (value) {
+    <span style="color: #4ec9b0;">int</span>(x) => println(<span style="color: #ce9178;">"Integer: {x}"</span>),
+    <span style="color: #4ec9b0;">string</span>(s) => println(<span style="color: #ce9178;">"String: {s}"</span>),
+    <span style="color: #4ec9b0;">bool</span>(b) => println(<span style="color: #ce9178;">"Bool: {b}"</span>),
+}</code></pre>
+    <p class="fragment" style="font-size: 0.65em; margin-top: 0.4em">
+      <strong class="success">利点</strong>
+      : 型安全性を保ちながら、柔軟な型表現が可能
+    </p>
+    <p class="fragment" style="font-size: 0.65em; margin-top: 0.2em">
+      <strong class="warning">注意</strong>
+      : 使用時はmatchで型チェックが必須（実行時エラーを防ぐ）
+    </p>
+  </div>
+</section>

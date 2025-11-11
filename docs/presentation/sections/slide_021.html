@@ -1,0 +1,60 @@
+<section class="left-align">
+  <h2>コード比較 - Cbの簡潔さ</h2>
+  <div style="display: flex; gap: 1em; width: 95%; margin: 0.3em auto 0">
+    <div style="flex: 1">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.2em">C++</h3>
+      <pre
+        style="font-size: 0.42em; margin: 0.3em 0"
+      ><code class="language-cpp" data-trim data-noescape>#include &lt;iostream&gt;
+#include &lt;optional&gt;
+#include &lt;variant&gt;
+#include &lt;future&gt;
+
+<span style="color: #4ec9b0;">std::future</span>&lt;<span style="color: #4ec9b0;">std::variant</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">std::string</span>&gt;&gt; <span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #dcdcaa;">divide</span>(<span style="color: #4ec9b0;">int</span> a, <span style="color: #4ec9b0;">int</span> b) {
+    <span style="color: #c586c0; font-weight: bold;">if</span> (b == <span style="color: #b5cea8;">0</span>) {
+        <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">std::string</span>(<span style="color: #ce9178;">"Division by zero"</span>);
+    }
+    <span style="color: #c586c0; font-weight: bold;">return</span> a / b;
+}
+
+<span style="color: #4ec9b0;">int</span> <span style="color: #dcdcaa;">main</span>() {
+    <span style="color: #c586c0; font-weight: bold;">auto</span> result = <span style="color: #dcdcaa;">divide</span>(<span style="color: #b5cea8;">10</span>, <span style="color: #b5cea8;">2</span>);
+    <span style="color: #c586c0; font-weight: bold;">if</span> (<span style="color: #4ec9b0;">std</span>::<span style="color: #dcdcaa;">holds_alternative</span>&lt;<span style="color: #4ec9b0;">int</span>&gt;(result)) {
+        <span style="color: #4ec9b0;">std</span>::<span style="color: #9cdcfe;">cout</span> &lt;&lt; <span style="color: #ce9178;">"Result: "</span> &lt;&lt; <span style="color: #4ec9b0;">std</span>::<span style="color: #dcdcaa;">get</span>&lt;<span style="color: #4ec9b0;">int</span>&gt;(result) &lt;&lt; <span style="color: #4ec9b0;">std</span>::<span style="color: #9cdcfe;">endl</span>;
+    } <span style="color: #c586c0; font-weight: bold;">else</span> {
+        <span style="color: #4ec9b0;">std</span>::<span style="color: #9cdcfe;">cout</span> &lt;&lt; <span style="color: #ce9178;">"Error: "</span> &lt;&lt; <span style="color: #4ec9b0;">std</span>::<span style="color: #dcdcaa;">get</span>&lt;<span style="color: #4ec9b0;">std::string</span>&gt;(result) &lt;&lt; <span style="color: #4ec9b0;">std</span>::<span style="color: #9cdcfe;">endl</span>;
+    }
+    
+    <span style="color: #6a9955;">// メソッド呼び出しの例</span>
+    <span style="color: #4ec9b0;">std::vector</span>&lt;<span style="color: #4ec9b0;">int</span>&gt; vec;
+    vec.<span style="color: #dcdcaa;">push_back</span>(<span style="color: #b5cea8;">10</span>);
+    vec.<span style="color: #dcdcaa;">push_back</span>(<span style="color: #b5cea8;">20</span>);
+}</code></pre>
+    </div>
+    <div style="flex: 1">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.2em">Cb</h3>
+      <pre
+        style="font-size: 0.42em; margin: 0.3em 0"
+      ><code class="language-cpp" data-trim data-noescape><span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt; <span style="color: #dcdcaa;">divide</span>(<span style="color: #4ec9b0;">int</span> a, <span style="color: #4ec9b0;">int</span> b) {
+    <span style="color: #c586c0; font-weight: bold;">if</span> (b == <span style="color: #b5cea8;">0</span>) {
+        <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Err</span>(<span style="color: #ce9178;">"Division by zero"</span>);
+    }
+    <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Ok</span>(a / b);
+}
+
+<span style="color: #c586c0; font-weight: bold;">void</span> <span style="color: #dcdcaa;">main</span>() {
+    <span style="color: #c586c0; font-weight: bold;">match</span> (<span style="color: #dcdcaa;">divide</span>(<span style="color: #b5cea8;">10</span>, <span style="color: #b5cea8;">2</span>)) {
+        <span style="color: #4ec9b0;">Ok</span>(value) => <span style="color: #dcdcaa;">println</span>(<span style="color: #ce9178;">"Result: {value}"</span>),
+        <span style="color: #4ec9b0;">Err</span>(error) => <span style="color: #dcdcaa;">println</span>(<span style="color: #ce9178;">"Error: {error}"</span>)
+    }
+}</code></pre>
+      <p style="font-size: 0.6em; margin-top: 0.3em">
+        <strong class="success">✓ 9行短い</strong>
+        <br />
+        <strong class="success">✓ 文字列補間で読みやすい</strong>
+        <br />
+        <strong class="success">✓ パターンマッチで簡潔</strong>
+      </p>
+    </div>
+  </div>
+</section>

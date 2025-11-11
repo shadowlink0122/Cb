@@ -1,0 +1,38 @@
+<section class="left-align">
+  <h2>プリミティブ型とバイトサイズ</h2>
+  <div style="width: 88%; margin: 0.4em auto 0">
+    <div style="margin-bottom: 0.5em;">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.3em; color: #569cd6;">基本型とサイズ</h3>
+      <div style="font-size: 0.62em; line-height: 1.8;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5em; margin-bottom: 0.4em;">
+          <div><span style="color: #569cd6; font-weight: bold;">tiny</span> - 8bit整数型 (1 byte)</div>
+          <div><span style="color: #569cd6; font-weight: bold;">short</span> - 16bit整数型 (2 bytes)</div>
+          <div><span style="color: #569cd6; font-weight: bold;">int</span> - 32bit整数型 (4 bytes)</div>
+          <div><span style="color: #569cd6; font-weight: bold;">long</span> - 64bit整数型 (8 bytes)</div>
+          <div><span style="color: #569cd6; font-weight: bold;">float</span> - 単精度浮動小数点数 (4 bytes)</div>
+          <div><span style="color: #569cd6; font-weight: bold;">double</span> - 倍精度浮動小数点数 (8 bytes)</div>
+          <div><span style="color: #569cd6; font-weight: bold;">bool</span> - 真偽値 (1 byte)</div>
+          <div><span style="color: #569cd6; font-weight: bold;">char</span> - 文字型 (1 byte)</div>
+          <div><span style="color: #569cd6; font-weight: bold;">string</span> - 文字列型 (参照型)</div>
+          <div><span style="color: #569cd6; font-weight: bold;">void</span> - 型なし</div>
+        </div>
+        <div style="margin-top: 0.4em; font-size: 0.95em;">
+          <span style="color: #569cd6; font-weight: bold;">unsigned</span> 修飾子が利用可能 (例: <span style="color: #569cd6;">unsigned int</span>, <span style="color: #569cd6;">unsigned long</span>)<br>
+          <span style="color: #569cd6; font-weight: bold;">ポインタ型</span> - 各型へのポインタ (例: <span style="color: #569cd6;">int*</span>, <span style="color: #569cd6;">double*</span>)
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 0.5em;">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.3em; color: #569cd6;">sizeof演算子</h3>
+      <pre style="font-size: 0.52em; margin: 0.3em 0; max-height: 280px; overflow-y: auto"><code class="language-cpp" data-trim data-noescape>int size1 = sizeof(int);      // 4
+int size2 = sizeof(double);   // 8
+int arr[10];
+int size3 = sizeof(arr);      // 40 (4 * 10)</code></pre>
+      <ul style="font-size: 0.58em; line-height: 1.6; margin: 0.3em 0 0 1.5em; padding-left: 0;">
+        <li>型やオブジェクトのサイズを<span style="color: #ce9178;">バイト単位</span>で取得</li>
+        <li>配列や構造体のサイズ計算に便利</li>
+      </ul>
+    </div>
+  </div>
+</section>

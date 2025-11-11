@@ -1,0 +1,39 @@
+<section class="left-align">
+  <h2>コンストラクタ / デストラクタ</h2>
+
+  <div class="info-box">
+    <p style="margin: 0">
+      C++のRAII（Resource Acquisition Is Initialization）パターンを採用。
+      <br />
+      リソースの自動管理で安全性を確保します。
+    </p>
+  </div>
+
+  <pre><code class="language-cb"><span class="hljs-keyword">struct</span> Resource {
+    <span class="hljs-type">void*</span> data;
+    <span class="hljs-type">int</span> size;
+}
+
+<span class="hljs-keyword">impl</span> Resource {
+    <span class="hljs-comment">// コンストラクタ</span>
+    <span class="hljs-built_in">self</span>(<span class="hljs-type">int</span> s) {
+        <span class="hljs-built_in">self</span>.size = s;
+        <span class="hljs-built_in">self</span>.data = malloc(s);
+        println(<span class="hljs-string">"Resource acquired"</span>);
+    }
+    
+    <span class="hljs-comment">// デストラクタ</span>
+    ~<span class="hljs-built_in">self</span>() {
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">self</span>.data != <span class="hljs-literal">nullptr</span>) {
+            free(<span class="hljs-built_in">self</span>.data);
+            println(<span class="hljs-string">"Resource released"</span>);
+        }
+    }
+}
+
+<span class="hljs-type">void</span> main() {
+    Resource r(<span class="hljs-number">100</span>);  <span class="hljs-comment">// コンストラクタ呼び出し</span>
+    <span class="hljs-comment">// ... 使用 ...</span>
+}  <span class="hljs-comment">// スコープ終了時に自動的にデストラクタが呼ばれる</span>
+</code></pre>
+</section>

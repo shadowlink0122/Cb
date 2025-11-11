@@ -1,0 +1,48 @@
+<section class="left-align">
+  <h2>モジュールシステム - import文</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <pre style="font-size: 0.48em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape>
+<span style="color: #6a9955;">// 標準ライブラリのインポート</span>
+<span style="color: #c586c0; font-weight: bold;">import</span> stdlib.std.vector;
+<span style="color: #c586c0; font-weight: bold;">import</span> stdlib.std.queue;
+<span style="color: #c586c0; font-weight: bold;">import</span> stdlib.std.map;
+
+<span style="color: #6a9955;">// ユーザー定義モジュールのインポート</span>
+<span style="color: #c586c0; font-weight: bold;">import</span> utils.math;
+<span style="color: #c586c0; font-weight: bold;">import</span> models.user;
+
+<span style="color: #4ec9b0;">void</span> main() {
+    <span style="color: #6a9955;">// インポートした型を使用</span>
+    <span style="color: #4ec9b0;">Vector</span>&lt;<span style="color: #4ec9b0;">int</span>&gt; numbers;
+    numbers.<span style="color: #dcdcaa;">push_back</span>(<span style="color: #b5cea8;">10</span>);
+    numbers.<span style="color: #dcdcaa;">push_back</span>(<span style="color: #b5cea8;">20</span>);
+    numbers.<span style="color: #dcdcaa;">push_back</span>(<span style="color: #b5cea8;">30</span>);
+    
+    <span style="color: #4ec9b0;">Queue</span>&lt;<span style="color: #4ec9b0;">string</span>&gt; tasks;
+    tasks.<span style="color: #dcdcaa;">push</span>(<span style="color: #ce9178;">"Task 1"</span>);
+    tasks.<span style="color: #dcdcaa;">push</span>(<span style="color: #ce9178;">"Task 2"</span>);
+    
+    <span style="color: #6a9955;">// ユーザーモジュールの関数を呼び出し</span>
+    <span style="color: #4ec9b0;">int</span> result = calculate_sum(numbers);
+    println(<span style="color: #ce9178;">"Sum: {result}"</span>);
+}
+
+<span style="color: #6a9955;">// stdlib/std/vector.cbの内容例:</span>
+<span style="color: #c586c0; font-weight: bold;">export</span> <span style="color: #c586c0; font-weight: bold;">struct</span> <span style="color: #4ec9b0;">Vector</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
+    <span style="color: #4ec9b0;">void</span>* front;
+    <span style="color: #4ec9b0;">void</span>* back;
+    <span style="color: #4ec9b0;">long</span> length;
+};
+
+<span style="color: #c586c0; font-weight: bold;">export</span> <span style="color: #c586c0; font-weight: bold;">interface</span> <span style="color: #4ec9b0;">VectorOps</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
+    <span style="color: #4ec9b0;">void</span> push_back(<span style="color: #4ec9b0;">T</span> value);
+    <span style="color: #4ec9b0;">T</span> at(<span style="color: #4ec9b0;">long</span> index);
+    <span style="color: #4ec9b0;">void</span> pop_back();
+};
+                    </code></pre>
+    <p class="fragment" style="font-size: 0.65em; margin-top: 0.3em">
+      <strong class="highlight">モジュール</strong>
+      : exportキーワードで公開、importで再利用可能なコードを実現
+    </p>
+  </div>
+</section>

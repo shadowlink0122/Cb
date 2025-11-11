@@ -1,0 +1,78 @@
+<section class="left-align">
+  <h2>協調的マルチタスク（async/await）の実装 - Part 1</h2>
+  <div style="width: 88%; margin: 0.25em auto 0">
+    <div style="display: flex; gap: 0.5em; margin-bottom: 0.25em">
+      <div style="flex: 1">
+        <h3 style="font-size: 0.72em; margin-bottom: 0.25em">アーキテクチャ概要</h3>
+        <ul style="font-size: 0.62em; line-height: 1.2; margin: 0; padding-left: 1.3em">
+          <li>
+            <strong>Event Loop</strong>
+            : タスクキュー管理
+          </li>
+          <li>
+            <strong>Future&lt;T&gt;</strong>
+            : 非同期タスクの状態を表現
+          </li>
+          <li>
+            <strong>await</strong>
+            : 制御をEvent Loopに戻す
+          </li>
+          <li>
+            <strong>協調的スケジューリング</strong>
+            : タスク自身が制御を譲渡
+          </li>
+        </ul>
+      </div>
+      <div style="flex: 1">
+        <h3 style="font-size: 0.72em; margin-bottom: 0.25em">Future&lt;T&gt;の状態管理</h3>
+        <pre style="font-size: 0.48em; margin: 0.3em 0"><code class="language-cpp" data-trim>
+enum FutureState {
+    PENDING,    // 実行中
+    READY,      // 完了
+    WAITING     // 待機中（sleep等）
+};
+
+struct Future&lt;T&gt; {
+    FutureState state;
+    T value;          // 結果値
+    long wake_time;   // 再開時刻
+    ASTNode* continuation;
+};
+</code></pre>
+      </div>
+    </div>
+
+    <h3 style="font-size: 0.72em; margin-bottom: 0.25em">Event Loopのクラス定義</h3>
+    <pre
+      style="font-size: 0.46em; margin: 0.3em 0; max-height: 260px; overflow-y: auto"
+    ><code class="language-cpp" data-trim>
+class EventLoop {
+    std::deque&lt;Task*&gt; task_queue;
+    std::map&lt;int, Future*&gt; pending_futures;
+    int next_task_id = 0;
+
+public:
+    // async関数を実行
+    int spawn_task(ASTNode* async_func, Scope& scope) {
+        Task* task = new Task{next_task_id++, async_func, scope};
+        task_queue.push_back(task);
+        return task->id;
+    }
+    
+    // await式の評価
+    TypedValue evaluate_await(ASTNode* await_expr, Scope& scope) {
+        // 1. awaitする式を評価
+        TypedValue future_value = evaluate(await_expr->child, scope);
+        
+        // 2. Futureがまだ完了していない場合
+        if (future_value.is_pending()) {
+            return TypedValue::Pending();
+        }
+        
+        // 3. Futureが完了している → 値を取り出す
+        return future_value.unwrap();
+    }
+};
+</code></pre>
+  </div>
+</section>

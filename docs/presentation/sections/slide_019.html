@@ -1,0 +1,45 @@
+<section class="left-align">
+  <h2>カプセル化 - private/defaultアクセス修飾子</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <pre style="font-size: 0.48em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape>
+<span style="color: #6a9955;">// 構造体メンバーにアクセス修飾子を適用可能</span>
+<span style="color: #c586c0; font-weight: bold;">struct</span> <span style="color: #4ec9b0;">BankAccount</span> {
+    <span style="color: #c586c0; font-weight: bold;">private</span> <span style="color: #4ec9b0;">int</span> balance;      <span style="color: #6a9955;">// 外部から直接アクセス不可</span>
+    <span style="color: #c586c0; font-weight: bold;">default</span> <span style="color: #4ec9b0;">string</span> owner;     <span style="color: #6a9955;">// デフォルトアクセス（public相当）</span>
+    <span style="color: #4ec9b0;">int</span> account_number;    <span style="color: #6a9955;">// デフォルトでpublic</span>
+}
+
+<span style="color: #c586c0; font-weight: bold;">impl</span> <span style="color: #4ec9b0;">BankAccount</span> {
+    <span style="color: #6a9955;">// コンストラクタ</span>
+    self(<span style="color: #4ec9b0;">string</span> name, <span style="color: #4ec9b0;">int</span> initial_balance) {
+        self.<span style="color: #dcdcaa;">owner</span> = name;
+        self.<span style="color: #dcdcaa;">balance</span> = initial_balance;
+        self.<span style="color: #dcdcaa;">account_number</span> = generate_account_number();
+    }
+    
+    <span style="color: #6a9955;">// privateメンバーへはimpl内からアクセス可能</span>
+    <span style="color: #4ec9b0;">void</span> deposit(<span style="color: #4ec9b0;">int</span> amount) {
+        self.<span style="color: #dcdcaa;">balance</span> = self.<span style="color: #dcdcaa;">balance</span> + amount;  <span style="color: #6a9955;">// OK: impl内</span>
+        println(<span style="color: #ce9178;">"Deposited: {amount}, New balance: {self.<span style="color: #dcdcaa;">balance</span>}"</span>);
+    }
+    
+    <span style="color: #4ec9b0;">int</span> get_balance() {
+        <span style="color: #c586c0; font-weight: bold;">return</span> self.<span style="color: #dcdcaa;">balance</span>;  <span style="color: #6a9955;">// privateメンバーを公開メソッド経由で提供</span>
+    }
+}
+
+<span style="color: #4ec9b0;">void</span> main() {
+    <span style="color: #4ec9b0;">BankAccount</span> account(<span style="color: #ce9178;">"Alice"</span>, <span style="color: #b5cea8;">1000</span>);
+    
+    account.deposit(<span style="color: #b5cea8;">500</span>);                    <span style="color: #6a9955;">// OK: public メソッド</span>
+    <span style="color: #4ec9b0;">int</span> balance = account.get_balance();  <span style="color: #6a9955;">// OK: public メソッド</span>
+    
+    <span style="color: #6a9955;">// account.balance = 9999;  // エラー: privateメンバーに直接アクセス不可</span>
+}
+                    </code></pre>
+    <p class="fragment" style="font-size: 0.65em; margin-top: 0.3em">
+      <strong class="success">利点</strong>
+      : データの隠蔽により、安全なAPI設計とカプセル化を実現
+    </p>
+  </div>
+</section>

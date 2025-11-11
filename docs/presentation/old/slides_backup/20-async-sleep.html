@@ -1,0 +1,46 @@
+<section class="left-align">
+  <h2>sleepの非同期実装</h2>
+
+  <div class="info-box">
+    <p style="margin: 0">sleepは他のタスクをブロックせず、タスクごとに独立した時間経過の概念を持ちます。</p>
+  </div>
+
+  <div style="font-size: 0.6em; margin-top: 0.8em">
+    <pre><code class="language-c">// タスクに時間管理を追加
+typedef struct Task {
+    int id;
+    ASTNode* code;
+    bool is_sleeping;
+    long wake_time_ms;  // 起床時刻（ミリ秒）
+    // ... その他のフィールド
+} Task;
+
+// sleep実装
+Value builtin_sleep(int milliseconds) {
+    Task* current = get_current_task();
+    current->is_sleeping = true;
+    current->wake_time_ms = current_time_ms() + milliseconds;
+    yield_task();  // 他のタスクに制御を渡す
+    return VALUE_VOID;
+}
+
+// イベントループでの処理
+void event_loop() {
+    while (has_tasks()) {
+        Task* task = get_next_task();
+        
+        if (task->is_sleeping) {
+            if (current_time_ms() >= task->wake_time_ms) {
+                task->is_sleeping = false;
+                resume_task(task);  // 実行再開
+            } else {
+                reschedule_task(task);  // まだ寝かせる
+            }
+        } else {
+            execute_task(task);
+        }
+    }
+}
+</code></pre>
+  </div>
+</section>

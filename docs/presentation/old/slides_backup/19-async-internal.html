@@ -1,0 +1,49 @@
+<section class="left-align">
+  <h2>協調的マルチタスクの実装</h2>
+
+  <p class="small-text">async/awaitを実現するイベントループの仕組み</p>
+
+  <div style="font-size: 0.6em">
+    <h3>タスクキューとイベントループ</h3>
+    <pre><code class="language-c">// タスク構造体
+typedef struct Task {
+    int id;
+    ASTNode* code;           // 実行するコード
+    bool is_waiting;         // await中かどうか
+    Value* awaited_value;    // awaitしている値
+    struct Task* next;
+} Task;
+
+// イベントループ（簡略版）
+void event_loop() {
+    Queue* task_queue = create_queue();
+    
+    while (!queue_empty(task_queue)) {
+        Task* task = queue_pop(task_queue);
+        
+        if (task->is_waiting) {
+            // awaitしている場合、値が準備できているかチェック
+            if (is_ready(task->awaited_value)) {
+                task->is_waiting = false;
+                Value result = eval_resume(task);
+                if (!task->finished) {
+                    queue_push(task_queue, task);  // 再度キューに追加
+                }
+            } else {
+                queue_push(task_queue, task);  // 後回し
+            }
+        } else {
+            // 通常実行
+            Value result = eval_step(task);
+            if (task->needs_await) {
+                task->is_waiting = true;
+            }
+            if (!task->finished) {
+                queue_push(task_queue, task);
+            }
+        }
+    }
+}
+</code></pre>
+  </div>
+</section>

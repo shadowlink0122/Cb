@@ -1,0 +1,59 @@
+<section class="left-align">
+  <h2>コンカレント vs シーケンシャル</h2>
+
+  <p class="small-text">Cb上での並行処理と逐次処理の実装の違い</p>
+
+  <div class="two-column" style="font-size: 0.65em">
+    <div>
+      <h3>シーケンシャル（逐次）</h3>
+      <pre><code class="language-cb">async void sequential() {
+    println("Task 1 start");
+    await sleep(1000);
+    println("Task 1 end");
+    
+    println("Task 2 start");
+    await sleep(1000);
+    println("Task 2 end");
+}
+// 合計: 2秒
+</code></pre>
+      <pre style="font-size: 0.9em"><code>出力:
+Task 1 start
+(1秒待機)
+Task 1 end
+Task 2 start
+(1秒待機)
+Task 2 end
+</code></pre>
+    </div>
+
+    <div>
+      <h3>コンカレント（並行）</h3>
+      <pre><code class="language-cb">async void task1() {
+    println("Task 1 start");
+    await sleep(1000);
+    println("Task 1 end");
+}
+
+async void task2() {
+    println("Task 2 start");
+    await sleep(1000);
+    println("Task 2 end");
+}
+
+void main() {
+    task1();  // awaitしない
+    task2();  // awaitしない
+}
+// 合計: 1秒（並行実行）
+</code></pre>
+      <pre style="font-size: 0.9em"><code>出力:
+Task 1 start
+Task 2 start
+(1秒待機、両方同時)
+Task 1 end
+Task 2 end
+</code></pre>
+    </div>
+  </div>
+</section>

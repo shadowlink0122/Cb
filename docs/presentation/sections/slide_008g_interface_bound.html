@@ -1,0 +1,50 @@
+<section class="left-align">
+  <h2>インターフェース境界 - Rustから</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <h3 style="font-size: 0.75em; color: #4ec9b0; margin-bottom: 0.3em">Interfaceを型として使用</h3>
+    <pre style="font-size: 0.42em; margin: 0.3em 0">
+<code class="language-cpp" data-trim data-noescape><span style="color: #c586c0; font-weight: bold;">interface</span> <span style="color: #4ec9b0;">Drawable</span> {
+    <span style="color: #4ec9b0;">void</span> draw();
+}
+
+<span style="color: #c586c0;">struct</span> <span style="color: #4ec9b0;">Circle</span> {
+    <span style="color: #4ec9b0;">int</span> radius;
+};
+
+<span style="color: #c586c0;">struct</span> <span style="color: #4ec9b0;">Square</span> {
+    <span style="color: #4ec9b0;">int</span> side;
+};
+
+<span style="color: #c586c0; font-weight: bold;">impl</span> <span style="color: #4ec9b0;">Drawable</span> <span style="color: #c586c0; font-weight: bold;">for</span> <span style="color: #4ec9b0;">Circle</span> {
+    <span style="color: #4ec9b0;">void</span> draw() {
+        println(<span style="color: #ce9178;">"Drawing circle with radius {self.<span style="color: #dcdcaa;">radius</span>}"</span>);
+    }
+}
+
+<span style="color: #c586c0; font-weight: bold;">impl</span> <span style="color: #4ec9b0;">Drawable</span> <span style="color: #c586c0; font-weight: bold;">for</span> <span style="color: #4ec9b0;">Square</span> {
+    <span style="color: #4ec9b0;">void</span> draw() {
+        println(<span style="color: #ce9178;">"Drawing square with side {self.<span style="color: #dcdcaa;">side</span>}"</span>);
+    }
+}
+
+<span style="color: #6a9955;">// Interfaceを引数の型として使用（Rust風のトレイト境界）</span>
+<span style="color: #4ec9b0;">void</span> renderShape(<span style="color: #4ec9b0;">Drawable</span>* shape) {
+    shape->draw();  <span style="color: #6a9955;">// 実装されたdraw()が呼ばれる</span>
+}
+
+<span style="color: #4ec9b0;">void</span> main() {
+    <span style="color: #4ec9b0;">Circle</span> c;
+    c.radius = <span style="color: #b5cea8;">10</span>;
+    
+    <span style="color: #4ec9b0;">Square</span> s;
+    s.side = <span style="color: #b5cea8;">5</span>;
+    
+    renderShape(&c);  <span style="color: #6a9955;">// "Drawing circle with radius 10"</span>
+    renderShape(&s);  <span style="color: #6a9955;">// "Drawing square with side 5"</span>
+}</code></pre>
+    <p class="fragment" style="font-size: 0.65em; margin-top: 0.4em">
+      <strong class="success">利点</strong>
+      : 異なる型を統一的に扱える。Drawableを実装した任意の型を受け取れる
+    </p>
+  </div>
+</section>

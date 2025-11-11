@@ -1,0 +1,74 @@
+<section class="left-align">
+  <h2>非同期処理とsleep - ブロッキングしない実行</h2>
+  <div style="display: flex; gap: 0.8em; width: 88%; margin: 0.3em auto 0">
+    <div style="flex: 1">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.3em">sleepの動作</h3>
+      <pre
+        style="font-size: 0.48em; margin: 0.4em 0"
+      ><code class="language-cpp" data-trim>async void task1() {
+    println("Task1: Start");
+    sleep(1000);  // 1秒待機（他のタスクはブロックされない）
+    println("Task1: After 1s");
+}
+
+async void task2() {
+    println("Task2: Start");
+    sleep(500);   // 0.5秒待機
+    println("Task2: After 0.5s");
+}
+
+void main() {
+    task1();
+    task2();
+}
+
+// 出力順序:
+// Task1: Start
+// Task2: Start
+// Task2: After 0.5s  ← task2が先に完了
+// Task1: After 1s</code></pre>
+
+      <h3 style="font-size: 0.75em; margin-bottom: 0.3em; margin-top: 0.3em">時間経過の概念</h3>
+      <ul style="font-size: 0.6em; line-height: 1.35; margin: 0; padding-left: 1.3em">
+        <li>
+          各タスクごとに
+          <strong>仮想時間</strong>
+          を管理
+        </li>
+        <li>sleepは時間を進めるだけ（CPUをブロックしない）</li>
+        <li>実行可能なタスクがない場合、時間を最小のresume_timeまで進める</li>
+      </ul>
+    </div>
+    <div style="flex: 1">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.3em">concurrent vs sequential</h3>
+      <pre
+        style="font-size: 0.48em; margin: 0.4em 0"
+      ><code class="language-cpp" data-trim>// Concurrent実行: 並行実行（await不使用）
+void main() {
+    task1();  // タスクを開始（待たない）
+    task2();  // タスクを開始（待たない）
+    // → イベントループが両方を並行実行
+}
+
+// Sequential実行: 逐次実行（await使用）
+async void main() {
+    await task1();  // task1の完了を待つ
+    await task2();  // その後task2を実行
+    // → 順番に実行される
+}</code></pre>
+
+      <h3 style="font-size: 0.75em; margin-bottom: 0.3em; margin-top: 0.3em">実装の違い</h3>
+      <ul style="font-size: 0.6em; line-height: 1.35; margin: 0; padding-left: 1.3em">
+        <li>
+          <strong>Concurrent</strong>
+          : すべてのタスクをready_queueに追加
+        </li>
+        <li>
+          <strong>Sequential</strong>
+          : awaitで依存関係を作り、1つずつ実行
+        </li>
+        <li>どちらもシングルスレッド（協調的マルチタスク）</li>
+      </ul>
+    </div>
+  </div>
+</section>

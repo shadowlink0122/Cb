@@ -1,0 +1,45 @@
+<section class="left-align">
+  <h2>カプセル化 - private/default修飾子</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <pre style="font-size: 0.42em; margin: 0.3em 0">
+<code class="language-cpp" data-trim data-noescape><span style="color: #c586c0;">struct</span> <span style="color: #4ec9b0;">BankAccount</span> {
+    <span style="color: #569cd6;">private</span> <span style="color: #4ec9b0;">int</span> balance;        <span style="color: #6a9955;">// 外部からアクセス不可</span>
+    <span style="color: #569cd6;">default</span> <span style="color: #4ec9b0;">string</span> owner;      <span style="color: #6a9955;">// デフォルト値で初期化</span>
+};
+
+<span style="color: #c586c0; font-weight: bold;">impl</span> <span style="color: #4ec9b0;">BankAccount</span> {
+    <span style="color: #6a9955;">// コンストラクタ</span>
+    self(<span style="color: #4ec9b0;">string</span> name) {
+        self.<span style="color: #dcdcaa;">balance</span> = <span style="color: #b5cea8;">0</span>;
+        self.<span style="color: #dcdcaa;">owner</span> = name;
+    }
+    
+    <span style="color: #6a9955;">// privateメソッド（impl内でのみ使用可能）</span>
+    <span style="color: #569cd6;">private</span> <span style="color: #4ec9b0;">bool</span> validateAmount(<span style="color: #4ec9b0;">int</span> amount) {
+        <span style="color: #c586c0; font-weight: bold;">return</span> amount > <span style="color: #b5cea8;">0</span>;
+    }
+    
+    <span style="color: #6a9955;">// publicメソッド</span>
+    <span style="color: #4ec9b0;">void</span> deposit(<span style="color: #4ec9b0;">int</span> amount) {
+        <span style="color: #c586c0; font-weight: bold;">if</span> (self.<span style="color: #dcdcaa;">validateAmount</span>(amount)) {
+            self.<span style="color: #dcdcaa;">balance</span> = self.<span style="color: #dcdcaa;">balance</span> + amount;
+        }
+    }
+    
+    <span style="color: #4ec9b0;">int</span> getBalance() {
+        <span style="color: #c586c0; font-weight: bold;">return</span> self.<span style="color: #dcdcaa;">balance</span>;
+    }
+}
+
+<span style="color: #4ec9b0;">void</span> main() {
+    <span style="color: #4ec9b0;">BankAccount</span> account(<span style="color: #ce9178;">"Alice"</span>);
+    account.<span style="color: #dcdcaa;">deposit</span>(<span style="color: #b5cea8;">1000</span>);
+    println(<span style="color: #ce9178;">"Balance: {account.<span style="color: #dcdcaa;">getBalance</span>()}"</span>);  <span style="color: #6a9955;">// 1000</span>
+    <span style="color: #6a9955;">// account.balance = 9999;  // コンパイルエラー！privateメンバーにアクセス不可</span>
+}</code></pre>
+    <p class="fragment" style="font-size: 0.65em; margin-top: 0.4em">
+      <strong class="success">利点</strong>
+      : データ隠蔽により、安全なAPIを提供できる
+    </p>
+  </div>
+</section>

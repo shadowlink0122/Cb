@@ -1,0 +1,36 @@
+<section class="left-align">
+  <h2>構造体とメモリアライメント</h2>
+  <div style="width: 88%; margin: 0.4em auto 0">
+    <div style="margin-bottom: 0.5em;">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.3em; color: #569cd6;">構造体のメモリレイアウト</h3>
+      <pre style="font-size: 0.52em; margin: 0.3em 0; max-height: 280px; overflow-y: auto"><code class="language-cpp" data-trim data-noescape>struct Data {
+    char c;      // 1 byte + 3 bytes padding
+    int i;       // 4 bytes
+    double d;    // 8 bytes
+}                // 合計: 16 bytes (アライメント済み)
+
+int size = sizeof(Data);  // 16</code></pre>
+    </div>
+
+    <div style="margin-top: 0.5em;">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.3em; color: #569cd6;">アライメントの仕組み</h3>
+      <ul style="font-size: 0.58em; line-height: 1.6; margin: 0.3em 0 0 1.5em; padding-left: 0;">
+        <li>各型は<span style="color: #ce9178;">自然なアライメント</span>境界に配置される
+          <ul style="margin-top: 0.2em; font-size: 0.95em;">
+            <li><span style="color: #569cd6;">tiny, char</span>: 1バイト境界</li>
+            <li><span style="color: #569cd6;">short</span>: 2バイト境界</li>
+            <li><span style="color: #569cd6;">int, float</span>: 4バイト境界</li>
+            <li><span style="color: #569cd6;">long, double</span>: 8バイト境界</li>
+          </ul>
+        </li>
+        <li style="margin-top: 0.3em;">構造体全体のサイズは<span style="color: #ce9178;">最大メンバのアライメント</span>の倍数になる
+          <ul style="margin-top: 0.2em; font-size: 0.95em;">
+            <li>例: <span style="color: #569cd6;">double</span>を含む→8バイト境界、1+4+8=13→<span style="color: #ce9178;">16バイト</span>に調整</li>
+          </ul>
+        </li>
+        <li style="margin-top: 0.3em;">必要に応じて<span style="color: #ce9178;">パディング</span>が挿入される</li>
+        <li style="margin-top: 0.3em;">CPUが効率的にメモリアクセスできるようにするため</li>
+      </ul>
+    </div>
+  </div>
+</section>

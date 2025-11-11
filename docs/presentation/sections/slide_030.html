@@ -1,0 +1,36 @@
+<section class="left-align">
+  <h2>実際の開発例: async/await実装</h2>
+  <div style="display: flex; gap: 1em; width: 95%; margin: 0.4em auto 0">
+    <div class="workflow-box" style="flex: 1">
+      <strong style="font-size: 0.78em">1日目: 設計</strong>
+      <ul style="font-size: 0.63em; line-height: 1.3; margin: 0.25em 0 0; padding-left: 1.1em">
+        <li>AIに実装計画を依頼</li>
+        <li>→ Event Loop、Future型の設計書生成</li>
+        <li>アーキテクチャをレビュー</li>
+      </ul>
+    </div>
+    <div class="workflow-box" style="flex: 1">
+      <strong style="font-size: 0.78em">2-3日目: 実装</strong>
+      <ul style="font-size: 0.63em; line-height: 1.3; margin: 0.25em 0 0; padding-left: 1.1em">
+        <li>AIにEvent Loop実装を依頼</li>
+        <li>→ simple_event_loop.cpp生成</li>
+        <li>→ types/future.cpp生成</li>
+        <li>段階的にテスト追加</li>
+      </ul>
+    </div>
+    <div class="workflow-box" style="flex: 1">
+      <strong style="font-size: 0.78em">4-5日目: デバッグ</strong>
+      <ul style="font-size: 0.63em; line-height: 1.3; margin: 0.25em 0 0; padding-left: 1.1em">
+        <li>--debug-jaで詳細ログ取得</li>
+        <li>AIにエラーログを渡す</li>
+        <li>→ 問題を特定し修正</li>
+        <li>統合テスト完了</li>
+      </ul>
+    </div>
+  </div>
+  <p class="fragment" style="margin-top: 0.6em; font-size: 0.68em">
+    <strong class="success">結果</strong>
+    : 5日間で実装完了（従来なら数週間） |
+    <strong class="ai-color">AI駆動開発で3-5倍高速化</strong>
+  </p>
+</section>

@@ -1,0 +1,67 @@
+<section class="left-align">
+  <h2>ジェネリクス + データ構造</h2>
+  <div style="display: flex; gap: 1em; width: 95%; margin: 0.3em auto 0">
+    <div style="flex: 1">
+      <h3 style="font-size: 0.8em; margin-bottom: 0.2em">Vector&lt;T&gt; - 双方向リンクリスト</h3>
+      <pre
+        style="font-size: 0.45em; margin: 0.3em 0"
+      ><code class="language-cpp" data-trim data-noescape><span style="color: #c586c0; font-weight: bold;">struct</span> <span style="color: #4ec9b0;">Vector</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
+    <span style="color: #4ec9b0;">void</span>* front;
+    <span style="color: #4ec9b0;">void</span>* back;
+    <span style="color: #4ec9b0;">long</span> length;
+};
+<span style="color: #c586c0; font-weight: bold;">interface</span> <span style="color: #4ec9b0;">VectorOps</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
+    <span style="color: #4ec9b0;">void</span> push_back(<span style="color: #4ec9b0;">T</span> value);
+    <span style="color: #4ec9b0;">T</span> at(<span style="color: #4ec9b0;">long</span> index);
+    <span style="color: #4ec9b0;">void</span> pop_back();
+    <span style="color: #4ec9b0;">long</span> get_length();
+};
+<span style="color: #c586c0; font-weight: bold;">impl</span> <span style="color: #4ec9b0;">VectorOps</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; <span style="color: #c586c0; font-weight: bold;">for</span> <span style="color: #4ec9b0;">Vector</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
+    <span style="color: #4ec9b0;">void</span> push_back(<span style="color: #4ec9b0;">T</span> value) {
+        <span style="color: #6a9955;">// ノードを追加</span>
+    }
+    <span style="color: #4ec9b0;">T</span> at(<span style="color: #4ec9b0;">long</span> index) {
+        <span style="color: #6a9955;">// インデックスで要素を取得</span>
+    }
+}
+<span style="color: #c586c0; font-weight: bold;">impl</span> <span style="color: #4ec9b0;">Vector</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
+    self() { <span style="color: #6a9955;">/* コンストラクタ */</span> }
+    ~self() { <span style="color: #6a9955;">/* デストラクタ */</span> }
+}
+                        </code></pre>
+    </div>
+    <div style="flex: 1">
+      <h3 style="font-size: 0.8em; margin-bottom: 0.2em">Queue&lt;T&gt; - リンクリストキュー</h3>
+      <pre
+        style="font-size: 0.45em; margin: 0.3em 0"
+      ><code class="language-cpp" data-trim data-noescape><span style="color: #c586c0; font-weight: bold;">struct</span> <span style="color: #4ec9b0;">Queue</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
+    <span style="color: #c586c0; font-weight: bold;">private</span> <span style="color: #4ec9b0;">void</span>* front;
+    <span style="color: #c586c0; font-weight: bold;">private</span> <span style="color: #4ec9b0;">void</span>* rear;
+    <span style="color: #c586c0; font-weight: bold;">private</span> <span style="color: #4ec9b0;">int</span> length;
+};
+<span style="color: #c586c0; font-weight: bold;">interface</span> <span style="color: #4ec9b0;">QueueOps</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
+    <span style="color: #4ec9b0;">void</span> push(<span style="color: #4ec9b0;">T</span> value);
+    <span style="color: #4ec9b0;">T</span> pop();
+    <span style="color: #4ec9b0;">T</span> top();
+    <span style="color: #4ec9b0;">bool</span> empty();
+};
+<span style="color: #c586c0; font-weight: bold;">impl</span> <span style="color: #4ec9b0;">QueueOps</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; <span style="color: #c586c0; font-weight: bold;">for</span> <span style="color: #4ec9b0;">Queue</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
+    <span style="color: #4ec9b0;">void</span> push(<span style="color: #4ec9b0;">T</span> value) {
+        <span style="color: #6a9955;">// 末尾に追加</span>
+    }
+    <span style="color: #4ec9b0;">T</span> pop() {
+        <span style="color: #6a9955;">// 先頭を取得して削除</span>
+    }
+}
+<span style="color: #c586c0; font-weight: bold;">impl</span> <span style="color: #4ec9b0;">Queue</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
+    self() { <span style="color: #6a9955;">/* コンストラクタ */</span> }
+    ~self() { <span style="color: #6a9955;">/* デストラクタ */</span> }
+}
+                        </code></pre>
+    </div>
+  </div>
+  <p class="fragment" style="margin-top: 0.4em; font-size: 0.63em">
+    <strong class="success">実装可能</strong>
+    : Map&lt;K,V&gt;, LinkedList&lt;T&gt;, Set&lt;T&gt;, Stack&lt;T&gt;
+  </p>
+</section>

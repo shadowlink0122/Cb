@@ -1,0 +1,51 @@
+<section class="left-align">
+  <h2>実用的な非同期パターン</h2>
+  <div style="display: flex; gap: 1em; width: 95%; margin: 0.3em auto 0">
+    <div style="flex: 1">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.2em">並行タスク実行</h3>
+      <pre style="font-size: 0.42em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape>
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">void</span> fetch_all_data() {
+    <span style="color: #6a9955;">// 複数のAPIを並行呼び出し（暗黙的にFutureになる）</span>
+    <span style="color: #4ec9b0;">User</span> user = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_user(<span style="color: #b5cea8;">1</span>);
+    <span style="color: #4ec9b0;">Post</span> post = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_post(<span style="color: #b5cea8;">42</span>);
+    <span style="color: #4ec9b0;">Comment</span> comment = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_comment(<span style="color: #b5cea8;">100</span>);
+
+    println(<span style="color: #ce9178;">"All data loaded"</span>);
+}
+
+<span style="color: #6a9955;">// タイムアウト付き</span>
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">Data</span>, <span style="color: #4ec9b0;">string</span>&gt; 
+fetch_with_timeout(<span style="color: #4ec9b0;">int</span> timeout_ms) {
+    <span style="color: #4ec9b0;">Data</span> data = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_data();
+    <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>::<span style="color: #4ec9b0;">Ok</span>(data);
+}
+                        </code></pre>
+    </div>
+    <div style="flex: 1">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.2em">エラーハンドリング</h3>
+      <pre style="font-size: 0.42em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape>
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">ProcessedData</span>, <span style="color: #4ec9b0;">string</span>&gt; 
+process_pipeline() {
+    <span style="color: #6a9955;">// ステップ1: データ取得</span>
+    <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">Data</span>, <span style="color: #4ec9b0;">string</span>&gt; r1 = 
+        <span style="color: #c586c0; font-weight: bold;">await</span> fetch_data();
+    <span style="color: #c586c0; font-weight: bold;">match</span> (r1) {
+        <span style="color: #4ec9b0;">Err</span>(e) => <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>::<span style="color: #4ec9b0;">Err</span>(
+            <span style="color: #ce9178;">"Fetch failed: "</span> + e),
+        <span style="color: #4ec9b0;">Ok</span>(data) => {
+            <span style="color: #6a9955;">// ステップ2: 処理</span>
+            <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">Processed</span>, <span style="color: #4ec9b0;">string</span>&gt; r2 = 
+                <span style="color: #c586c0; font-weight: bold;">await</span> process(data);
+            <span style="color: #c586c0; font-weight: bold;">match</span> (r2) {
+                <span style="color: #4ec9b0;">Err</span>(e) => <span style="color: #c586c0; font-weight: bold;">return</span> 
+                    <span style="color: #4ec9b0;">Result</span>::<span style="color: #4ec9b0;">Err</span>(e),
+                <span style="color: #4ec9b0;">Ok</span>(result) => <span style="color: #c586c0; font-weight: bold;">return</span> 
+                    <span style="color: #4ec9b0;">Result</span>::<span style="color: #4ec9b0;">Ok</span>(result)
+            }
+        }
+    }
+}
+                        </code></pre>
+    </div>
+  </div>
+</section>

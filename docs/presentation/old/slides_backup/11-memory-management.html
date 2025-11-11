@@ -1,0 +1,37 @@
+<section class="left-align">
+  <h2>メモリ管理</h2>
+
+  <h3>ムーブセマンティクス（C++/Rust風）</h3>
+  <pre><code class="language-cb"><span class="hljs-keyword">struct</span> Buffer {
+    <span class="hljs-type">void*</span> data;
+    <span class="hljs-type">int</span> size;
+}
+
+<span class="hljs-keyword">impl</span> Buffer {
+    <span class="hljs-built_in">self</span>(<span class="hljs-type">int</span> s) {
+        <span class="hljs-built_in">self</span>.size = s;
+        <span class="hljs-built_in">self</span>.data = malloc(s);
+    }
+    
+    <span class="hljs-comment">// ムーブコンストラクタ</span>
+    <span class="hljs-built_in">self</span>(Buffer&amp;&amp; other) {
+        <span class="hljs-built_in">self</span>.data = other.data;
+        <span class="hljs-built_in">self</span>.size = other.size;
+        other.data = <span class="hljs-literal">nullptr</span>;  <span class="hljs-comment">// 所有権移動</span>
+        other.size = <span class="hljs-number">0</span>;
+    }
+    
+    ~<span class="hljs-built_in">self</span>() {
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">self</span>.data != <span class="hljs-literal">nullptr</span>) {
+            free(<span class="hljs-built_in">self</span>.data);
+        }
+    }
+}
+
+<span class="hljs-type">void</span> main() {
+    Buffer b1(<span class="hljs-number">1024</span>);
+    Buffer b2 = move(b1);  <span class="hljs-comment">// 所有権移動、コピーではない</span>
+    <span class="hljs-comment">// b1 は無効、b2 が所有権を持つ</span>
+}
+</code></pre>
+</section>

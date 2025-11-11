@@ -1,0 +1,30 @@
+<section class="left-align">
+  <h2>パターンマッチング - 型安全な分岐</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <pre style="font-size: 0.42em; margin: 0.3em 0">
+  <code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// ✅ 組み込み型として自動利用可能（import不要）</span>
+<span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt; divide(<span style="color: #4ec9b0;">int</span> a, <span style="color: #4ec9b0;">int</span> b) {
+    <span style="color: #c586c0; font-weight: bold;">if</span> (b == <span style="color: #b5cea8;">0</span>) {
+        <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Err</span>(<span style="color: #ce9178;">"Division by zero"</span>);
+    }
+    <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Ok</span>(a / b);
+}
+<span style="color: #c586c0; font-weight: bold;">void</span> main() {
+    <span style="color: #6a9955;">// パターンマッチングで型安全に分岐</span>
+    <span style="color: #c586c0; font-weight: bold;">match</span> (divide(<span style="color: #b5cea8;">10</span>, <span style="color: #b5cea8;">2</span>)) {
+        <span style="color: #4ec9b0;">Ok</span>(value) => println(<span style="color: #ce9178;">"Result: {value}"</span>),      <span style="color: #6a9955;">// 5</span>
+        <span style="color: #4ec9b0;">Err</span>(error) => println(<span style="color: #ce9178;">"Error: {error}"</span>),
+    }
+    <span style="color: #6a9955;">// Option型の例（NULL安全）</span>
+    <span style="color: #4ec9b0;">Option</span>&lt;<span style="color: #4ec9b0;">int</span>&gt; maybe = <span style="color: #4ec9b0;">Option</span>&lt;<span style="color: #4ec9b0;">int</span>&gt;::<span style="color: #4ec9b0;">Some</span>(<span style="color: #b5cea8;">42</span>);
+    <span style="color: #c586c0; font-weight: bold;">match</span> (maybe) {
+        <span style="color: #4ec9b0;">Some</span>(v) => println(<span style="color: #ce9178;">"Value: {v}"</span>),           <span style="color: #6a9955;">// 42</span>
+        <span style="color: #4ec9b0;">None</span> => println(<span style="color: #ce9178;">"No value"</span>)
+    }
+}</code></pre>
+    <p class="fragment" style="font-size: 0.65em; margin-top: 0.3em">
+      <strong class="success">利点</strong>
+      : 例外・NULL・エラーコードの混在を排除し、型安全なエラーハンドリングを実現
+    </p>
+  </div>
+</section>

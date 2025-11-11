@@ -1,0 +1,46 @@
+<section class="left-align">
+  <h2>参照とディープコピー</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <div style="display: flex; gap: 1em">
+      <div style="flex: 1">
+        <h3 style="font-size: 0.75em; color: #4ec9b0; margin-bottom: 0.3em">参照（&）</h3>
+        <pre style="font-size: 0.42em; margin: 0.3em 0">
+<code class="language-cpp" data-trim data-noescape><span style="color: #4ec9b0;">void</span> increment(<span style="color: #4ec9b0;">int</span>& x) {
+    x = x + <span style="color: #b5cea8;">1</span>;  <span style="color: #6a9955;">// 元の値を変更</span>
+}
+
+<span style="color: #4ec9b0;">void</span> main() {
+    <span style="color: #4ec9b0;">int</span> a = <span style="color: #b5cea8;">10</span>;
+    increment(a);
+    println(a);  <span style="color: #6a9955;">// 11</span>
+}</code></pre>
+      </div>
+      <div style="flex: 1">
+        <h3 style="font-size: 0.75em; color: #4ec9b0; margin-bottom: 0.3em">ディープコピー</h3>
+        <pre style="font-size: 0.42em; margin: 0.3em 0">
+<code class="language-cpp" data-trim data-noescape><span style="color: #c586c0;">struct</span> <span style="color: #4ec9b0;">Point</span> {
+    <span style="color: #4ec9b0;">int</span> x;
+    <span style="color: #4ec9b0;">int</span> y;
+};
+
+<span style="color: #4ec9b0;">Point</span> p1;
+p1.x = <span style="color: #b5cea8;">5</span>;
+p1.y = <span style="color: #b5cea8;">10</span>;
+
+<span style="color: #4ec9b0;">Point</span> p2 = p1;  <span style="color: #6a9955;">// ディープコピー</span>
+p2.x = <span style="color: #b5cea8;">20</span>;
+
+println(p1.x);   <span style="color: #6a9955;">// 5（変更されない）</span>
+println(p2.x);   <span style="color: #6a9955;">// 20</span></code></pre>
+      </div>
+    </div>
+    <p class="fragment" style="font-size: 0.65em; margin-top: 0.5em">
+      <strong>参照（&）</strong>
+      : 変数の別名。元の変数を直接操作する
+    </p>
+    <p class="fragment" style="font-size: 0.65em; margin-top: 0.2em">
+      <strong>ディープコピー</strong>
+      : 構造体の代入時、全メンバーが完全にコピーされる（独立した複製）
+    </p>
+  </div>
+</section>

@@ -1,0 +1,44 @@
+<section class="left-align">
+  <h2>v0.13.0の革新: Result + async/await統合</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <pre style="font-size: 0.42em; margin: 0.3em 0">
+  <code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// ✅ v0.13.0: enum情報を完全保持</span>
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">User</span>, <span style="color: #4ec9b0;">string</span>&gt; fetch_user(<span style="color: #4ec9b0;">int</span> id) {
+    <span style="color: #c586c0; font-weight: bold;">await</span> sleep(<span style="color: #b5cea8;">100</span>);  <span style="color: #6a9955;">// API呼び出しをシミュレート</span>
+    <span style="color: #c586c0; font-weight: bold;">if</span> (id &lt;= <span style="color: #b5cea8;">0</span>) {
+        <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">User</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Err</span>(<span style="color: #ce9178;">"Invalid user ID"</span>);
+    }
+    <span style="color: #4ec9b0;">User</span> user;
+    user.id = id;
+    user.name = <span style="color: #ce9178;">"User_"</span> + to_string(id);
+    <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">User</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Ok</span>(user);
+}
+<span style="color: #6a9955;">// 複数の非同期処理をチェーン</span>
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">ProcessedData</span>, <span style="color: #4ec9b0;">string</span>&gt; process_pipeline(<span style="color: #4ec9b0;">int</span> user_id) {
+    <span style="color: #6a9955;">// ステップ1: ユーザー取得（暗黙的にFuture化）</span>
+    <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">User</span>, <span style="color: #4ec9b0;">string</span>&gt; user_result = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_user(user_id);
+    <span style="color: #c586c0; font-weight: bold;">match</span> (user_result) {
+        <span style="color: #4ec9b0;">Err</span>(e) =&gt; <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">ProcessedData</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Err</span>(<span style="color: #ce9178;">"Fetch failed: "</span> + e),
+        <span style="color: #4ec9b0;">Ok</span>(user) =&gt; {
+            <span style="color: #6a9955;">// ステップ2: データ処理</span>
+            <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">Data</span>, <span style="color: #4ec9b0;">string</span>&gt; data_result = <span style="color: #c586c0; font-weight: bold;">await</span> process_data(user);
+            <span style="color: #c586c0; font-weight: bold;">match</span> (data_result) {
+                <span style="color: #4ec9b0;">Err</span>(e) =&gt; <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">ProcessedData</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Err</span>(e),
+                <span style="color: #4ec9b0;">Ok</span>(processed) =&gt; <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">ProcessedData</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Ok</span>(processed)
+            }
+        }
+    }
+}
+<span style="color: #4ec9b0;">void</span> main() {
+    <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">ProcessedData</span>, <span style="color: #4ec9b0;">string</span>&gt; result = <span style="color: #c586c0; font-weight: bold;">await</span> process_pipeline(<span style="color: #b5cea8;">42</span>);
+    <span style="color: #c586c0; font-weight: bold;">match</span> (result) {
+        <span style="color: #4ec9b0;">Ok</span>(data) =&gt; println(<span style="color: #ce9178;">"Success: {data}"</span>),
+        <span style="color: #4ec9b0;">Err</span>(msg) =&gt; println(<span style="color: #ce9178;">"Error: {msg}"</span>)
+    }
+}</code></pre>
+    <p class="fragment" style="margin-top: 0.4em; font-size: 0.65em">
+      <strong class="success">技術的実装</strong>
+      : evaluate_await()がTypedValueを返却し、enum情報（variant名、型パラメータ）を完全保持
+    </p>
+  </div>
+</section>

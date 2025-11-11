@@ -1,0 +1,46 @@
+<section class="left-align">
+  <h2>ディレクトリ構造と実行フロー</h2>
+
+  <div class="two-column" style="font-size: 0.65em">
+    <div>
+      <h3>プロジェクト構造</h3>
+      <pre style="font-size: 1.2em"><code>Cb/
+├── src/           # インタプリタ実装
+│   ├── lexer.c    # 字句解析
+│   ├── parser.c   # 構文解析
+│   ├── ast.c      # AST構築
+│   ├── eval.c     # 評価エンジン
+│   └── ...
+├── stdlib/        # 標準ライブラリ（Cbで記述）
+│   └── std/
+│       ├── vector.cb
+│       ├── queue.cb
+│       └── time.cb
+├── tests/         # テストスイート
+└── docs/          # ドキュメント
+</code></pre>
+    </div>
+
+    <div>
+      <h3>実行フロー</h3>
+      <pre style="font-size: 1.2em"><code>1. ソースコード読み込み
+   └─ main.cb
+
+2. 字句解析（Lexer）
+   └─ トークン列生成
+
+3. 構文解析（Parser）
+   └─ AST構築
+
+4. 型チェック
+   └─ 型安全性の検証
+
+5. 実行（Interpreter）
+   └─ AST木を再帰的に評価
+   
+6. 標準ライブラリのロード
+   └─ stdlib/ 配下のモジュール
+</code></pre>
+    </div>
+  </div>
+</section>
