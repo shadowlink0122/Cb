@@ -157,7 +157,7 @@ COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/
 MAIN_TARGET=main
 CGEN_TARGET=cgen_main
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help
+.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension
 
 all: setup-dirs $(MAIN_TARGET)
 
@@ -464,6 +464,30 @@ backup-old:
 		cp Makefile Makefile.old; \
 	fi
 
+# VSCode拡張機能のインストール
+install-vscode-extension:
+	@echo "Installing Cb Language VSCode extension..."
+	@if [ ! -d vscode-extension ]; then \
+		echo "Error: vscode-extension directory not found"; \
+		exit 1; \
+	fi
+	@VSCODE_EXT_DIR=""; \
+	if [ "$$(uname)" = "Darwin" ] || [ "$$(uname)" = "Linux" ]; then \
+		VSCODE_EXT_DIR="$$HOME/.vscode/extensions/cb-language-0.13.0"; \
+	elif [ "$$(uname -o 2>/dev/null)" = "Msys" ] || [ "$$(uname -o 2>/dev/null)" = "Cygwin" ]; then \
+		VSCODE_EXT_DIR="$$USERPROFILE/.vscode/extensions/cb-language-0.13.0"; \
+	else \
+		echo "Error: Unsupported OS"; \
+		exit 1; \
+	fi; \
+	echo "Installing to: $$VSCODE_EXT_DIR"; \
+	rm -rf "$$VSCODE_EXT_DIR"; \
+	mkdir -p "$$VSCODE_EXT_DIR"; \
+	cp -r vscode-extension/* "$$VSCODE_EXT_DIR/"; \
+	echo "✅ Cb Language extension installed successfully!"; \
+	echo ""; \
+	echo "Please restart VSCode to activate the extension."
+
 # 開発用のヘルプ
 help:
 	@echo "Available targets:"
@@ -485,6 +509,9 @@ help:
 	@echo "Code quality:"
 	@echo "  lint                   - Check code formatting"
 	@echo "  fmt                    - Format code"
+	@echo ""
+	@echo "VSCode extension:"
+	@echo "  install-vscode-extension - Install Cb syntax highlighting for VSCode"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean                  - Remove generated files"

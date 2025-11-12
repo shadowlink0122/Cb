@@ -1,0 +1,45 @@
+{
+  "name": "cb-language",
+  "displayName": "Cb Language Support",
+  "description": "Syntax highlighting and language support for the Cb programming language",
+  "version": "0.13.0",
+  "publisher": "cb-lang",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "cb",
+    "programming language",
+    "syntax highlighting"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shadowlink0122/Cb"
+  },
+  "license": "MIT",
+  "contributes": {
+    "languages": [
+      {
+        "id": "cb",
+        "aliases": [
+          "Cb",
+          "cb"
+        ],
+        "extensions": [
+          ".cb"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cb",
+        "scopeName": "source.cb",
+        "path": "./syntaxes/cb.tmLanguage.json"
+      }
+    ]
+  }
+}
