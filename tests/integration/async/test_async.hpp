@@ -429,7 +429,7 @@ void test_integration_async() {
     // run_cb_test_with_output_and_time("../cases/async/test_future_multiple_await.cb", ...
     // TODO: 構造体型Futureのサポート後に有効化
     
-    // Test 23: v0.13.0 - Comprehensive async/await + Result integration
+    // Test 23: v0.12.1 - Comprehensive async/await + Result integration
     run_cb_test_with_output_and_time("../cases/async/comprehensive_async_result.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "comprehensive_async_result.cb should execute successfully");
@@ -476,42 +476,42 @@ void test_integration_async() {
             // Final message
             INTEGRATION_ASSERT_CONTAINS(output, "=== All Tests Passed ===", "All tests should pass");
         }, execution_time);
-    integration_test_passed_with_time("v0.13.0 async Result<T,E> comprehensive integration", "comprehensive_async_result.cb", execution_time);
+    integration_test_passed_with_time("v0.12.1 async Result<T,E> comprehensive integration", "comprehensive_async_result.cb", execution_time);
     
-    // Test 24: v0.13.0 - Basic async Result tests
+    // Test 24: v0.12.1 - Basic async Result tests
     run_cb_test_with_output_and_time("../cases/async/test_async_result_integration.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "test_async_result_integration.cb should execute successfully");
             INTEGRATION_ASSERT_CONTAINS(output, "Success: 5", "Should show success result");
             INTEGRATION_ASSERT_CONTAINS(output, "Error: Division by zero", "Should show error result");
         }, execution_time);
-    integration_test_passed_with_time("v0.13.0 async Result<T,E> basic integration", "test_async_result_integration.cb", execution_time);
+    integration_test_passed_with_time("v0.12.1 async Result<T,E> basic integration", "test_async_result_integration.cb", execution_time);
     
-    // Test 25: v0.13.0 - Async Result minimal test
+    // Test 25: v0.12.1 - Async Result minimal test
     run_cb_test_with_output_and_time("../cases/async/test_async_result_minimal.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "test_async_result_minimal.cb should execute successfully");
             INTEGRATION_ASSERT_CONTAINS(output, "Inside async, creating Result", "Should create Result");
             INTEGRATION_ASSERT_CONTAINS(output, "After await, variant: Ok", "Should show Ok variant");
         }, execution_time);
-    integration_test_passed_with_time("v0.13.0 async Result<T,E> minimal", "test_async_result_minimal.cb", execution_time);
+    integration_test_passed_with_time("v0.12.1 async Result<T,E> minimal", "test_async_result_minimal.cb", execution_time);
     
-    // Test 26: v0.13.0 - Async Result error handling
+    // Test 26: v0.12.1 - Async Result error handling
     run_cb_test_with_output_and_time("../cases/async/test_async_result_simple.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "test_async_result_simple.cb should execute successfully");
         }, execution_time);
-    integration_test_passed_with_time("v0.13.0 async Result<T,E> simple", "test_async_result_simple.cb", execution_time);
+    integration_test_passed_with_time("v0.12.1 async Result<T,E> simple", "test_async_result_simple.cb", execution_time);
     
-    // Test 27: v0.13.0 - Async interface basic
+    // Test 27: v0.12.1 - Async interface basic
     run_cb_test_with_output_and_time("../cases/async/test_interface_basic.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "test_interface_basic.cb should execute successfully");
             INTEGRATION_ASSERT_CONTAINS(output, "PASS", "Should pass test");
         }, execution_time);
-    integration_test_passed_with_time("v0.13.0 async interface basic", "test_interface_basic.cb", execution_time);
+    integration_test_passed_with_time("v0.12.1 async interface basic", "test_interface_basic.cb", execution_time);
     
-    // Test 28: v0.13.0 - Comprehensive async Result patterns
+    // Test 28: v0.12.1 - Comprehensive async Result patterns
     run_cb_test_with_output_and_time("../cases/async/comprehensive_async_result.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "comprehensive_async_result.cb should execute successfully");
@@ -519,23 +519,23 @@ void test_integration_async() {
             INTEGRATION_ASSERT_CONTAINS(output, "Test 2:", "Should run test 2");
             INTEGRATION_ASSERT_CONTAINS(output, "PASSED", "Should pass tests");
         }, execution_time);
-    integration_test_passed_with_time("v0.13.0 comprehensive async Result patterns", "comprehensive_async_result.cb", execution_time);
+    integration_test_passed_with_time("v0.12.1 comprehensive async Result patterns", "comprehensive_async_result.cb", execution_time);
     
-    // Test 29: v0.13.0 - Generic struct with async
+    // Test 29: v0.12.1 - Generic struct with async
     run_cb_test_with_output_and_time("../cases/async/test_simple_generic.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "test_simple_generic.cb should execute successfully");
         }, execution_time);
-    integration_test_passed_with_time("v0.13.0 generic struct with async", "test_simple_generic.cb", execution_time);
+    integration_test_passed_with_time("v0.12.1 generic struct with async", "test_simple_generic.cb", execution_time);
     
-    // Test 30: v0.13.0 - Result type construction
+    // Test 30: v0.12.1 - Result type construction
     run_cb_test_with_output_and_time("../cases/async/test_result_construct.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "test_result_construct.cb should execute successfully");
         }, execution_time);
-    integration_test_passed_with_time("v0.13.0 Result type construction", "test_result_construct.cb", execution_time);
+    integration_test_passed_with_time("v0.12.1 Result type construction", "test_result_construct.cb", execution_time);
     
-    // Test 31: v0.13.0 - Async syntax simplification (async T)
+    // Test 31: v0.12.1 - Async syntax simplification (async T)
     run_cb_test_with_output_and_time("../cases/async/integration_async_syntax.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "integration_async_syntax.cb should execute successfully");
@@ -548,9 +548,9 @@ void test_integration_async() {
             INTEGRATION_ASSERT_CONTAINS(output, "None (expected)", "async Option None should work");
             INTEGRATION_ASSERT_CONTAINS(output, "=== All Tests Passed! ===", "Should pass all tests");
         }, execution_time);
-    integration_test_passed_with_time("v0.13.0 async syntax (async T)", "integration_async_syntax.cb", execution_time);
+    integration_test_passed_with_time("v0.12.1 async syntax (async T)", "integration_async_syntax.cb", execution_time);
     
-    // Test 32: v0.13.0 - Direct return enum variants (Option::None fix)
+    // Test 32: v0.12.1 - Direct return enum variants (Option::None fix)
     run_cb_test_with_output_and_time("../cases/async/test_direct_return_enum.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "test_direct_return_enum.cb should execute successfully");
@@ -561,7 +561,7 @@ void test_integration_async() {
             INTEGRATION_ASSERT_CONTAINS(output, "SUCCESS: Got Err(test error)", "Direct return Result::Err should work");
             INTEGRATION_ASSERT_CONTAINS(output, "=== All Direct Return Tests Passed! ===", "Should pass all tests");
         }, execution_time);
-    integration_test_passed_with_time("v0.13.0 direct return enum variants", "test_direct_return_enum.cb", execution_time);
+    integration_test_passed_with_time("v0.12.1 direct return enum variants", "test_direct_return_enum.cb", execution_time);
     
     // Test 33: v0.12.1 - Timeout basic functionality (partial implementation)
     // Note: timeout() is implemented but Result integration is incomplete
