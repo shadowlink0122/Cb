@@ -454,6 +454,10 @@ struct AsyncTask {
     bool is_waiting = false;      // 別のタスクの完了を待機中か
     int waiting_for_task_id = -1; // 待機中のタスクID (-1=待機なし)
 
+    // v0.12.1: タイムアウト対応
+    bool has_timeout = false; // タイムアウトが設定されているか
+    int64_t timeout_ms = 0; // タイムアウト時刻（エポックからのミリ秒）
+
     AsyncTask()
         : task_id(0), function_node(nullptr), function_name(""),
           future_var(nullptr), use_internal_future(true), has_self(false),
@@ -462,7 +466,8 @@ struct AsyncTask {
           return_double_value(0.0), return_string_value(""),
           return_type(TYPE_VOID), return_is_struct(false), auto_yield(true),
           is_statement_first_time(true), is_sleeping(false), wake_up_time_ms(0),
-          is_waiting(false), waiting_for_task_id(-1) {}
+          is_waiting(false), waiting_for_task_id(-1), has_timeout(false),
+          timeout_ms(0) {}
 
     AsyncTask(int id, const ASTNode *node, const std::string &name,
               std::vector<Variable> arguments, Variable *future)

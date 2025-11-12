@@ -3108,7 +3108,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             "concurrent_await", // v0.12.0 Phase 8: concurrent execution
             "sleep",            // v0.12.0: Sleep function (milliseconds)
             "sleep_ms",         // v0.12.0: Sleep function alias (milliseconds)
-            "now"};             // v0.12.0: Get current time in milliseconds
+            "now",              // v0.12.0: Get current time in milliseconds
+            "timeout"}; // v0.12.1: Timeout function for async operations
 
         bool is_builtin = false;
         for (const auto &builtin_name : builtin_function_names) {
@@ -3323,6 +3324,117 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
             return timestamp_ms;
 #endif
+        }
+
+        // timeout(future, milliseconds) - タイムアウト機能 (v0.12.1)
+        // 指定時間内にFutureが完了しなければResult::Errを返す
+        if (node->name == "timeout") {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("timeout() requires exactly 2 "
+                                         "arguments (future, timeout_ms)");
+            }
+
+            // 第1引数: Future<T>を評価（実際にはawait対象のFuture）
+            ASTNode *future_arg = node->arguments[0].get();
+            TypedValue future_typed = interpreter_.evaluate_typed(future_arg);
+
+            if (!future_typed.is_struct_result || !future_typed.struct_data ||
+                future_typed.struct_data->struct_type_name.find("Future") ==
+                    std::string::npos) {
+                throw std::runtime_error(
+                    "timeout() first argument must be a Future");
+            }
+
+            // 第2引数: タイムアウト時間（ミリ秒）
+            ASTNode *timeout_arg = node->arguments[1].get();
+            int64_t timeout_ms_val = interpreter_.evaluate(timeout_arg);
+            int timeout_ms = static_cast<int>(timeout_ms_val);
+
+            if (timeout_ms < 0) {
+                throw std::runtime_error(
+                    "timeout() timeout value must be non-negative");
+            }
+
+            // Futureからtask_idを取得
+            auto task_id_it =
+                future_typed.struct_data->struct_members.find("task_id");
+            if (task_id_it == future_typed.struct_data->struct_members.end()) {
+                throw std::runtime_error(
+                    "timeout() future does not have task_id");
+            }
+            int task_id = static_cast<int>(task_id_it->second.value);
+
+            // 現在時刻を取得
+#ifdef _WIN32
+            FILETIME ft;
+            GetSystemTimeAsFileTime(&ft);
+            ULARGE_INTEGER uli;
+            uli.LowPart = ft.dwLowDateTime;
+            uli.HighPart = ft.dwHighDateTime;
+            int64_t current_time_ms = (uli.QuadPart / 10000) - 11644473600000LL;
+#else
+            struct timeval tv;
+            gettimeofday(&tv, nullptr);
+            int64_t current_time_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                                      static_cast<int64_t>(tv.tv_usec) / 1000;
+#endif
+
+            int64_t timeout_time_ms = current_time_ms + timeout_ms;
+
+            // 元のFutureにタイムアウト情報を追加
+            Variable timeout_field;
+            timeout_field.type = TYPE_INT;
+            timeout_field.value = timeout_time_ms;
+            timeout_field.is_assigned = true;
+            future_typed.struct_data->struct_members["timeout_ms"] =
+                timeout_field;
+
+            // タスクにタイムアウト情報を設定
+            AsyncTask *task =
+                interpreter_.get_simple_event_loop().get_task(task_id);
+            if (task) {
+                task->timeout_ms = timeout_time_ms;
+                task->has_timeout = true;
+            }
+
+            // Result<T, string>を返すFutureを作成
+            // 元のFutureの型情報を保持しつつ、Result型でラップ
+            Variable result_future;
+            result_future.is_struct = true;
+            result_future.struct_type_name = "Future";
+            result_future.type = TYPE_STRUCT;
+
+            // Result Future用のtask_idは同じものを使用
+            Variable result_task_id_field;
+            result_task_id_field.type = TYPE_INT;
+            result_task_id_field.value = task_id;
+            result_task_id_field.is_assigned = true;
+            result_future.struct_members["task_id"] = result_task_id_field;
+
+            // is_ready = false (まだ完了していない)
+            Variable is_ready_field;
+            is_ready_field.type = TYPE_INT;
+            is_ready_field.value = 0;
+            is_ready_field.is_assigned = true;
+            result_future.struct_members["is_ready"] = is_ready_field;
+
+            // value フィールド（初期値はダミー）
+            Variable value_field;
+            value_field.type = TYPE_INT;
+            value_field.value = 0;
+            value_field.is_assigned = true;
+            result_future.struct_members["value"] = value_field;
+
+            // timeout_msフィールドを追加
+            result_future.struct_members["timeout_ms"] = timeout_field;
+
+            // タイムアウト付きFutureを返す
+            ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
+            ret.is_struct = true;
+            ret.struct_value = result_future;
+            ret.struct_value.type = TYPE_STRUCT;
+            ret.struct_value.is_struct = true;
+            throw ret;
         }
 
         // sleep(milliseconds) - スリープ関数 (v0.12.0)

@@ -226,6 +226,76 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
         }
     }
 
+    // v0.12.1: タイムアウトチェック
+    if (task.has_timeout && !task.is_executed) {
+        // 現在時刻を取得
+        int64_t current_time_ms;
+#ifdef _WIN32
+        FILETIME ft;
+        GetSystemTimeAsFileTime(&ft);
+        ULARGE_INTEGER uli;
+        uli.LowPart = ft.dwLowDateTime;
+        uli.HighPart = ft.dwHighDateTime;
+        current_time_ms = (uli.QuadPart / 10000) - 11644473600000LL;
+#else
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        current_time_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                          static_cast<int64_t>(tv.tv_usec) / 1000;
+#endif
+
+        if (current_time_ms >= task.timeout_ms) {
+            // タイムアウト発生
+            task.is_executed = true;
+            task.has_return_value = true;
+            task.return_is_struct = true;
+            task.return_type = TYPE_STRUCT;
+
+            // Result::Err("Timeout")を作成
+            Variable result_var;
+            result_var.is_struct = true;
+            result_var.struct_type_name = "Result";
+            result_var.type = TYPE_STRUCT;
+
+            // Result.tag = 1 (Err)
+            Variable tag_field;
+            tag_field.type = TYPE_INT;
+            tag_field.value = 1;
+            tag_field.is_assigned = true;
+            result_var.struct_members["tag"] = tag_field;
+
+            // Result.err = "Timeout"
+            Variable err_field;
+            err_field.type = TYPE_STRING;
+            err_field.str_value = "Timeout";
+            err_field.is_assigned = true;
+            result_var.struct_members["err"] = err_field;
+
+            task.return_struct_value = result_var;
+
+            // Future.is_readyをtrueに設定
+            if (task.use_internal_future) {
+                auto ready_it =
+                    task.internal_future.struct_members.find("is_ready");
+                if (ready_it != task.internal_future.struct_members.end()) {
+                    ready_it->second.value = 1;
+                }
+                // Future.valueにResult::Err("Timeout")を設定
+                task.internal_future.struct_members["value"] = result_var;
+            } else if (task.future_var) {
+                auto ready_it =
+                    task.future_var->struct_members.find("is_ready");
+                if (ready_it != task.future_var->struct_members.end()) {
+                    ready_it->second.value = 1;
+                }
+                // Future.valueにResult::Err("Timeout")を設定
+                task.future_var->struct_members["value"] = result_var;
+            }
+
+            return false; // タスク完了
+        }
+    }
+
     // v0.12.0: auto_yieldモードを設定（forループなどで自動yieldするため）
     bool prev_auto_yield_mode = interpreter_.is_in_auto_yield_mode();
     if (task.auto_yield) {

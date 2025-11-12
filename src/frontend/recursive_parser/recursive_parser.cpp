@@ -342,17 +342,67 @@ ASTNode *RecursiveParser::parseTernary() {
     ASTNode *condition = parseLogicalOr();
 
     if (check(TokenType::TOK_QUESTION)) {
+        // Look ahead to distinguish between error propagation (expr?) and
+        // ternary (cond ? true : false)
+
+        // Save current position
+        RecursiveLexer saved_lexer = lexer_;
+        Token saved_token = current_token_;
+
         advance(); // consume '?'
-        ASTNode *true_expr = parseTernary();
-        consume(TokenType::TOK_COLON, "Expected ':' in ternary expression");
-        ASTNode *false_expr = parseTernary();
 
-        ASTNode *ternary = new ASTNode(ASTNodeType::AST_TERNARY_OP);
-        ternary->left = std::unique_ptr<ASTNode>(condition);
-        ternary->right = std::unique_ptr<ASTNode>(true_expr);
-        ternary->third = std::unique_ptr<ASTNode>(false_expr);
+        // Check if this is error propagation: expr? followed by semicolon,
+        // comma, close paren, etc. (not a value expression)
+        if (check(TokenType::TOK_SEMICOLON) || check(TokenType::TOK_COMMA) ||
+            check(TokenType::TOK_RPAREN) || check(TokenType::TOK_RBRACE) ||
+            check(TokenType::TOK_RBRACKET) || isAtEnd()) {
+            // This is error propagation: expr?
+            ASTNode *error_prop =
+                new ASTNode(ASTNodeType::AST_ERROR_PROPAGATION);
+            error_prop->left = std::unique_ptr<ASTNode>(condition);
+            return error_prop;
+        }
 
-        return ternary;
+        // Try to parse ternary operator
+        try {
+            ASTNode *true_expr = parseTernary();
+
+            // Check for ':' - if present, it's ternary
+            if (check(TokenType::TOK_COLON)) {
+                advance(); // consume ':'
+                ASTNode *false_expr = parseTernary();
+
+                ASTNode *ternary = new ASTNode(ASTNodeType::AST_TERNARY_OP);
+                ternary->left = std::unique_ptr<ASTNode>(condition);
+                ternary->right = std::unique_ptr<ASTNode>(true_expr);
+                ternary->third = std::unique_ptr<ASTNode>(false_expr);
+
+                return ternary;
+            }
+
+            // No ':' found - this must be error propagation
+            // Restore position (we already consumed '?')
+            delete true_expr; // Clean up
+            lexer_ = saved_lexer;
+            current_token_ = saved_token;
+            advance(); // re-consume '?'
+
+            ASTNode *error_prop =
+                new ASTNode(ASTNodeType::AST_ERROR_PROPAGATION);
+            error_prop->left = std::unique_ptr<ASTNode>(condition);
+            return error_prop;
+
+        } catch (...) {
+            // Parse error - treat as error propagation
+            lexer_ = saved_lexer;
+            current_token_ = saved_token;
+            advance(); // re-consume '?'
+
+            ASTNode *error_prop =
+                new ASTNode(ASTNodeType::AST_ERROR_PROPAGATION);
+            error_prop->left = std::unique_ptr<ASTNode>(condition);
+            return error_prop;
+        }
     }
 
     return condition;

@@ -51,6 +51,20 @@ int64_t evaluate_error_propagation(
     const ASTNode *node, Interpreter &interpreter,
     std::function<int64_t(const ASTNode *)> evaluate_expression_callback);
 
+/**
+ * v0.12.1: エラー伝播演算子（?）を評価する（TypedValue版）
+ *
+ * @param node エラー伝播演算子のASTノード
+ * @param interpreter インタプリタへの参照
+ * @param evaluate_typed_expression_callback 型付き式評価のコールバック
+ * @return Ok/Someの場合の関連値
+ * @throws ReturnException Err/Noneの場合、関数から早期リターン
+ */
+int64_t
+evaluate_error_propagation_typed(const ASTNode *node, Interpreter &interpreter,
+                                 std::function<TypedValue(const ASTNode *)>
+                                     evaluate_typed_expression_callback);
+
 } // namespace TernaryHelpers
 
 #endif // EXPRESSION_TERNARY_H
