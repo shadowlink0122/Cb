@@ -11,6 +11,7 @@
     { "include": "#builtin-functions" },
     { "include": "#function-call" },
     { "include": "#types" },
+    { "include": "#variables" },
     { "include": "#operators" },
     { "include": "#numbers" },
     { "include": "#punctuation" }
@@ -48,8 +49,23 @@
               "match": "\\\\."
             },
             {
-              "name": "constant.other.placeholder.cb",
-              "match": "\\{[^}]*\\}"
+              "begin": "\\{",
+              "end": "\\}",
+              "beginCaptures": {
+                "0": { "name": "punctuation.definition.template-expression.begin.cb" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.definition.template-expression.end.cb" }
+              },
+              "patterns": [
+                { "include": "#builtin-functions" },
+                { "include": "#function-call" },
+                { "include": "#constants" },
+                { "include": "#numbers" },
+                { "include": "#variables" },
+                { "include": "#operators" },
+                { "include": "#punctuation" }
+              ]
             }
           ]
         },
@@ -81,16 +97,24 @@
           "match": "\\b(return|yield|defer)\\b"
         },
         {
+          "name": "keyword.control.flow.cb",
+          "match": "\\b(async|await)\\b"
+        },
+        {
+          "name": "keyword.control.import.cb",
+          "match": "\\b(export|import|private)\\b"
+        },
+        {
           "name": "keyword.control.exception.cb",
           "match": "\\b(try|checked|panic|unwrap)\\b"
         },
         {
           "name": "keyword.other.cb",
-          "match": "\\b(typedef|struct|enum|interface|impl|export|import|union|func)\\b"
+          "match": "\\b(typedef|struct|enum|interface|impl|union|func)\\b"
         },
         {
           "name": "storage.modifier.cb",
-          "match": "\\b(unsigned|const|static|private|async|await)\\b"
+          "match": "\\b(unsigned|const|static)\\b"
         },
         {
           "name": "keyword.operator.new.cb",
@@ -147,6 +171,18 @@
         {
           "name": "entity.name.function.cb",
           "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()"
+        }
+      ]
+    },
+    "variables": {
+      "patterns": [
+        {
+          "name": "variable.other.member.cb",
+          "match": "(?<=\\.)([a-zA-Z_][a-zA-Z0-9_]*)\\b(?!\\s*\\()"
+        },
+        {
+          "name": "variable.other.cb",
+          "match": "\\b([a-z_][a-zA-Z0-9_]*)\\b"
         }
       ]
     },
