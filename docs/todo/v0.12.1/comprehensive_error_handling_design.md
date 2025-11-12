@@ -1,4 +1,4 @@
-# 包括的エラーハンドリング設計（v0.13.0+）
+# 包括的エラーハンドリング設計（v0.12.1+）
 
 ## 概要
 
@@ -302,7 +302,7 @@ Result<int, RuntimeError> divide(int a, int b) throws DivisionByZeroError {
 
 ## 実装段階
 
-### Phase 1: 基本的なtry式（v0.13.0）
+### Phase 1: 基本的なtry式（v0.12.1）
 - ✅ try式の構文パース
 - ✅ RuntimeError列挙型の定義
 - ✅ 基本的なランタイムエラーのキャッチ
@@ -310,17 +310,17 @@ Result<int, RuntimeError> divide(int a, int b) throws DivisionByZeroError {
   - DivisionByZeroError
   - IndexOutOfBoundsError
 
-### Phase 2: ?演算子（v0.13.0）
+### Phase 2: ?演算子（v0.12.1）
 - ✅ ?演算子の構文パース
 - ✅ 自動エラー伝播の実装
 - ✅ async/awaitとの統合
 
-### Phase 3: checked演算子（v0.14.0）
+### Phase 3: checked演算子（v0.13.0）
 - checked式の実装
 - パフォーマンスとのバランス
 - オプトインセーフティモデル
 
-### Phase 4: 高度な機能（v0.14.0+）
+### Phase 4: 高度な機能（v0.13.0+）
 - panic!マクロ
 - unwrap()メソッド
 - throws節
@@ -523,5 +523,5 @@ Cb言語は**Rust級の安全性**を持ちながら、**よりシンプルな�
 ---
 
 **提案日**: 2025年11月10日  
-**対象バージョン**: v0.13.0以降  
+**対象バージョン**: v0.12.1以降  
 **ステータス**: 設計提案

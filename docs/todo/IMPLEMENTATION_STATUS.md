@@ -2,7 +2,7 @@
 
 **最終更新**: 2025年11月12日  
 **現在のバージョン**: v0.12.1  
-**次期バージョン**: v0.13.0 (計画中), v0.14.0
+**次期バージョン**: v0.13.0 (計画中), v0.13.0
 
 ---
 
@@ -219,7 +219,7 @@ vec.push_back("Hello");  // またはat()でクラッシュ
 
 ---
 
-## 🔮 v0.13.0~v0.14.0 将来の機能
+## 🔮 v0.13.0~v0.13.0 将来の機能
 
 ### v0.13.0: Error Handling
 - [ ] RuntimeError列挙型
@@ -227,7 +227,7 @@ vec.push_back("Hello");  // またはat()でクラッシュ
 - [ ] checked式
 - [ ] panic/unwrap
 
-### v0.14.0: Advanced Features
+### v0.13.0: Advanced Features
 - [ ] Async関数型サポート
 - [ ] Asyncラムダ式
 - [ ] 構造体内asyncメソッド（ジェネリック）
@@ -259,9 +259,9 @@ vec.push_back("Hello");  // またはat()でクラッシュ
 - `release_notes/v0.11.0.md` - Generics & Pattern Matching
 
 ### 計画中の機能
-- `docs/features/v0.14.0_untested_behaviors.md` - 未実装・未確認機能
-- `docs/todo/v0.14.0_generic_array_support.md` - ジェネリクス配列サポート
-- `docs/todo/v0.14.0_implementation_plan.md` - v0.14.0実装計画
+- `docs/features/v0.13.0_untested_behaviors.md` - 未実装・未確認機能
+- `docs/todo/v0.13.0_generic_array_support.md` - ジェネリクス配列サポート
+- `docs/todo/v0.13.0_implementation_plan.md` - v0.13.0実装計画
 
 ### 設計ドキュメント
 - `docs/spec.md` - 言語仕様
