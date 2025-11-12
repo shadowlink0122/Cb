@@ -20,6 +20,7 @@
     "url": "https://github.com/shadowlink0122/Cb"
   },
   "license": "MIT",
+  "icon": "images/icon.png",
   "contributes": {
     "languages": [
       {
@@ -31,7 +32,11 @@
         "extensions": [
           ".cb"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./images/icon.png",
+          "dark": "./images/icon.png"
+        }
       }
     ],
     "grammars": [
@@ -39,6 +44,13 @@
         "language": "cb",
         "scopeName": "source.cb",
         "path": "./syntaxes/cb.tmLanguage.json"
+      }
+    ],
+    "iconThemes": [
+      {
+        "id": "cb-icons",
+        "label": "Cb Icons",
+        "path": "./iconTheme.json"
       }
     ]
   }

@@ -49,6 +49,10 @@
               "match": "\\\\."
             },
             {
+              "name": "constant.character.escape.cb",
+              "match": "\\{\\{|\\}\\}"
+            },
+            {
               "begin": "\\{",
               "end": "\\}",
               "beginCaptures": {
@@ -64,7 +68,7 @@
                 { "include": "#numbers" },
                 { "include": "#variables" },
                 { "include": "#operators" },
-                { "include": "#punctuation" }
+                { "include": "#string-interpolation-punctuation" }
               ]
             }
           ]
@@ -283,6 +287,22 @@
         {
           "name": "punctuation.section.parens.end.cb",
           "match": "\\)"
+        }
+      ]
+    },
+    "string-interpolation-punctuation": {
+      "patterns": [
+        {
+          "name": "meta.embedded.punctuation.accessor.cb",
+          "match": "\\.|::"
+        },
+        {
+          "name": "meta.embedded.punctuation.parens.cb",
+          "match": "[()]"
+        },
+        {
+          "name": "meta.embedded.punctuation.brackets.cb",
+          "match": "[\\[\\]]"
         }
       ]
     }
