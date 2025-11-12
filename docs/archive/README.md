@@ -1,87 +1,30 @@
-# アーカイブドキュメント
+# Archive Directory Structure
 
-このディレクトリには、Cbインタープリタプロジェクトの過去の実装レポート、設計文書、完了したタスクのドキュメントが含まれています。
+This directory contains historical documentation and design notes organized by version.
 
-## ディレクトリ構造
+## Directory Structure
 
-### 📁 refactoring/
-コードリファクタリングの記録
-
-- **phases/** - Phase 1-7のリファクタリング完了レポート
-  - Phase 1-12: Expression Evaluatorのリファクタリング
-  - Phase 13: Dispatcherのリファクタリング
-  - Phase 1-2: Interpreterのリファクタリング
-  - Phase 6: managers/フォルダの再編成
-  - Phase 7: src/ディレクトリの再構築
+- **releases/**: Version-specific implementation documents
+  - **v0.9.0/**: Initial release documentation
+  - **v0.9.2/**: Const safety and C compatibility improvements
+  - **v0.10.0/**: Advanced features (constructors, lambdas, pointers, interfaces, types)
+  - **v0.11.0/**: Generics implementation
+  - **v0.12.0/**: Async/await core implementation
+  - **v0.12.1/**: Error propagation (? operator) and timeout features
   
-- **interpreter/** - Interpreterモジュールの段階的リファクタリング記録
-  - ファイル分割、モジュール化の計画と実装レポート
-  
-- **その他** - 一般的なリファクタリング計画と進捗
+- **general/**: Cross-version design documents and decisions
+- **planning/**: Long-term planning and roadmap documents
+- **refactoring/**: Code refactoring notes and reports
+- **testing/**: Testing infrastructure and methodology documents
+- **features_implemented/**: Successfully implemented feature summaries
 
-### 📁 features/
-機能実装の設計文書と完了レポート
+## Note
 
-- **constructor_destructor.md** - コンストラクタ/デストラクタ機能の設計書 (v0.10.0, 実装完了: v0.11.0)
-- **constructor_destructor_old.md** - コンストラクタ/デストラクタ機能の旧設計書
+All version-specific documents have been moved from the old `todo/` and `features/` directories into the appropriate release folders for better organization.
 
-- **pointers/** - ポインタと参照の実装
-  - 設計文書、ロードマップ、進捗レポート
-  - テスト実装レポート
-  - 既知の問題と制限事項
-  
-- **structs/** - 構造体機能の実装
-  - ネスト構造体の実装計画
-  - 実装ステータス
-  
-- **interfaces/** - インターフェース/impl システム
-  - interface/implシステムの設計
-  - impl static変数の実装
-  
-- **functions/** - 関数ポインタなど
-  - 関数ポインタの設計と実装
-  
-- **types/** - 型システムの拡張
-  - float/double/配列型の実装
-  - const パラメータの実装
-  - 前方宣言
-  - プリインクリメント/デクリメント
+## Current Development
 
-### 📁 releases/
-リリースごとの実装レポート
-
-- **v0.9.0/** - v0.9.0リリースの実装完了レポート
-  - ポインタ、参照、関数ポインタの実装
-  - 最終実装レポート
-  - ドキュメント完了レポート
-
-### 📁 testing/
-テスト関連のレポート
-
-- テストカバレッジ分析
-- 詳細なテストレポート
-- テスト失敗の調査レポート
-
-### 📁 general/
-一般的なプロジェクトドキュメント
-
-- ベストプラクティス
-- 実装ロードマップ
-- 未実装機能のリスト
-- ドキュメント再編成レポート
-- 即時改善項目
-
-## 使い方
-
-これらのドキュメントは歴史的記録として保管されています。現在のプロジェクト状態については、以下を参照してください：
-
-- **現在の仕様**: `docs/spec.md`
-- **アーキテクチャ**: `docs/architecture.md`
-- **BNF文法**: `docs/BNF.md`
-- **今後の計画**: `docs/todo/`
-
-## メンテナンス
-
-- 完了した実装レポートは適切なサブディレクトリに移動
-- リリース完了後、そのバージョンのレポートを`releases/vX.X.X/`に整理
-- リファクタリング完了後、記録を`refactoring/`に保管
+For current and future versions, see:
+- `docs/releases/` - Active release planning and specifications
+- `docs/features/` - Feature specifications and designs
+- `release_notes/` - Published release notes
