@@ -1,0 +1,46 @@
+// Test: ? operator with Option<T>
+// Expected: Noneが正しく伝播する
+
+Option<int> find(int[] arr, int size, int target) {
+    for (int i = 0; i < size; i = i + 1) {
+        if (arr[i] == target) {
+            return Option::Some(i);
+        }
+    }
+    return Option::None;
+}
+
+Option<int> find_and_double(int[] arr, int size, int target) {
+    int idx = find(arr, size, target)?;
+    return Option::Some(arr[idx] * 2);
+}
+
+int main() {
+    int[] arr = [1, 2, 3, 4, 5];
+    
+    // 成功ケース: 3が見つかり、arr[2] * 2 = 6
+    Option<int> r1 = find_and_double(arr, 5, 3);
+    match (r1) {
+        Some(val) => {
+            assert(val == 6);
+            println("Success case: found and doubled = ", val);
+        }
+        None() => {
+            assert(false);
+        }
+    }
+    
+    // 失敗ケース: 10は見つからない
+    Option<int> r2 = find_and_double(arr, 5, 10);
+    match (r2) {
+        Some(val) => {
+            assert(false);
+        }
+        None() => {
+            println("Error case: element not found");
+        }
+    }
+    
+    println("? operator with Option test passed");
+    return 0;
+}

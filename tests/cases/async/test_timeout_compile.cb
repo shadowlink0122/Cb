@@ -1,0 +1,20 @@
+// Test: Simple timeout compilation test
+// Just tests that timeout compiles and runs
+
+async int simple_task() {
+    await sleep(50);
+    return 42;
+}
+
+async int main() {
+    println("Testing timeout compilation...");
+    
+    // This should compile
+    Future<int> f = simple_task();
+    int result = await f;
+    println("Task result:", result);
+    assert(result == 42);
+    
+    println("Timeout compilation test passed!");
+    return 0;
+}

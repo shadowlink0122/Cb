@@ -1,0 +1,49 @@
+// Test: ? operator with async functions
+// Expected: async関数内でもエラー伝播が動作する
+
+async Option<int> async_divide(int a, int b) {
+    if (b == 0) {
+        return Option::None();
+    }
+    return Option::Some(a / b);
+}
+
+async Option<int> async_chain_success(int x) {
+    int a = await async_divide(x, 2)?;
+    int b = await async_divide(a, 3)?;
+    return Option::Some(b);
+}
+
+async Option<int> async_chain_failure(int x) {
+    int a = await async_divide(x, 2)?;
+    int b = await async_divide(a, 0)?;  // This will fail with division by zero
+    return Option::Some(b);
+}
+
+int main() {
+    // 成功ケース
+    Option<int> r1 = await async_chain_success(60);
+    match (r1) {
+        Some(val) => {
+            assert(val == 10);  // 60 / 2 / 3 = 10
+            println("Async ? operator success: ", val);
+        }
+        None() => {
+            assert(false);
+        }
+    }
+    
+    // 失敗ケース
+    Option<int> r2 = await async_chain_failure(10);
+    match (r2) {
+        Some(val) => {
+            assert(false);
+        }
+        None() => {
+            println("Async ? operator error: division by zero");
+        }
+    }
+    
+    println("Async ? operator test passed");
+    return 0;
+}

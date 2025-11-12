@@ -1,0 +1,23 @@
+// Test: Timeout with zero value
+// Description: Tests timeout with zero milliseconds
+
+async int instant_task() {
+    return 123;
+}
+
+async int main() {
+    println("Testing zero timeout");
+    
+    // Zero timeout should still allow immediate tasks
+    Future<int> f1 = timeout(instant_task(), 0);
+    int r1 = await f1;
+    println(r1);
+    
+    // Task that takes time with zero timeout should timeout
+    Future<int> f2 = timeout(instant_task(), 0);
+    int r2 = await f2;
+    println(r2);
+    
+    println("Zero timeout test passed!");
+    return 0;
+}

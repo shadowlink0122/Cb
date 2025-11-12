@@ -1,0 +1,60 @@
+// Test timeout with sequential chaining
+
+async int fetch(int id, int delay_ms) {
+    await sleep(delay_ms);
+    return id * 100;
+}
+
+async int process(int value, int delay_ms) {
+    await sleep(delay_ms);
+    return value + 50;
+}
+
+async int transform(int value, int delay_ms) {
+    await sleep(delay_ms);
+    return value * 2;
+}
+
+async int full_pipeline(int id) {
+    int fetched = await timeout(fetch(id, 50), 200);
+    int processed = await timeout(process(fetched, 50), 200);
+    int transformed = await timeout(transform(processed, 50), 200);
+    return transformed;
+}
+
+async int main() {
+    // Test 1: Complete pipeline
+    int result1 = await full_pipeline(1);
+    assert(result1 == 300);  // (1*100 + 50) * 2 = 300
+    
+    // Test 2: First stage timeout
+    int f1 = await timeout(fetch(2, 300), 100);
+    assert(f1 == 0);
+    int p1 = await timeout(process(f1, 50), 200);
+    assert(p1 == 50);  // 0 + 50
+    
+    // Test 3: Middle stage timeout
+    int f2 = await timeout(fetch(3, 50), 200);
+    assert(f2 == 300);
+    int p2 = await timeout(process(f2, 300), 100);
+    assert(p2 == 0);
+    int t2 = await timeout(transform(p2, 50), 200);
+    assert(t2 == 0);  // 0 * 2
+    
+    // Test 4: Last stage timeout
+    int f3 = await timeout(fetch(4, 50), 200);
+    int p3 = await timeout(process(f3, 50), 200);
+    int t3 = await timeout(transform(p3, 300), 100);
+    assert(f3 == 400);
+    assert(p3 == 450);
+    assert(t3 == 0);
+    
+    // Test 5: Multiple independent pipelines
+    int r1 = await full_pipeline(5);
+    int r2 = await full_pipeline(6);
+    assert(r1 == 1100);  // (5*100 + 50) * 2
+    assert(r2 == 1300);  // (6*100 + 50) * 2
+    
+    println("All sequential timeout tests passed!");
+    return 0;
+}

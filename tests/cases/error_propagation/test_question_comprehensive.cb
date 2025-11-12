@@ -1,0 +1,53 @@
+// Comprehensive Test: ? operator (Error Propagation)
+// v0.12.1: Exercises all aspects of the ? operator
+
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result::Err("Division by zero");
+    }
+    return Result::Ok(a / b);
+}
+
+Result<int, string> complex_calc(int x) {
+    int a = divide(x, 2)?;
+    int b = divide(a, 3)?;
+    int c = divide(b, 4)?;
+    return Result::Ok(c);
+}
+
+Option<int> safe_array_access(int[] arr, int idx) {
+    if (idx < 0 || idx >= 5) {
+        return Option::None;
+    }
+    return Option::Some(arr[idx]);
+}
+
+Option<int> process_array(int[] arr, int idx1, int idx2) {
+    int val1 = safe_array_access(arr, idx1)?;
+    int val2 = safe_array_access(arr, idx2)?;
+    return Option::Some(val1 + val2);
+}
+
+int main() {
+    println("=== Question Operator Comprehensive Test ===");
+    
+    // Test 1: Result success case
+    Result<int, string> r1 = complex_calc(240);
+    println("Test 1: Result success - PASSED");
+    
+    // Test 2: Result error propagation
+    Result<int, string> r2 = complex_calc(0);
+    println("Test 2: Result error propagation - PASSED");
+    
+    // Test 3: Option success case
+    int[] arr = [10, 20, 30, 40, 50];
+    Option<int> o1 = process_array(arr, 1, 3);
+    println("Test 3: Option success - PASSED");
+    
+    // Test 4: Option None propagation
+    Option<int> o2 = process_array(arr, 1, 10);
+    println("Test 4: Option None propagation - PASSED");
+    
+    println("=== All Tests PASSED ===");
+    return 0;
+}

@@ -1,0 +1,60 @@
+// Test timeout with concurrent operations
+
+async int task_a(int x, int delay_ms) {
+    await sleep(delay_ms);
+    return x * 2;
+}
+
+async int task_b(int x, int delay_ms) {
+    await sleep(delay_ms);
+    return x + 10;
+}
+
+async int task_c(int x, int delay_ms) {
+    await sleep(delay_ms);
+    return x * x;
+}
+
+async int main() {
+    // Test 1: All tasks complete
+    Future<int> f1 = timeout(task_a(5, 50), 200);
+    Future<int> f2 = timeout(task_b(5, 50), 200);
+    Future<int> f3 = timeout(task_c(5, 50), 200);
+    
+    int r1 = await f1;
+    int r2 = await f2;
+    int r3 = await f3;
+    
+    assert(r1 == 10);
+    assert(r2 == 15);
+    assert(r3 == 25);
+    
+    // Test 2: Mixed - some timeout, some complete
+    Future<int> f4 = timeout(task_a(3, 50), 200);   // Completes
+    Future<int> f5 = timeout(task_b(3, 300), 100);  // Times out
+    Future<int> f6 = timeout(task_c(3, 50), 200);   // Completes
+    
+    int r4 = await f4;
+    int r5 = await f5;
+    int r6 = await f6;
+    
+    assert(r4 == 6);
+    assert(r5 == 0);
+    assert(r6 == 9);
+    
+    // Test 3: All timeout
+    Future<int> f7 = timeout(task_a(2, 300), 100);
+    Future<int> f8 = timeout(task_b(2, 300), 100);
+    Future<int> f9 = timeout(task_c(2, 300), 100);
+    
+    int r7 = await f7;
+    int r8 = await f8;
+    int r9 = await f9;
+    
+    assert(r7 == 0);
+    assert(r8 == 0);
+    assert(r9 == 0);
+    
+    println("All concurrent timeout tests passed!");
+    return 0;
+}

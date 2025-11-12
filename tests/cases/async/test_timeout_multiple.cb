@@ -1,0 +1,33 @@
+// Test: Multiple timeout operations (v0.12.1 - Basic Implementation)
+// Tests multiple async operations with different timeouts
+
+async int compute(int x, int delay_ms) {
+    await sleep(delay_ms);
+    return x * x;
+}
+
+async int main() {
+    println("Starting multiple timeout tests");
+    
+    // Test 1: Fast task completes
+    Future<int> f1 = timeout(compute(2, 50), 200);
+    int r1 = await f1;
+    println(r1);
+    assert(r1 == 4);
+    
+    // Test 2: Another fast task completes
+    Future<int> f2 = timeout(compute(3, 50), 200);
+    int r2 = await f2;
+    println(r2);
+    assert(r2 == 9);
+    
+    // Test 3: Slow task times out (returns 0)
+    Future<int> f3 = timeout(compute(4, 300), 100);
+    int r3 = await f3;
+    println(r3);
+    assert(r3 == 0);
+    println("Task 3 timed out as expected");
+    
+    println("All multiple timeout tests passed!");
+    return 0;
+}

@@ -1,0 +1,33 @@
+// Test: Basic timeout functionality (v0.12.1 - Basic Implementation)
+// Tests that timeout works for fast and slow tasks
+// Note: Result<T, E> integration is partial in v0.12.1
+
+async int fast_task() {
+    await sleep(100);
+    return 42;
+}
+
+async int slow_task() {
+    await sleep(2000);
+    return 99;
+}
+
+async int main() {
+    // Test 1: Fast task completes before timeout
+    println("Test 1: Fast task with generous timeout");
+    Future<int> f1 = timeout(fast_task(), 500);
+    int result1 = await f1;
+    println(result1);
+    assert(result1 == 42);
+    
+    // Test 2: Slow task times out (returns 0 in basic implementation)
+    println("Test 2: Slow task with short timeout");
+    Future<int> f2 = timeout(slow_task(), 200);
+    int result2 = await f2;
+    println(result2);
+    // In basic implementation, timeout returns default value (0 for int)
+    assert(result2 == 0);
+    
+    println("All timeout basic tests passed!");
+    return 0;
+}

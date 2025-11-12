@@ -1,0 +1,22 @@
+// Test: Zero and negative timeout
+// Tests edge cases for timeout values
+
+async int quick_task() {
+    return 42;
+}
+
+async int main() {
+    // Zero timeout - should timeout immediately or complete if instant
+    Result<int, string> r1 = await timeout(quick_task(), 0);
+    // Either Ok or Err is acceptable for zero timeout
+    println("Zero timeout test completed");
+    
+    // Large timeout - should complete
+    Result<int, string> r2 = await timeout(quick_task(), 10000);
+    assert(r2.is_ok());
+    assert(r2.unwrap() == 42);
+    println("Large timeout test passed");
+    
+    println("All edge case timeout tests passed!");
+    return 0;
+}

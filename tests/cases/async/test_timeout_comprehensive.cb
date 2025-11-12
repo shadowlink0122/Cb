@@ -1,0 +1,47 @@
+// Comprehensive timeout tests for v0.12.1
+
+async int fast_task() {
+    await sleep(50);
+    return 42;
+}
+
+async int slow_task() {
+    await sleep(1000);
+    return 99;
+}
+
+async int compute(int x, int delay_ms) {
+    await sleep(delay_ms);
+    return x * x;
+}
+
+async int main() {
+    // Test 1: Fast task completes before timeout
+    Future<int> f1 = timeout(fast_task(), 500);
+    int result1 = await f1;
+    assert(result1 == 42);
+    
+    // Test 2: Slow task times out (returns default value 0)
+    Future<int> f2 = timeout(slow_task(), 100);
+    int result2 = await f2;
+    assert(result2 == 0);
+    
+    // Test 3: Multiple concurrent timeouts
+    Future<int> f3 = timeout(compute(2, 50), 200);
+    Future<int> f4 = timeout(compute(3, 50), 200);
+    int r3 = await f3;
+    int r4 = await f4;
+    assert(r3 == 4);
+    assert(r4 == 9);
+    
+    // Test 4: Mixed timeout scenarios
+    Future<int> f5 = timeout(compute(4, 50), 200);
+    Future<int> f6 = timeout(compute(5, 300), 100);
+    int r5 = await f5;
+    int r6 = await f6;
+    assert(r5 == 16);
+    assert(r6 == 0);
+    
+    println("All timeout tests passed!");
+    return 0;
+}

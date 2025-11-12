@@ -1,0 +1,51 @@
+// Comprehensive timeout tests with various data types
+
+async int compute_int(int x, int delay_ms) {
+    await sleep(delay_ms);
+    return x * x;
+}
+
+async string compute_string(string prefix, int delay_ms) {
+    await sleep(delay_ms);
+    return prefix + "_result";
+}
+
+async double compute_double(double x, int delay_ms) {
+    await sleep(delay_ms);
+    return x * 2.5;
+}
+
+async int main() {
+    // Test 1: Integer type - success
+    Future<int> f1 = timeout(compute_int(5, 50), 200);
+    int r1 = await f1;
+    assert(r1 == 25);
+    
+    // Test 2: Integer type - timeout
+    Future<int> f2 = timeout(compute_int(10, 300), 100);
+    int r2 = await f2;
+    assert(r2 == 0);
+    
+    // Test 3: String type - success
+    Future<string> f3 = timeout(compute_string("test", 50), 200);
+    string r3 = await f3;
+    assert(r3 == "test_result");
+    
+    // Test 4: String type - timeout
+    Future<string> f4 = timeout(compute_string("slow", 300), 100);
+    string r4 = await f4;
+    assert(r4 == "");
+    
+    // Test 5: Double type - success
+    Future<double> f5 = timeout(compute_double(4.0, 50), 200);
+    double r5 = await f5;
+    assert(r5 == 10.0);
+    
+    // Test 6: Double type - timeout
+    Future<double> f6 = timeout(compute_double(8.0, 300), 100);
+    double r6 = await f6;
+    assert(r6 == 0.0);
+    
+    println("All timeout type tests passed!");
+    return 0;
+}

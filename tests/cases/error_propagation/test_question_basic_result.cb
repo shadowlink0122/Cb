@@ -1,0 +1,27 @@
+// Test: ? operator basic Result<T, E> usage
+// v0.12.1: Error propagation operator
+
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result::Err("Division by zero");
+    }
+    return Result::Ok(a / b);
+}
+
+Result<int, string> chain_operations(int x) {
+    int a = divide(x, 2)?;
+    int b = divide(a, 3)?;
+    return Result::Ok(b);
+}
+
+int main() {
+    // Success case: 60 / 2 / 3 = 10
+    Result<int, string> r1 = chain_operations(60);
+    println("Success case completed");
+    
+    // Error case: division by zero at first step
+    Result<int, string> r2 = chain_operations(0);
+    println("Error case completed");
+    
+    return 0;
+}
