@@ -157,7 +157,7 @@ COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/
 MAIN_TARGET=main
 CGEN_TARGET=cgen_main
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension
+.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension
 
 all: setup-dirs $(MAIN_TARGET)
 
@@ -488,6 +488,32 @@ install-vscode-extension:
 	echo ""; \
 	echo "Please restart VSCode to activate the extension."
 
+# VSCode拡張機能のビルド（.vsixファイル作成）
+build-extension:
+	@echo "Building VSCode extension..."
+	@if [ ! -d vscode-extension ]; then \
+		echo "Error: vscode-extension directory not found"; \
+		exit 1; \
+	fi
+	@if ! command -v vsce >/dev/null 2>&1; then \
+		echo "Error: vsce is not installed."; \
+		echo "Install it with: npm install -g @vscode/vsce"; \
+		exit 1; \
+	fi
+	@cd vscode-extension && vsce package
+	@echo "✅ Extension packaged successfully!"
+	@echo ""
+	@echo "Install with:"
+	@echo "  code --install-extension vscode-extension/cb-language-*.vsix"
+	@echo "Or:"
+	@echo "  VSCode → Extensions → ... → Install from VSIX..."
+
+# VSCode拡張機能のクリーンアップ
+clean-extension:
+	@echo "Cleaning VSCode extension build artifacts..."
+	@rm -f vscode-extension/*.vsix
+	@echo "Extension build artifacts cleaned."
+
 # 開発用のヘルプ
 help:
 	@echo "Available targets:"
@@ -511,7 +537,9 @@ help:
 	@echo "  fmt                    - Format code"
 	@echo ""
 	@echo "VSCode extension:"
+	@echo "  build-extension        - Build VSCode extension (.vsix file)"
 	@echo "  install-vscode-extension - Install Cb syntax highlighting for VSCode"
+	@echo "  clean-extension        - Remove .vsix files"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean                  - Remove generated files"
