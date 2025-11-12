@@ -20,12 +20,12 @@
         text-anchor="middle"
         filter="url(#shadow)">C</text>
 
-  <!-- Flat symbol "♭" -->
+  <!-- Letter "b" -->
   <text x="200" y="150"
         font-family="'Segoe UI', 'San Francisco', 'Helvetica Neue', Arial, sans-serif"
         font-size="140"
         font-weight="700"
         fill="url(#textGradient)"
         text-anchor="middle"
-        filter="url(#shadow)">♭</text>
+        filter="url(#shadow)">b</text>
 </svg>
