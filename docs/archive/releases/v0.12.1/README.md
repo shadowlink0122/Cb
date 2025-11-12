@@ -26,7 +26,7 @@
 
 ### 実装完了レポート
 - [v0.12.1_implementation_complete.md](v0.12.1_implementation_complete.md) - v0.12.1全機能サマリー
-- [v0.13.0_test_coverage_report.md](v0.13.0_test_coverage_report.md) - テストカバレッジレポート
+- [v0.12.1_test_coverage_report.md](v0.12.1_test_coverage_report.md) - テストカバレッジレポート
 
 ### 設計仕様
 - [question_operator_design.md](question_operator_design.md) - ?オペレーター設計
@@ -56,7 +56,7 @@
 2. `timeout()` stdlib実装
 3. Event Loopのタイマー機能拡張
 
-### 長期実装（v0.13.0以降）
+### 長期実装（v0.12.1以降）
 1. `race()` 関数
 2. `select!` マクロ
 3. エラー型自動変換（FromError trait）

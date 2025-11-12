@@ -1,4 +1,4 @@
-// Test for direct return of enum variants (v0.13.0 fix)
+// Test for direct return of enum variants (v0.12.1 fix)
 // Tests the fix for Option::None and Result direct return
 
 async Option<int> return_none_direct() {

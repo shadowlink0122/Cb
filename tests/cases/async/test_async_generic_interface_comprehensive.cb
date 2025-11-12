@@ -1,5 +1,5 @@
 // Test: Comprehensive async + generic interface implementation
-// v0.13.0: Support for async methods with complex generic types
+// v0.12.1: Support for async methods with complex generic types
 // Using simplified async T syntax (recommended)
 
 // Test 1: Single type parameter with async Result

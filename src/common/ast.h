@@ -632,9 +632,9 @@ struct InterfaceMember {
     std::string name;     // 関数名
     TypeInfo return_type; // 戻り値の型
     std::string
-        return_type_name; // v0.13.0: 戻り値の型名（Future<int>など複合型用）
+        return_type_name; // v0.12.1: 戻り値の型名（Future<int>など複合型用）
     bool return_is_unsigned = false; // 戻り値がunsignedかどうか
-    bool is_async = false;           // v0.13.0 Phase 2.0: asyncメソッドか
+    bool is_async = false;           // v0.12.1 Phase 2.0: asyncメソッドか
     std::vector<std::pair<std::string, TypeInfo>>
         parameters; // パラメータのリスト (名前, 型)
     std::vector<bool> parameter_is_unsigned; // 各パラメータがunsignedかどうか
@@ -647,7 +647,7 @@ struct InterfaceMember {
         : name(n), return_type(ret_type), return_is_unsigned(ret_unsigned),
           is_async(false) {}
 
-    // v0.13.0 Phase 2.0: 明示的コピーコンストラクタ（is_asyncをコピー）
+    // v0.12.1 Phase 2.0: 明示的コピーコンストラクタ（is_asyncをコピー）
     InterfaceMember(const InterfaceMember &other)
         : name(other.name), return_type(other.return_type),
           return_type_name(other.return_type_name),
@@ -656,7 +656,7 @@ struct InterfaceMember {
           parameter_is_unsigned(other.parameter_is_unsigned),
           parameter_type_names(other.parameter_type_names) {}
 
-    // v0.13.0 Phase 2.0: 明示的コピー代入演算子（is_asyncをコピー）
+    // v0.12.1 Phase 2.0: 明示的コピー代入演算子（is_asyncをコピー）
     InterfaceMember &operator=(const InterfaceMember &other) {
         if (this != &other) {
             name = other.name;
@@ -708,14 +708,14 @@ struct InterfaceDefinition {
     InterfaceDefinition() {}
     InterfaceDefinition(const std::string &n) : name(n) {}
 
-    // v0.13.0 Phase 2.0:
+    // v0.12.1 Phase 2.0:
     // 明示的コピーコンストラクタ（is_asyncを含むメソッドをコピー）
     InterfaceDefinition(const InterfaceDefinition &other)
         : name(other.name), methods(other.methods),
           is_generic(other.is_generic), type_parameters(other.type_parameters),
           interface_bounds(other.interface_bounds) {}
 
-    // v0.13.0 Phase 2.0:
+    // v0.12.1 Phase 2.0:
     // 明示的コピー代入演算子（is_asyncを含むメソッドをコピー）
     InterfaceDefinition &operator=(const InterfaceDefinition &other) {
         if (this != &other) {
@@ -1086,7 +1086,7 @@ struct ASTNode {
     bool is_array = false;          // 配列パラメータフラグ
     bool is_array_return = false;   // 配列戻り値フラグ
     bool is_private_method = false; // privateメソッドフラグ
-    bool is_async = false; // v0.13.0 Phase 2.0: asyncメソッド/関数フラグ
+    bool is_async = false; // v0.12.1 Phase 2.0: asyncメソッド/関数フラグ
     bool is_private_member = false;     // struct privateメンバフラグ
     bool is_default_member = false;     // struct defaultメンバフラグ
     bool is_pointer = false;            // ポインタ型フラグ

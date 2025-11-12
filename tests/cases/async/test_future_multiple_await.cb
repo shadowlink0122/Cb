@@ -87,9 +87,9 @@ void main() {
     }
     
     // ========================================================================
-    // 以下のテストはv0.13.0でジェネリクス配列サポートを実装後に有効化
+    // 以下のテストはv0.12.1でジェネリクス配列サポートを実装後に有効化
     // 現在はジェネリクス構造体の配列アクセス時に型情報が失われる問題あり
-    // 詳細: docs/todo/v0.13.0_generic_array_support.md
+    // 詳細: docs/todo/v0.12.1_generic_array_support.md
     // ========================================================================
     
     // // Test 4: Future配列的な使い方
@@ -155,5 +155,5 @@ void main() {
     // println("✅ Test 7 completed (no crash)\n");
     
     println("=== Future Tests Completed (3/7 tests - v0.12.0) ===");
-    println("Note: Tests 4-7 require generic array support (v0.13.0)");
+    println("Note: Tests 4-7 require generic array support (v0.12.1)");
 }

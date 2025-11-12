@@ -446,7 +446,7 @@ enum class DebugMsgId {
     AWAIT_FUTURE_RECEIVED,    // awaitがFutureを受け取った
     AWAIT_RUN_UNTIL_COMPLETE, // run_until_complete呼び出し
 
-    // v0.13.0: async/await Phase 2 - Event Loop & yield
+    // v0.12.1: async/await Phase 2 - Event Loop & yield
     ASYNC_YIELD_CONTROL, // yieldで制御を渡す
 
     // 低レベルデバッグメッセージ (GENERIC_DEBUG置き換え用)

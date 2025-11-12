@@ -1,5 +1,5 @@
 // Integration test for async syntax simplification
-// v0.13.0: async T instead of async Future<T>
+// v0.12.1: async T instead of async Future<T>
 
 async int compute(int value) {
     return value * 2;

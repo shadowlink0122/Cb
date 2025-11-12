@@ -13,7 +13,7 @@
 // v0.12.0: Event Loop の前方宣言
 namespace cb {
 class EventLoop;
-class SimpleEventLoop; // v0.13.0 Phase 2.0
+class SimpleEventLoop; // v0.12.1 Phase 2.0
 } // namespace cb
 
 // 前方宣言
@@ -410,7 +410,7 @@ struct Variable {
 struct Scope;
 
 // v0.12.0: 非同期タスク情報（Future実行に使用）
-// v0.13.0: EventLoopベースのバックグラウンド実行サポート
+// v0.12.1: EventLoopベースのバックグラウンド実行サポート
 struct AsyncTask {
     int task_id;                  // 一意なタスクID
     const ASTNode *function_node; // 実行する関数のASTノード
@@ -418,11 +418,11 @@ struct AsyncTask {
     std::vector<Variable> args; // 引数リスト（完全なVariable情報を保存）
     Variable *future_var; // 紐づくFuture変数へのポインタ（外部管理）
 
-    // v0.13.0: Future情報を内部で保持（寿命管理）
+    // v0.12.1: Future情報を内部で保持（寿命管理）
     Variable internal_future; // タスク内部で管理するFuture変数
     bool use_internal_future = true; // internal_futureを使用するか
 
-    // v0.13.0 Phase 2.0: メソッド呼び出し対応
+    // v0.12.1 Phase 2.0: メソッド呼び出し対応
     bool has_self = false; // selfが存在するか
     Variable self_value;   // selfの値
 
@@ -450,7 +450,7 @@ struct AsyncTask {
     bool is_sleeping = false; // sleep中か
     int64_t wake_up_time_ms = 0; // 起床時刻（エポックからのミリ秒）
 
-    // v0.13.0: await対応 - 待機中のタスク管理
+    // v0.12.1: await対応 - 待機中のタスク管理
     bool is_waiting = false;      // 別のタスクの完了を待機中か
     int waiting_for_task_id = -1; // 待機中のタスクID (-1=待機なし)
 
@@ -513,7 +513,7 @@ struct Scope {
     }
 };
 
-// v0.13.0 Phase 2: YieldException - async関数内でyieldした際の例外
+// v0.12.1 Phase 2: YieldException - async関数内でyieldした際の例外
 class YieldException {
   public:
     bool is_from_loop; // ループ内の自動yieldかどうか
@@ -743,7 +743,7 @@ class Interpreter : public EvaluatorInterface {
     // v0.12.0: Event Loop（非同期処理基盤）
     std::unique_ptr<class cb::EventLoop> event_loop_;
 
-    // v0.13.0 Phase 2.0: Simple Event Loop（協調的マルチタスキング）
+    // v0.12.1 Phase 2.0: Simple Event Loop（協調的マルチタスキング）
     std::unique_ptr<class cb::SimpleEventLoop> simple_event_loop_;
 
     // v0.12.0: async関数のタスクカウンター（一意なFuture識別用）
@@ -763,7 +763,7 @@ class Interpreter : public EvaluatorInterface {
     // forループやwhileループの各イテレーション後に自動yieldするために使用
     bool is_in_auto_yield_task_ = false;
 
-    // v0.13.0: 現在実行中のタスクID（await時の親タスク特定用）
+    // v0.12.1: 現在実行中のタスクID（await時の親タスク特定用）
     int current_executing_task_id_ = -1;
 
     // Manager instances
@@ -872,12 +872,12 @@ class Interpreter : public EvaluatorInterface {
         return find_variable(name);
     }
 
-    // v0.13.0: 変数の存在チェック（forループのinit式スキップ用）
+    // v0.12.1: 変数の存在チェック（forループのinit式スキップ用）
     bool variable_exists(const std::string &name) {
         return find_variable(name) != nullptr;
     }
 
-    // v0.13.0 Phase 2.0 FIX: 現在のスコープのみでの変数存在チェック
+    // v0.12.1 Phase 2.0 FIX: 現在のスコープのみでの変数存在チェック
     // 複数のforループで同じ変数名を使っても干渉しないようにする
     bool variable_exists_in_current_scope(const std::string &name) {
         if (scope_stack.empty()) {
@@ -888,7 +888,7 @@ class Interpreter : public EvaluatorInterface {
                current_scope.variables.end();
     }
 
-    // v0.13.0 Phase 2.0 FIX: 現在のスコープから変数を削除
+    // v0.12.1 Phase 2.0 FIX: 現在のスコープから変数を削除
     // forループのinit式で宣言された変数をループ終了時に削除する
     void remove_variable_from_current_scope(const std::string &name) {
         if (scope_stack.empty()) {
@@ -915,7 +915,7 @@ class Interpreter : public EvaluatorInterface {
 
     // 組み込み型の初期化
     void initialize_builtin_types();
-    void register_builtin_struct_future(); // v0.13.0: Future<T>
+    void register_builtin_struct_future(); // v0.12.1: Future<T>
     void register_builtin_enum_option();
     void register_builtin_enum_result();
 
@@ -1064,7 +1064,7 @@ class Interpreter : public EvaluatorInterface {
     void register_destructor_call(const std::string &var_name,
                                   const std::string &struct_type_name);
 
-    // v0.13.0: コンストラクタ/デストラクタの登録
+    // v0.12.1: コンストラクタ/デストラクタの登録
     void register_constructor(const std::string &struct_name,
                               const ASTNode *ctor_node);
     void register_destructor(const std::string &struct_name,
@@ -1146,11 +1146,11 @@ class Interpreter : public EvaluatorInterface {
     int get_async_task_counter() const { return async_task_counter_; }
     void increment_async_task_counter() { async_task_counter_++; }
 
-    // v0.13.0 Phase 2.0: SimpleEventLoop access
+    // v0.12.1 Phase 2.0: SimpleEventLoop access
     class cb::SimpleEventLoop &get_simple_event_loop();
     bool has_simple_event_loop() const { return simple_event_loop_ != nullptr; }
 
-    // v0.13.0 Phase 2.0: バックグラウンドタスクを1サイクル実行
+    // v0.12.1 Phase 2.0: バックグラウンドタスクを1サイクル実行
     // 非async関数のループからバックグラウンドタスクを進めるために使用
     void run_background_tasks_one_cycle();
 
@@ -1373,7 +1373,7 @@ class Interpreter : public EvaluatorInterface {
     // v0.12.0: Event Loop アクセス
     cb::EventLoop &get_event_loop();
 
-    // v0.13.0: 現在実行中のタスクID管理
+    // v0.12.1: 現在実行中のタスクID管理
     void set_current_executing_task_id(int task_id) {
         current_executing_task_id_ = task_id;
     }

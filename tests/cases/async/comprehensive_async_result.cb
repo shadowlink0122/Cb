@@ -1,5 +1,5 @@
 // Comprehensive async/await + Result<T,E> Integration Test
-// v0.13.0
+// v0.12.1
 
 // Test 1: Basic async function returning Result
 async Result<int, string> divide_async(int a, int b) {

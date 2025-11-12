@@ -1,5 +1,5 @@
 // Test: async/awaitでのResult型のエラー伝播
-// v0.13.0: ?オペレーターを使ったエラー伝播のテスト
+// v0.12.1: ?オペレーターを使ったエラー伝播のテスト
 
 // エラーを返す可能性のあるasync関数
 async Result<int, string> safe_divide(int a, int b) {

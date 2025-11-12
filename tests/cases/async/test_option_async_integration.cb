@@ -1,5 +1,5 @@
 // Test: Option<T> and async/await integration
-// v0.13.0 Feature: Complete Option + async support
+// v0.12.1 Feature: Complete Option + async support
 
 async Option<int> find_value(int id) {
     if (id == 1) {

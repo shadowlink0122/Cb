@@ -198,7 +198,7 @@ async Result<string, string> main() {
 - [x] テストケースの作成
 - [x] ?オペレーターとの組み合わせ
 
-### v0.13.0以降（🔜 予定）
+### v0.12.1以降（🔜 予定）
 
 - [ ] `race()` builtin関数の追加
 - [ ] `select!`マクロ（複数Futureから選択）

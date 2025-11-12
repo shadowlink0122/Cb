@@ -1,5 +1,5 @@
 // Test: async/awaitとResult<T, E>の基本的な統合
-// v0.13.0: Future<Result<T, E>>パターンのテスト
+// v0.12.1: Future<Result<T, E>>パターンのテスト
 
 // エラーを返す可能性のあるasync関数
 async Result<int, string> divide_async(int a, int b) {

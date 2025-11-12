@@ -1,4 +1,4 @@
-// v0.13.0 Phase 2.0: interface/implメソッドでのasync/await
+// v0.12.1 Phase 2.0: interface/implメソッドでのasync/await
 // interfaceとimplの両方でasyncキーワードをサポート
 
 interface Worker {
