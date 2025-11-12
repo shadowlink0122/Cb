@@ -1,0 +1,42 @@
+<section class="left-align">
+  <h2>インタプリタ内部実装（2）: 協調的マルチタスク（1/2）</h2>
+  <div style="width: 88%; margin: 0.25em auto 0">
+    <h3 style="font-size: 0.72em; margin-bottom: 0.25em">イベントループの基本構造</h3>
+    <pre
+      style="font-size: 0.46em; margin: 0.3em 0"
+    ><code class="language-cpp" data-trim>// Task: 実行可能な非同期処理の単位
+struct Task {
+    ASTNode* ast;              // 実行するAST
+    Scope* scope;              // スコープ情報
+    TaskState state;           // Ready, Running, Suspended, Completed
+    Value result;              // 実行結果
+    long resume_time_ms;       // sleep時の再開時刻（ミリ秒）
+    std::vector&lt;Task*&gt; deps;  // 依存タスク（await対象）
+};
+
+// イベントループ: 全タスクを管理
+class EventLoop {
+    std::queue&lt;Task*&gt; ready_queue;      // 実行可能なタスク
+    std::vector&lt;Task*&gt; suspended_tasks; // 一時停止中のタスク
+    long current_time_ms;                 // 現在時刻（仮想時間）
+
+public:
+    void run() {
+        while (!ready_queue.empty() || !suspended_tasks.empty()) {
+            // 1. sleep中のタスクをチェック
+            check_sleeping_tasks();
+            
+            // 2. 実行可能なタスクを1つ取り出して実行
+            if (!ready_queue.empty()) {
+                Task* task = ready_queue.front();
+                ready_queue.pop();
+                execute_task(task);  // yield/awaitまで実行
+            } else {
+                // 実行可能なタスクがない場合、時間を進める
+                advance_time();
+            }
+        }
+    }
+};</code></pre>
+  </div>
+</section>

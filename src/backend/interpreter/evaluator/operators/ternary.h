@@ -35,6 +35,36 @@ TypedValue evaluate_ternary_typed(
         evaluate_typed_expression_callback,
     TypeInferenceEngine &type_engine, TypedValue &last_typed_result);
 
+/**
+ * v0.12.1: エラー伝播演算子（?）を評価する
+ *
+ * Result<T, E>のOk(v)の場合はvを返し、Err(e)の場合は関数から早期リターン
+ * Option<T>のSome(v)の場合はvを返し、Noneの場合は関数から早期リターン
+ *
+ * @param node エラー伝播演算子のASTノード
+ * @param interpreter インタプリタへの参照
+ * @param evaluate_expression_callback 式評価のコールバック
+ * @return Ok/Someの場合の関連値
+ * @throws ReturnException Err/Noneの場合、関数から早期リターン
+ */
+int64_t evaluate_error_propagation(
+    const ASTNode *node, Interpreter &interpreter,
+    std::function<int64_t(const ASTNode *)> evaluate_expression_callback);
+
+/**
+ * v0.12.1: エラー伝播演算子（?）を評価する（TypedValue版）
+ *
+ * @param node エラー伝播演算子のASTノード
+ * @param interpreter インタプリタへの参照
+ * @param evaluate_typed_expression_callback 型付き式評価のコールバック
+ * @return Ok/Someの場合の関連値
+ * @throws ReturnException Err/Noneの場合、関数から早期リターン
+ */
+int64_t
+evaluate_error_propagation_typed(const ASTNode *node, Interpreter &interpreter,
+                                 std::function<TypedValue(const ASTNode *)>
+                                     evaluate_typed_expression_callback);
+
 } // namespace TernaryHelpers
 
 #endif // EXPRESSION_TERNARY_H

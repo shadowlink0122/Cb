@@ -120,6 +120,14 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
         std::string return_type = parser_->parseType();
         ParsedTypeInfo return_parsed = parser_->getLastParsedTypeInfo();
 
+        // v0.13.0: async関数の戻り値をFuture<T>で自動ラッピング
+        if (is_async_method) {
+            // 戻り値がすでにFuture<>で始まっている場合はラップしない
+            if (return_type.find("Future<") != 0) {
+                return_type = "Future<" + return_type + ">";
+            }
+        }
+
         if (return_type.empty()) {
             parser_->error(
                 "Expected return type in interface method declaration");
@@ -166,6 +174,8 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
 
         InterfaceMember method(method_name, resolved_return_type,
                                return_parsed.is_unsigned);
+        // v0.13.0: 戻り値の型名を設定（Future<int>など複合型のため）
+        method.return_type_name = return_type;
         // v0.13.0 Phase 2.0: asyncフラグを設定
         method.is_async = is_async_method;
 
@@ -190,10 +200,13 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
                 TypeInfo param_type_info;
                 // パラメータ型が型パラメータかチェック
                 bool is_param_type_param = false;
+                std::string
+                    param_type_param_name; // v0.13.1: 型パラメータ名を保存
                 for (const auto &tp : type_parameters) {
                     if (param_type == tp || param_parsed.base_type == tp) {
                         param_type_info = TYPE_GENERIC;
                         is_param_type_param = true;
+                        param_type_param_name = tp; // v0.13.1: "T"や"U"を保存
                         break;
                     }
                 }
@@ -207,8 +220,10 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
                     }
                 }
 
+                // v0.13.1: 型パラメータ名も保存
                 method.add_parameter(param_name, param_type_info,
-                                     param_parsed.is_unsigned);
+                                     param_parsed.is_unsigned,
+                                     param_type_param_name);
 
                 if (!parser_->check(TokenType::TOK_COMMA)) {
                     break;
@@ -673,9 +688,20 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
         // メソッド実装をパース（関数宣言として）
         // impl内では戻り値の型から始まるメソッド定義
         std::string return_type = parser_->parseType();
+        ParsedTypeInfo return_type_parsed =
+            parser_->getLastParsedTypeInfo(); // v0.13.0: 直後に取得
+
         if (return_type.empty()) {
             parser_->error("Expected return type in method implementation");
             return nullptr;
+        }
+
+        // v0.13.0: async関数の戻り値をFuture<T>で自動ラッピング
+        if (is_async_method) {
+            // 戻り値がすでにFuture<>で始まっている場合はラップしない
+            if (return_type.find("Future<") != 0) {
+                return_type = "Future<" + return_type + ">";
+            }
         }
 
         // メソッド名を解析（予約キーワードも許可）
@@ -705,6 +731,8 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
             // v0.13.0 Phase 2.0: asyncフラグを設定
             if (is_async_method) {
                 method_impl->is_async = true;
+                method_impl->is_async_function =
+                    true; // FuncDeclarationのフラグも設定
             }
             // privateメソッドの場合はinterface署名チェックをスキップ
             if (!is_private_method) {
@@ -725,40 +753,96 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                     // 型パラメータの置換マップを作成
                     // 例: QueueOps<int> の場合、T -> TYPE_INT
                     std::unordered_map<std::string, TypeInfo> type_substitution;
+                    std::unordered_map<std::string, std::string>
+                        type_name_substitution; // v0.13.0: 文字列版
                     if (interface_def.is_generic &&
                         lt_pos != std::string::npos) {
-                        // <int>部分を解析
+                        // <int, string>部分を解析
                         std::string generic_part =
                             interface_name.substr(lt_pos + 1);
                         size_t gt_pos = generic_part.rfind('>');
                         if (gt_pos != std::string::npos) {
                             generic_part = generic_part.substr(0, gt_pos);
 
-                            // 簡易的な解析: int, string等の単一型のみサポート
-                            TypeInfo concrete_type = TYPE_UNKNOWN;
-                            if (generic_part == "int") {
-                                concrete_type = TYPE_INT;
-                            } else if (generic_part == "string") {
-                                concrete_type = TYPE_STRING;
-                            } else if (generic_part == "long") {
-                                concrete_type = TYPE_LONG;
-                            } else if (generic_part == "short") {
-                                concrete_type = TYPE_SHORT;
-                            } else if (generic_part == "bool") {
-                                concrete_type = TYPE_BOOL;
-                            } else if (generic_part == "char") {
-                                concrete_type = TYPE_CHAR;
-                            } else if (generic_part == "float") {
-                                concrete_type = TYPE_FLOAT;
-                            } else if (generic_part == "double") {
-                                concrete_type = TYPE_DOUBLE;
+                            // v0.13.1: 複数の型引数に対応（カンマで分割）
+                            std::vector<std::string> type_arguments;
+                            std::string current_arg;
+                            int depth = 0; // ネストした<>の深さ
+
+                            for (char c : generic_part) {
+                                if (c == '<') {
+                                    depth++;
+                                    current_arg += c;
+                                } else if (c == '>') {
+                                    depth--;
+                                    current_arg += c;
+                                } else if (c == ',' && depth == 0) {
+                                    // トリム
+                                    size_t start =
+                                        current_arg.find_first_not_of(" \t");
+                                    size_t end =
+                                        current_arg.find_last_not_of(" \t");
+                                    if (start != std::string::npos) {
+                                        type_arguments.push_back(
+                                            current_arg.substr(
+                                                start, end - start + 1));
+                                    }
+                                    current_arg.clear();
+                                } else {
+                                    current_arg += c;
+                                }
+                            }
+                            // 最後の引数を追加
+                            if (!current_arg.empty()) {
+                                size_t start =
+                                    current_arg.find_first_not_of(" \t");
+                                size_t end =
+                                    current_arg.find_last_not_of(" \t");
+                                if (start != std::string::npos) {
+                                    type_arguments.push_back(current_arg.substr(
+                                        start, end - start + 1));
+                                }
                             }
 
-                            // 型パラメータ（例: T）に具体的な型を対応付け
-                            if (!interface_def.type_parameters.empty()) {
+                            // 各型パラメータに対応する具体的な型を対応付け
+                            for (size_t i = 0;
+                                 i < type_arguments.size() &&
+                                 i < interface_def.type_parameters.size();
+                                 ++i) {
+                                const std::string &concrete_type_str =
+                                    type_arguments[i];
+
+                                // 簡易的な解析: int,
+                                // string等の基本型のみTypeInfoに変換
+                                TypeInfo concrete_type = TYPE_UNKNOWN;
+                                if (concrete_type_str == "int") {
+                                    concrete_type = TYPE_INT;
+                                } else if (concrete_type_str == "string") {
+                                    concrete_type = TYPE_STRING;
+                                } else if (concrete_type_str == "long") {
+                                    concrete_type = TYPE_LONG;
+                                } else if (concrete_type_str == "short") {
+                                    concrete_type = TYPE_SHORT;
+                                } else if (concrete_type_str == "bool") {
+                                    concrete_type = TYPE_BOOL;
+                                } else if (concrete_type_str == "char") {
+                                    concrete_type = TYPE_CHAR;
+                                } else if (concrete_type_str == "float") {
+                                    concrete_type = TYPE_FLOAT;
+                                } else if (concrete_type_str == "double") {
+                                    concrete_type = TYPE_DOUBLE;
+                                }
+
+                                // 型パラメータ（例: T,
+                                // U）に具体的な型を対応付け
                                 type_substitution[interface_def
-                                                      .type_parameters[0]] =
+                                                      .type_parameters[i]] =
                                     concrete_type;
+                                // v0.13.1:
+                                // 文字列版も作成（複数型パラメータ対応）
+                                type_name_substitution
+                                    [interface_def.type_parameters[i]] =
+                                        concrete_type_str;
                             }
                         }
                     }
@@ -819,21 +903,119 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                                 return nullptr;
                             }
 
-                            if (expected_return_type_info !=
-                                    actual_return_type_info ||
-                                expected_return_unsigned !=
-                                    actual_return_unsigned) {
+                            // v0.13.0:
+                            // 戻り値の型を文字列で比較（Future<int>などの複合型対応）
+                            std::string expected_return_type_str =
+                                interface_method.return_type_name;
+                            std::string actual_return_type_str = return_type;
+
+                            // 型名が空の場合は、TypeInfoから文字列に変換（後方互換性）
+                            if (expected_return_type_str.empty()) {
+                                expected_return_type_str =
+                                    format_type(expected_return_type_info,
+                                                expected_return_unsigned);
+                            }
+
+                            // v0.13.0:
+                            // ジェネリックinterfaceの場合、型パラメータを置換
+                            // 例: Container<int>の場合、"T" -> "int" に置換
+                            if (!type_name_substitution.empty()) {
+                                for (const auto &subst :
+                                     type_name_substitution) {
+                                    const std::string &type_param =
+                                        subst.first; // "T"
+                                    const std::string &concrete_type =
+                                        subst.second; // "int"
+
+                                    // 単純な置換: "T" -> "int"
+                                    if (expected_return_type_str ==
+                                        type_param) {
+                                        expected_return_type_str =
+                                            concrete_type;
+                                    }
+                                    // v0.13.0: 複合型内の型パラメータも置換
+                                    // 例: "Result<T, string>" -> "Result<int,
+                                    // string>" 例: "Future<Result<T, string>>"
+                                    // -> "Future<Result<int, string>>" v0.13.1:
+                                    // 正規化済み形式にも対応 例:
+                                    // "Result_T_string" -> "Result_int_string"
+                                    // 例: "Future_Result_T_string" ->
+                                    // "Future_Result_int_string"
+                                    else {
+                                        size_t pos = 0;
+                                        while (
+                                            (pos =
+                                                 expected_return_type_str.find(
+                                                     type_param, pos)) !=
+                                            std::string::npos) {
+                                            // 型パラメータの前後が記号であることを確認（単語境界チェック）
+                                            bool is_start_ok =
+                                                (pos == 0 ||
+                                                 expected_return_type_str[pos -
+                                                                          1] ==
+                                                     '<' ||
+                                                 expected_return_type_str[pos -
+                                                                          1] ==
+                                                     ',' ||
+                                                 expected_return_type_str[pos -
+                                                                          1] ==
+                                                     ' ' ||
+                                                 expected_return_type_str[pos -
+                                                                          1] ==
+                                                     '_'); // v0.13.1:
+                                                           // '_'も区切り文字として認識
+                                            bool is_end_ok =
+                                                (pos + type_param.length() >=
+                                                     expected_return_type_str
+                                                         .length() ||
+                                                 expected_return_type_str
+                                                         [pos +
+                                                          type_param
+                                                              .length()] ==
+                                                     '>' ||
+                                                 expected_return_type_str
+                                                         [pos +
+                                                          type_param
+                                                              .length()] ==
+                                                     ',' ||
+                                                 expected_return_type_str
+                                                         [pos +
+                                                          type_param
+                                                              .length()] ==
+                                                     ' ' ||
+                                                 expected_return_type_str
+                                                         [pos +
+                                                          type_param
+                                                              .length()] ==
+                                                     '_'); // v0.13.1:
+                                                           // '_'も区切り文字として認識
+
+                                            if (is_start_ok && is_end_ok) {
+                                                expected_return_type_str
+                                                    .replace(
+                                                        pos,
+                                                        type_param.length(),
+                                                        concrete_type);
+                                                pos += concrete_type.length();
+                                            } else {
+                                                pos += type_param.length();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (expected_return_type_str !=
+                                actual_return_type_str) {
                                 parser_->error(
                                     "Method signature mismatch: Expected "
                                     "return type '" +
-                                    format_type(expected_return_type_info,
-                                                expected_return_unsigned) +
-                                    "' but got '" +
-                                    format_type(actual_return_type_info,
-                                                actual_return_unsigned) +
-                                    "' for method '" + method_name + "'");
+                                    expected_return_type_str + "' but got '" +
+                                    actual_return_type_str + "' for method '" +
+                                    method_name + "'");
                                 return nullptr;
                             }
+
                             // 引数の数をチェック
                             if (interface_method.parameters.size() !=
                                 method_impl->parameters.size()) {
@@ -852,12 +1034,34 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                                  i < interface_method.parameters.size(); ++i) {
                                 TypeInfo expected_param_type =
                                     interface_method.parameters[i].second;
+                                std::string expected_param_name =
+                                    interface_method.parameters[i].first;
+                                std::string expected_param_type_name =
+                                    interface_method.get_parameter_type_name(
+                                        i); // v0.13.1: 型パラメータ名取得
 
                                 // TYPE_GENERICの場合、具体的な型に置換
+                                // v0.13.1: 保存された型パラメータ名を使って置換
                                 if (expected_param_type == TYPE_GENERIC &&
                                     !type_substitution.empty()) {
-                                    expected_param_type =
-                                        type_substitution.begin()->second;
+                                    // 型パラメータ名（"T",
+                                    // "U"など）がある場合は、それを使って置換
+                                    if (!expected_param_type_name.empty()) {
+                                        auto it = type_substitution.find(
+                                            expected_param_type_name);
+                                        if (it != type_substitution.end()) {
+                                            expected_param_type = it->second;
+                                        } else {
+                                            // 見つからない場合は最初の型パラメータを使用（後方互換性）
+                                            expected_param_type =
+                                                type_substitution.begin()
+                                                    ->second;
+                                        }
+                                    } else {
+                                        // 型パラメータ名がない場合（古い実装）は最初の型パラメータを使用
+                                        expected_param_type =
+                                            type_substitution.begin()->second;
+                                    }
                                 }
 
                                 bool expected_param_unsigned =

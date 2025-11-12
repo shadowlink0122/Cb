@@ -923,256 +923,11 @@ TypedValue evaluate_unary_op_typed(
         }
     }
 
-    // v0.12.0: await式の評価
+    // v0.13.0: await式の評価（evaluate_await関数に委譲）
     if (node->is_await_expression || node->op == "await") {
-        // オペランドを評価（Future<T>構造体を期待）
-        TypedValue future_value = evaluate_typed_func(node->left.get());
-
-        if (future_value.is_struct() && future_value.struct_data) {
-            Variable &future_var =
-                const_cast<Variable &>(*future_value.struct_data);
-
-            // Future<T>構造体であることを確認（型名が"Future"で始まる）
-            if (future_var.struct_type_name.find("Future") == 0) {
-                // is_readyフラグをチェック
-                auto ready_it = future_var.struct_members.find("is_ready");
-                if (ready_it != future_var.struct_members.end()) {
-                    bool is_ready = (ready_it->second.value != 0);
-
-                    debug_msg(DebugMsgId::AWAIT_FUTURE_READY_CHECK,
-                              is_ready ? "true" : "false");
-
-                    // v0.12.0:
-                    // Futureが未完了の場合、run_until_complete()で完了まで待機
-                    // task_idを取得して、そのタスクが完了するまでイベントループを実行
-                    if (!is_ready) {
-                        auto task_id_it =
-                            future_var.struct_members.find("task_id");
-                        if (task_id_it != future_var.struct_members.end()) {
-                            int task_id = task_id_it->second.value;
-
-                            debug_msg(DebugMsgId::AWAIT_RUN_UNTIL_COMPLETE,
-                                      std::to_string(task_id).c_str());
-
-                            // 指定タスクが完了するまでSimpleEventLoopを実行
-                            interpreter.get_simple_event_loop()
-                                .run_until_complete(task_id);
-
-                            // タスクからinternal_futureを取得（更新された値を取得）
-                            AsyncTask *task =
-                                interpreter.get_simple_event_loop().get_task(
-                                    task_id);
-                            if (task && task->use_internal_future) {
-                                future_var = task->internal_future;
-                            }
-
-                            // 実行後、is_readyを再確認
-                            ready_it =
-                                future_var.struct_members.find("is_ready");
-                            if (ready_it != future_var.struct_members.end()) {
-                                is_ready = (ready_it->second.value != 0);
-                            }
-                        }
-                    }
-
-                    // v0.12.0 Phase 7: (Phase 1用のフォールバック)
-                    // まだ実行されていない場合、ここで実行する（遅延実行）
-                    // Phase
-                    // 2の場合はtask_idがないので、この処理はスキップされる
-                    if (!is_ready) {
-
-                        // task_idを取得（Phase 1のみ）
-                        auto task_id_it =
-                            future_var.struct_members.find("task_id");
-                        if (task_id_it != future_var.struct_members.end()) {
-                            int task_id = task_id_it->second.value;
-
-                            if (debug_mode) {
-                                std::cerr
-                                    << "[AWAIT_DEFERRED] Looking for task_id="
-                                    << task_id << std::endl;
-                            }
-
-                            // タスクを取得
-                            AsyncTask *task =
-                                interpreter.get_async_task(task_id);
-                            if (task && !task->is_executed) {
-                                if (debug_mode) {
-                                    std::cerr
-                                        << "[AWAIT_DEFERRED] Executing task: "
-                                        << task->function_name << " with "
-                                        << task->args.size() << " args"
-                                        << std::endl;
-                                }
-
-                                // v0.12.0 Phase 7: タスクを実行
-                                const ASTNode *func = task->function_node;
-                                if (!func || !func->body) {
-                                    throw std::runtime_error(
-                                        "Task has no function body (task_id=" +
-                                        std::to_string(task_id) + ")");
-                                }
-
-                                // 新しいスコープを作成して引数を復元
-                                interpreter.push_scope();
-
-                                // 引数をスコープに設定
-                                for (size_t i = 0; i < task->args.size() &&
-                                                   i < func->parameters.size();
-                                     i++) {
-                                    const auto &param = func->parameters[i];
-                                    Variable arg_var = task->args[i]; // コピー
-                                    interpreter.current_scope()
-                                        .variables[param->name] = arg_var;
-
-                                    if (debug_mode) {
-                                        std::cerr
-                                            << "[AWAIT_DEFERRED] Restored arg["
-                                            << i << "]: " << param->name
-                                            << " = " << arg_var.value
-                                            << std::endl;
-                                    }
-                                }
-
-                                // 関数本体を実行
-                                try {
-                                    interpreter.execute_statement(
-                                        func->body.get());
-
-                                    // 正常終了（return文なし）の場合はvoid扱い
-                                    interpreter.pop_scope();
-                                    task->is_executed = true;
-
-                                    // Future.is_readyをtrueに設定
-                                    ready_it->second.value = 1;
-
-                                    // valueメンバーを0に設定（void関数）
-                                    auto value_it =
-                                        future_var.struct_members.find("value");
-                                    if (value_it !=
-                                        future_var.struct_members.end()) {
-                                        value_it->second.type = TYPE_INT;
-                                        value_it->second.value = 0;
-                                        value_it->second.is_assigned = true;
-                                    }
-
-                                    if (debug_mode) {
-                                        std::cerr
-                                            << "[AWAIT_DEFERRED] Task executed "
-                                               "successfully (void)"
-                                            << std::endl;
-                                    }
-                                } catch (const ReturnException &ret) {
-                                    // return文で値が返された場合
-                                    interpreter.pop_scope();
-                                    task->is_executed = true;
-
-                                    // Future.is_readyをtrueに設定
-                                    ready_it->second.value = 1;
-
-                                    // Future.valueメンバーに戻り値を設定
-                                    auto value_it =
-                                        future_var.struct_members.find("value");
-                                    if (value_it !=
-                                        future_var.struct_members.end()) {
-                                        if (ret.type == TYPE_STRING) {
-                                            value_it->second.type = TYPE_STRING;
-                                            value_it->second.str_value =
-                                                ret.str_value;
-                                        } else if (ret.type == TYPE_FLOAT ||
-                                                   ret.type == TYPE_DOUBLE ||
-                                                   ret.type == TYPE_QUAD) {
-                                            value_it->second.type = ret.type;
-                                            value_it->second.double_value =
-                                                ret.double_value;
-                                        } else if (ret.is_struct) {
-                                            value_it->second = ret.struct_value;
-                                        } else {
-                                            value_it->second.type = TYPE_INT;
-                                            value_it->second.value = ret.value;
-                                        }
-                                        value_it->second.is_assigned = true;
-                                    }
-
-                                    if (debug_mode) {
-                                        std::cerr
-                                            << "[AWAIT_DEFERRED] Task executed "
-                                               "with return value: "
-                                            << ret.value << std::endl;
-                                    }
-                                }
-                            } else {
-                                throw std::runtime_error(
-                                    "Task not found or already executed "
-                                    "(task_id=" +
-                                    std::to_string(task_id) + ")");
-                            }
-                        }
-                        // Phase
-                        // 2の場合はtask_idがないが、SimpleEventLoopで処理済みなのでOK
-                        // エラーを投げずに続行して値を取得する
-                    }
-                }
-
-                // Future構造体からvalueメンバーを取得
-                auto value_it = future_var.struct_members.find("value");
-                if (value_it != future_var.struct_members.end()) {
-                    const Variable &value_member = value_it->second;
-
-                    // 抽出値のデバッグ表示
-                    int64_t display_value = 0;
-                    if (value_member.type == TYPE_FLOAT ||
-                        value_member.type == TYPE_DOUBLE ||
-                        value_member.type == TYPE_QUAD) {
-                        display_value =
-                            static_cast<int64_t>(value_member.double_value);
-                    } else if (!value_member.is_struct) {
-                        display_value = value_member.value;
-                    }
-                    debug_msg(DebugMsgId::AWAIT_VALUE_EXTRACTED, display_value,
-                              static_cast<int>(value_member.type));
-
-                    // valueメンバーの型に応じて適切なTypedValueを返す
-                    if (value_member.type == TYPE_STRING) {
-                        return TypedValue(value_member.str_value,
-                                          InferredType(TYPE_STRING, "string"));
-                    } else if (value_member.type == TYPE_FLOAT ||
-                               value_member.type == TYPE_DOUBLE ||
-                               value_member.type == TYPE_QUAD) {
-                        return TypedValue(
-                            value_member.double_value,
-                            InferredType(
-                                value_member.type,
-                                type_info_to_string_simple(value_member.type)));
-                    } else if (value_member.type == TYPE_STRUCT ||
-                               value_member.is_struct) {
-                        return TypedValue(
-                            value_member,
-                            InferredType(TYPE_STRUCT,
-                                         value_member.struct_type_name));
-                    } else {
-                        // 整数型
-                        return TypedValue(
-                            value_member.value,
-                            InferredType(
-                                value_member.type,
-                                type_info_to_string_simple(value_member.type)));
-                    }
-                } else {
-                    throw std::runtime_error(
-                        "Future struct has no 'value' member");
-                }
-            } else {
-                throw std::runtime_error(
-                    "await expression requires Future<T> struct, got " +
-                    future_var.struct_type_name);
-            }
-        } else {
-            throw std::runtime_error(
-                "await expression requires Future<T> operand");
-        }
+        return BinaryAndUnaryOperators::evaluate_await(node, interpreter,
+                                                       evaluate_typed_func);
     }
-
     if (node->op == "+" || node->op == "-") {
         TypedValue operand_value = evaluate_typed_func(node->left.get());
         long double operand_quad = operand_value.as_quad();
@@ -1224,8 +979,8 @@ TypedValue evaluate_unary_op_typed(
 
 namespace BinaryAndUnaryOperators {
 
-// v0.12.0: await式の評価
-int64_t evaluate_await(
+// v0.12.1: await式の評価（TypedValueを返すように変更）
+TypedValue evaluate_await(
     const ASTNode *node, Interpreter &interpreter,
     const std::function<TypedValue(const ASTNode *)> &evaluate_typed_func) {
 
@@ -1356,25 +1111,53 @@ int64_t evaluate_await(
                             "run_until_complete");
                     }
 
-                    // valueメンバーの値を直接返す
-                    int64_t result;
-                    if (value_member_updated.type == TYPE_STRING) {
-                        result = 0;
+                    // v0.12.1:
+                    // valueメンバーをTypedValueとして返す（enum情報を保持）
+
+                    // v0.13.0: デバッグ
+                    if (interpreter.is_debug_mode()) {
+                        char dbg_buf[512];
+                        snprintf(
+                            dbg_buf, sizeof(dbg_buf),
+                            "[AWAIT_VALUE] is_enum=%d, is_struct=%d, type=%d",
+                            value_member_updated.is_enum ? 1 : 0,
+                            value_member_updated.is_struct ? 1 : 0,
+                            static_cast<int>(value_member_updated.type));
+                        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+                    }
+
+                    if (value_member_updated.is_enum ||
+                        value_member_updated.is_struct) {
+                        // enum/struct
+                        // の場合、InferredTypeを作成してTypedValueを返す
+                        InferredType inferred;
+                        inferred.type_info = value_member_updated.type;
+                        inferred.type_name =
+                            value_member_updated.is_enum
+                                ? value_member_updated.enum_type_name
+                                : value_member_updated.struct_type_name;
+                        TypedValue result(value_member_updated, inferred);
+                        return result;
+                    } else if (value_member_updated.type == TYPE_STRING) {
+                        InferredType inferred;
+                        inferred.type_info = TYPE_STRING;
+                        TypedValue result(value_member_updated.str_value,
+                                          inferred);
+                        return result;
                     } else if (value_member_updated.type == TYPE_FLOAT ||
                                value_member_updated.type == TYPE_DOUBLE ||
                                value_member_updated.type == TYPE_QUAD) {
-                        result = static_cast<int64_t>(
-                            value_member_updated.double_value);
-                    } else if (value_member_updated.is_struct) {
-                        result = 0;
+                        InferredType inferred;
+                        inferred.type_info = value_member_updated.type;
+                        TypedValue result(value_member_updated.double_value,
+                                          inferred);
+                        return result;
                     } else {
-                        result = value_member_updated.value;
+                        InferredType inferred;
+                        inferred.type_info = TYPE_INT;
+                        TypedValue result(value_member_updated.value, inferred);
+                        return result;
                     }
-
-                    debug_msg(DebugMsgId::AWAIT_VALUE_EXTRACTED, result,
-                              static_cast<int>(value_member_updated.type));
-
-                    return result;
                 }
 
                 // is_ready == true の場合: タスクは既に完了しているので、
@@ -1398,24 +1181,46 @@ int64_t evaluate_await(
                                 const Variable &value_member =
                                     value_it_ready->second;
 
-                                int64_t result;
-                                if (value_member.type == TYPE_STRING) {
-                                    result = 0;
+                                // v0.12.1: TypedValueとして返す
+                                if (value_member.is_enum ||
+                                    value_member.is_struct) {
+                                    InferredType inferred;
+                                    inferred.type_info = value_member.type;
+                                    inferred.type_name =
+                                        value_member.is_enum
+                                            ? value_member.enum_type_name
+                                            : value_member.struct_type_name;
+                                    TypedValue result(value_member, inferred);
+                                    debug_msg(DebugMsgId::AWAIT_TASK_COMPLETED,
+                                              task_id_ready);
+                                    return result;
+                                } else if (value_member.type == TYPE_STRING) {
+                                    InferredType inferred;
+                                    inferred.type_info = TYPE_STRING;
+                                    TypedValue result(value_member.str_value,
+                                                      inferred);
+                                    debug_msg(DebugMsgId::AWAIT_TASK_COMPLETED,
+                                              task_id_ready);
+                                    return result;
                                 } else if (value_member.type == TYPE_FLOAT ||
                                            value_member.type == TYPE_DOUBLE ||
                                            value_member.type == TYPE_QUAD) {
-                                    result = static_cast<int64_t>(
-                                        value_member.double_value);
-                                } else if (value_member.is_struct) {
-                                    result = 0;
+                                    InferredType inferred;
+                                    inferred.type_info = value_member.type;
+                                    TypedValue result(value_member.double_value,
+                                                      inferred);
+                                    debug_msg(DebugMsgId::AWAIT_TASK_COMPLETED,
+                                              task_id_ready);
+                                    return result;
                                 } else {
-                                    result = value_member.value;
+                                    InferredType inferred;
+                                    inferred.type_info = TYPE_INT;
+                                    TypedValue result(value_member.value,
+                                                      inferred);
+                                    debug_msg(DebugMsgId::AWAIT_TASK_COMPLETED,
+                                              task_id_ready);
+                                    return result;
                                 }
-
-                                debug_msg(DebugMsgId::AWAIT_TASK_COMPLETED,
-                                          task_id_ready);
-
-                                return result;
                             }
                         }
                     }
@@ -1429,27 +1234,45 @@ int64_t evaluate_await(
             if (value_it != future_var.struct_members.end()) {
                 const Variable &value_member = value_it->second;
 
-                // valueメンバーの型に応じて適切な値を返す
-                int64_t result;
-                if (value_member.type == TYPE_STRING) {
-                    // 文字列は数値変換できないので、とりあえず0を返す
-                    result = 0;
+                // v0.12.1: valueメンバーの型に応じてTypedValueを返す
+                if (value_member.is_enum || value_member.is_struct) {
+                    InferredType inferred;
+                    inferred.type_info = value_member.type;
+                    inferred.type_name = value_member.is_enum
+                                             ? value_member.enum_type_name
+                                             : value_member.struct_type_name;
+                    TypedValue result(value_member, inferred);
+                    debug_msg(DebugMsgId::AWAIT_VALUE_EXTRACTED,
+                              value_member.value,
+                              static_cast<int>(value_member.type));
+                    return result;
+                } else if (value_member.type == TYPE_STRING) {
+                    InferredType inferred;
+                    inferred.type_info = TYPE_STRING;
+                    TypedValue result(value_member.str_value, inferred);
+                    debug_msg(DebugMsgId::AWAIT_VALUE_EXTRACTED,
+                              value_member.value,
+                              static_cast<int>(value_member.type));
+                    return result;
                 } else if (value_member.type == TYPE_FLOAT ||
                            value_member.type == TYPE_DOUBLE ||
                            value_member.type == TYPE_QUAD) {
-                    result = static_cast<int64_t>(value_member.double_value);
-                } else if (value_member.is_struct) {
-                    // 構造体は数値変換できないので0を返す
-                    result = 0;
+                    InferredType inferred;
+                    inferred.type_info = value_member.type;
+                    TypedValue result(value_member.double_value, inferred);
+                    debug_msg(DebugMsgId::AWAIT_VALUE_EXTRACTED,
+                              value_member.value,
+                              static_cast<int>(value_member.type));
+                    return result;
                 } else {
-                    // 整数値を返す
-                    result = value_member.value;
+                    InferredType inferred;
+                    inferred.type_info = TYPE_INT;
+                    TypedValue result(value_member.value, inferred);
+                    debug_msg(DebugMsgId::AWAIT_VALUE_EXTRACTED,
+                              value_member.value,
+                              static_cast<int>(value_member.type));
+                    return result;
                 }
-
-                debug_msg(DebugMsgId::AWAIT_VALUE_EXTRACTED, result,
-                          static_cast<int>(value_member.type));
-
-                return result;
             } else {
                 throw std::runtime_error("Future struct has no 'value' member");
             }

@@ -1,0 +1,46 @@
+// Test: ? operator with Result<T, E>
+// Expected: エラー伝播が正しく動作する
+
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result::Err("Division by zero");
+    }
+    return Result::Ok(a / b);
+}
+
+Result<int, string> chain_divide(int x) {
+    int a = divide(x, 2)?;
+    int b = divide(a, 3)?;
+    int c = divide(b, 4)?;
+    return Result::Ok(c);
+}
+
+int main() {
+    // 成功ケース: 240 / 2 / 3 / 4 = 10
+    Result<int, string> r1 = chain_divide(240);
+    match (r1) {
+        Ok(val) => {
+            assert(val == 10);
+            println("Success case: 240 / 2 / 3 / 4 = ", val);
+        }
+        Err(msg) => {
+            assert(false);
+        }
+    }
+    
+    // 失敗ケース: 途中でゼロ除算が発生するようにする
+    // 60 / 2 = 30, 30 / 3 = 10, 10 / 4 = 2 (成功)
+    // 代わりに別の関数で0除算をテスト
+    Result<int, string> r2 = divide(10, 0);
+    match (r2) {
+        Ok(val) => {
+            assert(false);
+        }
+        Err(msg) => {
+            println("Error case: Division by zero detected");
+        }
+    }
+    
+    println("? operator with Result test passed");
+    return 0;
+}

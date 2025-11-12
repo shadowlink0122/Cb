@@ -1,0 +1,408 @@
+// Cb Language: Async Error Handling with Result<T, E>
+// Version: v0.13.0
+// 
+// This sample demonstrates best practices for error handling in
+// asynchronous code using the Result<T, E> type and pattern matching.
+
+// ============================================
+// Domain Models
+// ============================================
+
+// Note: Multiple enum definitions in a row are not yet supported
+// These are commented out for now
+
+// enum UserError {
+//     NotFound,
+//     InvalidId,
+//     Unauthorized
+// }
+
+// enum NetworkError {
+//     Timeout,
+//     ConnectionFailed,
+//     InvalidResponse
+// }
+
+struct User {
+    int id;
+    string name;
+    string email;
+};
+
+// ============================================
+// Basic Async Error Handling
+// ============================================
+
+// Example 1: Simple async function with error handling
+async Future<Result<int, string>> divide_async(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+// Example 2: String result
+async Future<Result<string, string>> fetch_user_name(int user_id) {
+    if (user_id < 1) {
+        return Result<string, string>::Err("Invalid user ID");
+    }
+    if (user_id > 3) {
+        return Result<string, string>::Err("User not found");
+    }
+    
+    if (user_id == 1) {
+        return Result<string, string>::Ok("Alice");
+    } else if (user_id == 2) {
+        return Result<string, string>::Ok("Bob");
+    } else {
+        return Result<string, string>::Ok("Charlie");
+    }
+}
+
+// Example 3: Nested Result types for complex error handling
+async Future<Result<Result<int, string>, string>> validate_and_process(int value) {
+    if (value < 0) {
+        return Result<Result<int, string>, string>::Err("Outer validation failed");
+    }
+    
+    Result<int, string> inner;
+    if (value == 0) {
+        inner = Result<int, string>::Err("Inner: zero not allowed");
+    } else {
+        inner = Result<int, string>::Ok(value * 2);
+    }
+    
+    return Result<Result<int, string>, string>::Ok(inner);
+}
+
+// ============================================
+// Pattern 1: Basic Error Handling
+// ============================================
+
+async Future<int> pattern1_basic_error_handling() {
+    println("=== Pattern 1: Basic Error Handling ===");
+    
+    // Success case
+    Future<Result<int, string>> f1 = divide_async(10, 2);
+    Result<int, string> r1 = await f1;
+    
+    match (r1) {
+        Ok(value) => {
+            println("✓ Division succeeded: 10 / 2 = {value}");
+        }
+        Err(msg) => {
+            println("✗ Division failed: {msg}");
+        }
+    }
+    
+    // Error case
+    Future<Result<int, string>> f2 = divide_async(10, 0);
+    Result<int, string> r2 = await f2;
+    
+    match (r2) {
+        Ok(value) => {
+            println("✗ Unexpected success: {value}");
+        }
+        Err(msg) => {
+            println("✓ Error caught as expected: {msg}");
+        }
+    }
+    
+    return 0;
+}
+
+// ============================================
+// Pattern 2: Error Propagation with Early Return
+// ============================================
+
+async Future<Result<int, string>> pattern2_error_propagation(int a, int b, int c) {
+    println("\n=== Pattern 2: Error Propagation ===");
+    
+    // First operation
+    Future<Result<int, string>> f1 = divide_async(a, b);
+    Result<int, string> r1 = await f1;
+    
+    match (r1) {
+        Ok(value) => {
+            println("Step 1: {a} / {b} = {value}");
+            
+            // Second operation with result from first
+            Future<Result<int, string>> f2 = divide_async(value, c);
+            Result<int, string> r2 = await f2;
+            
+            match (r2) {
+                Ok(final_value) => {
+                    println("Step 2: {value} / {c} = {final_value}");
+                    return Result<int, string>::Ok(final_value);
+                }
+                Err(msg) => {
+                    println("Step 2 failed: {msg}");
+                    return Result<int, string>::Err(msg);
+                }
+            }
+        }
+        Err(msg) => {
+            println("Step 1 failed: {msg}");
+            return Result<int, string>::Err(msg);
+        }
+    }
+}
+
+// ============================================
+// Pattern 3: Multiple Async Operations
+// ============================================
+
+async Future<int> pattern3_multiple_operations() {
+    println("\n=== Pattern 3: Multiple Async Operations ===");
+    
+    // Launch multiple operations
+    Future<Result<int, string>> f1 = divide_async(100, 5);
+    Future<Result<int, string>> f2 = divide_async(80, 4);
+    Future<Result<int, string>> f3 = divide_async(60, 3);
+    
+    // Await all results
+    Result<int, string> r1 = await f1;
+    Result<int, string> r2 = await f2;
+    Result<int, string> r3 = await f3;
+    
+    // Process results
+    int sum = 0;
+    int errors = 0;
+    
+    match (r1) {
+        Ok(value) => {
+            println("Operation 1: Success ({value})");
+            sum = sum + value;
+        }
+        Err(msg) => {
+            println("Operation 1: Failed ({msg})");
+            errors = errors + 1;
+        }
+    }
+    
+    match (r2) {
+        Ok(value) => {
+            println("Operation 2: Success ({value})");
+            sum = sum + value;
+        }
+        Err(msg) => {
+            println("Operation 2: Failed ({msg})");
+            errors = errors + 1;
+        }
+    }
+    
+    match (r3) {
+        Ok(value) => {
+            println("Operation 3: Success ({value})");
+            sum = sum + value;
+        }
+        Err(msg) => {
+            println("Operation 3: Failed ({msg})");
+            errors = errors + 1;
+        }
+    }
+    
+    println("Total sum: {sum}, Errors: {errors}");
+    return sum;
+}
+
+// ============================================
+// Pattern 4: Fallback on Error
+// ============================================
+
+async Future<string> pattern4_fallback_handling() {
+    println("\n=== Pattern 4: Fallback Handling ===");
+    
+    // Try primary source
+    println("Attempting primary source...");
+    Future<Result<string, string>> f_primary = fetch_user_name(99);
+    Result<string, string> r_primary = await f_primary;
+    
+    string final_result;
+    
+    match (r_primary) {
+        Ok(name) => {
+            final_result = name;
+            println("✓ Primary source succeeded: {name}");
+        }
+        Err(msg) => {
+            println("✗ Primary source failed: {msg}");
+            println("Attempting fallback source...");
+            
+            // Try fallback
+            Future<Result<string, string>> f_fallback = fetch_user_name(1);
+            Result<string, string> r_fallback = await f_fallback;
+            
+            match (r_fallback) {
+                Ok(name) => {
+                    final_result = name;
+                    println("✓ Fallback succeeded: {name}");
+                }
+                Err(fallback_msg) => {
+                    final_result = "Anonymous";
+                    println("✗ Fallback failed: {fallback_msg}");
+                    println("Using default: Anonymous");
+                }
+            }
+        }
+    }
+    
+    return final_result;
+}
+
+// ============================================
+// Pattern 5: Collecting Errors
+// ============================================
+
+async Future<int> pattern5_collect_errors() {
+    println("\n=== Pattern 5: Collecting Errors ===");
+    
+    int success_count = 0;
+    int error_count = 0;
+    
+    // Test with various user IDs
+    int id1 = 1;
+    int id2 = 2;
+    int id3 = 3;
+    int id4 = 0;   // Invalid
+    int id5 = -1;  // Invalid
+    int id6 = 99;  // Not found
+    
+    Future<Result<string, string>> f1 = fetch_user_name(id1);
+    Result<string, string> r1 = await f1;
+    match (r1) {
+        Ok(name) => { println("User {id1}: {name} ✓"); success_count = success_count + 1; }
+        Err(msg) => { println("User {id1}: {msg} ✗"); error_count = error_count + 1; }
+    }
+    
+    Future<Result<string, string>> f2 = fetch_user_name(id2);
+    Result<string, string> r2 = await f2;
+    match (r2) {
+        Ok(name) => { println("User {id2}: {name} ✓"); success_count = success_count + 1; }
+        Err(msg) => { println("User {id2}: {msg} ✗"); error_count = error_count + 1; }
+    }
+    
+    Future<Result<string, string>> f3 = fetch_user_name(id3);
+    Result<string, string> r3 = await f3;
+    match (r3) {
+        Ok(name) => { println("User {id3}: {name} ✓"); success_count = success_count + 1; }
+        Err(msg) => { println("User {id3}: {msg} ✗"); error_count = error_count + 1; }
+    }
+    
+    Future<Result<string, string>> f4 = fetch_user_name(id4);
+    Result<string, string> r4 = await f4;
+    match (r4) {
+        Ok(name) => { println("User {id4}: {name} ✓"); success_count = success_count + 1; }
+        Err(msg) => { println("User {id4}: {msg} ✗"); error_count = error_count + 1; }
+    }
+    
+    Future<Result<string, string>> f5 = fetch_user_name(id5);
+    Result<string, string> r5 = await f5;
+    match (r5) {
+        Ok(name) => { println("User {id5}: {name} ✓"); success_count = success_count + 1; }
+        Err(msg) => { println("User {id5}: {msg} ✗"); error_count = error_count + 1; }
+    }
+    
+    Future<Result<string, string>> f6 = fetch_user_name(id6);
+    Result<string, string> r6 = await f6;
+    match (r6) {
+        Ok(name) => { println("User {id6}: {name} ✓"); success_count = success_count + 1; }
+        Err(msg) => { println("User {id6}: {msg} ✗"); error_count = error_count + 1; }
+    }
+    
+    println("\nSummary: {success_count} succeeded, {error_count} failed");
+    return success_count;
+}
+
+// ============================================
+// Pattern 6: Nested Result Handling
+// ============================================
+
+async Future<int> pattern6_nested_result() {
+    println("\n=== Pattern 6: Nested Result Handling ===");
+    
+    Future<Result<Result<int, string>, string>> f = validate_and_process(5);
+    Result<Result<int, string>, string> r = await f;
+    
+    match (r) {
+        Ok(inner_result) => {
+            println("✓ Outer validation passed");
+            println("Note: Nested Result match not yet fully supported");
+            println("Inner result retrieved successfully");
+            return 10;
+        }
+        Err(msg) => {
+            println("✗ Outer validation failed: {msg}");
+            return 0;
+        }
+    }
+}
+
+// ============================================
+// Pattern 7: Variant Checking
+// ============================================
+
+async Future<int> pattern7_variant_checking() {
+    println("\n=== Pattern 7: Variant Checking ===");
+    
+    Future<Result<int, string>> f1 = divide_async(20, 4);
+    Result<int, string> r1 = await f1;
+    
+    println("Result 1 variant: {r1.variant}");
+    
+    if (r1.variant == "Ok") {
+        println("✓ Result is Ok (checked via variant)");
+    }
+    
+    Future<Result<int, string>> f2 = divide_async(20, 0);
+    Result<int, string> r2 = await f2;
+    
+    println("Result 2 variant: {r2.variant}");
+    
+    if (r2.variant == "Err") {
+        println("✓ Result is Err (checked via variant)");
+    }
+    
+    return 0;
+}
+
+// ============================================
+// Main Function
+// ============================================
+
+void main() {
+    println("╔════════════════════════════════════════════════════════╗");
+    println("║  Async Error Handling Patterns with Result<T, E>      ║");
+    println("║  Cb Language v0.13.0                                   ║");
+    println("╚════════════════════════════════════════════════════════╝");
+    
+    // Run all patterns
+    Future<int> p1 = pattern1_basic_error_handling();
+    await p1;
+    
+    Future<Result<int, string>> p2 = pattern2_error_propagation(20, 2, 5);
+    Result<int, string> r2 = await p2;
+    match (r2) {
+        Ok(value) => { println("Final result: {value}"); }
+        Err(msg) => { println("Final error: {msg}"); }
+    }
+    
+    Future<int> p3 = pattern3_multiple_operations();
+    await p3;
+    
+    Future<string> p4 = pattern4_fallback_handling();
+    await p4;
+    
+    Future<int> p5 = pattern5_collect_errors();
+    await p5;
+    
+    Future<int> p6 = pattern6_nested_result();
+    await p6;
+    
+    Future<int> p7 = pattern7_variant_checking();
+    await p7;
+    
+    println("\n╔════════════════════════════════════════════════════════╗");
+    println("║  All patterns completed successfully!                  ║");
+    println("╚════════════════════════════════════════════════════════╝");
+}

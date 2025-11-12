@@ -3108,7 +3108,8 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             "concurrent_await", // v0.12.0 Phase 8: concurrent execution
             "sleep",            // v0.12.0: Sleep function (milliseconds)
             "sleep_ms",         // v0.12.0: Sleep function alias (milliseconds)
-            "now"};             // v0.12.0: Get current time in milliseconds
+            "now",              // v0.12.0: Get current time in milliseconds
+            "timeout"}; // v0.12.1: Timeout function for async operations
 
         bool is_builtin = false;
         for (const auto &builtin_name : builtin_function_names) {
@@ -3325,6 +3326,117 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 #endif
         }
 
+        // timeout(future, milliseconds) - タイムアウト機能 (v0.12.1)
+        // 指定時間内にFutureが完了しなければResult::Errを返す
+        if (node->name == "timeout") {
+            if (node->arguments.size() != 2) {
+                throw std::runtime_error("timeout() requires exactly 2 "
+                                         "arguments (future, timeout_ms)");
+            }
+
+            // 第1引数: Future<T>を評価（実際にはawait対象のFuture）
+            ASTNode *future_arg = node->arguments[0].get();
+            TypedValue future_typed = interpreter_.evaluate_typed(future_arg);
+
+            if (!future_typed.is_struct_result || !future_typed.struct_data ||
+                future_typed.struct_data->struct_type_name.find("Future") ==
+                    std::string::npos) {
+                throw std::runtime_error(
+                    "timeout() first argument must be a Future");
+            }
+
+            // 第2引数: タイムアウト時間（ミリ秒）
+            ASTNode *timeout_arg = node->arguments[1].get();
+            int64_t timeout_ms_val = interpreter_.evaluate(timeout_arg);
+            int timeout_ms = static_cast<int>(timeout_ms_val);
+
+            if (timeout_ms < 0) {
+                throw std::runtime_error(
+                    "timeout() timeout value must be non-negative");
+            }
+
+            // Futureからtask_idを取得
+            auto task_id_it =
+                future_typed.struct_data->struct_members.find("task_id");
+            if (task_id_it == future_typed.struct_data->struct_members.end()) {
+                throw std::runtime_error(
+                    "timeout() future does not have task_id");
+            }
+            int task_id = static_cast<int>(task_id_it->second.value);
+
+            // 現在時刻を取得
+#ifdef _WIN32
+            FILETIME ft;
+            GetSystemTimeAsFileTime(&ft);
+            ULARGE_INTEGER uli;
+            uli.LowPart = ft.dwLowDateTime;
+            uli.HighPart = ft.dwHighDateTime;
+            int64_t current_time_ms = (uli.QuadPart / 10000) - 11644473600000LL;
+#else
+            struct timeval tv;
+            gettimeofday(&tv, nullptr);
+            int64_t current_time_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                                      static_cast<int64_t>(tv.tv_usec) / 1000;
+#endif
+
+            int64_t timeout_time_ms = current_time_ms + timeout_ms;
+
+            // 元のFutureにタイムアウト情報を追加
+            Variable timeout_field;
+            timeout_field.type = TYPE_INT;
+            timeout_field.value = timeout_time_ms;
+            timeout_field.is_assigned = true;
+            future_typed.struct_data->struct_members["timeout_ms"] =
+                timeout_field;
+
+            // タスクにタイムアウト情報を設定
+            AsyncTask *task =
+                interpreter_.get_simple_event_loop().get_task(task_id);
+            if (task) {
+                task->timeout_ms = timeout_time_ms;
+                task->has_timeout = true;
+            }
+
+            // Result<T, string>を返すFutureを作成
+            // 元のFutureの型情報を保持しつつ、Result型でラップ
+            Variable result_future;
+            result_future.is_struct = true;
+            result_future.struct_type_name = "Future";
+            result_future.type = TYPE_STRUCT;
+
+            // Result Future用のtask_idは同じものを使用
+            Variable result_task_id_field;
+            result_task_id_field.type = TYPE_INT;
+            result_task_id_field.value = task_id;
+            result_task_id_field.is_assigned = true;
+            result_future.struct_members["task_id"] = result_task_id_field;
+
+            // is_ready = false (まだ完了していない)
+            Variable is_ready_field;
+            is_ready_field.type = TYPE_INT;
+            is_ready_field.value = 0;
+            is_ready_field.is_assigned = true;
+            result_future.struct_members["is_ready"] = is_ready_field;
+
+            // value フィールド（初期値はダミー）
+            Variable value_field;
+            value_field.type = TYPE_INT;
+            value_field.value = 0;
+            value_field.is_assigned = true;
+            result_future.struct_members["value"] = value_field;
+
+            // timeout_msフィールドを追加
+            result_future.struct_members["timeout_ms"] = timeout_field;
+
+            // タイムアウト付きFutureを返す
+            ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
+            ret.is_struct = true;
+            ret.struct_value = result_future;
+            ret.struct_value.type = TYPE_STRUCT;
+            ret.struct_value.is_struct = true;
+            throw ret;
+        }
+
         // sleep(milliseconds) - スリープ関数 (v0.12.0)
         // awaitをサポートするため、Futureを返す
         // v0.13.0: イベントループベースの非ブロッキング実装
@@ -3428,6 +3540,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         }
 
         // sleep_ms(milliseconds) - sleepのエイリアス（v0.12.0 互換性）
+        // v0.13.0: 非ブロッキング実装（sleep()と同じ）
         if (node->name == "sleep_ms") {
             if (node->arguments.size() != 1) {
                 throw std::runtime_error(
@@ -3444,17 +3557,87 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                     "sleep_ms() argument must be non-negative");
             }
 
-// プラットフォーム依存のスリープ実装
-#ifdef _WIN32
-            Sleep(milliseconds); // Windows: Sleep()はミリ秒単位
-#else
-            usleep(milliseconds * 1000); // POSIX: usleep()はマイクロ秒単位
-#endif
+            // v0.13.0: 非ブロッキングsleep実装（sleep()と同じロジック）
+            // ダミーのasync関数を作成してイベントループに登録
+            AsyncTask sleep_task;
+            sleep_task.function_name = "sleep_ms";
+            sleep_task.function_node = nullptr; // sleepは特殊なタスク
+            sleep_task.is_started = true;
+            sleep_task.is_executed = false;
+            sleep_task.current_statement_index = 0;
 
-            // sleep_ms()は値を返さない（0を返す）
-            // Note: awaitで使う場合、async関数内で呼ばれるため、
-            // async関数の仕組みでFutureにラップされる
-            return 0;
+            // すぐにsleep状態にする
+            sleep_task.is_sleeping = true;
+
+            // 起床時刻を設定
+#ifdef _WIN32
+            FILETIME ft;
+            GetSystemTimeAsFileTime(&ft);
+            ULARGE_INTEGER uli;
+            uli.LowPart = ft.dwLowDateTime;
+            uli.HighPart = ft.dwHighDateTime;
+            int64_t current_time_ms = (uli.QuadPart / 10000) - 11644473600000LL;
+#else
+            struct timeval tv;
+            gettimeofday(&tv, nullptr);
+            int64_t current_time_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                                      static_cast<int64_t>(tv.tv_usec) / 1000;
+#endif
+            sleep_task.wake_up_time_ms = current_time_ms + milliseconds;
+
+            // awaitをサポートするため、Future構造体を作成
+            Variable future_var;
+            future_var.is_struct = true;
+            future_var.struct_type_name = "Future";
+            future_var.type = TYPE_STRUCT;
+
+            // Future.is_ready = false (sleep中)
+            Variable is_ready_field;
+            is_ready_field.type = TYPE_INT;
+            is_ready_field.value = 0; // false
+            is_ready_field.is_assigned = true;
+            future_var.struct_members["is_ready"] = is_ready_field;
+
+            // Future.value = 0 (sleep_ms()は値を返さない)
+            Variable value_field;
+            value_field.type = TYPE_INT;
+            value_field.value = 0;
+            value_field.is_assigned = true;
+            future_var.struct_members["value"] = value_field;
+
+            // internal_futureに設定（deep copy）
+            sleep_task.internal_future.is_struct = true;
+            sleep_task.internal_future.struct_type_name =
+                future_var.struct_type_name;
+            sleep_task.internal_future.type = TYPE_STRUCT;
+            for (const auto &[key, val] : future_var.struct_members) {
+                sleep_task.internal_future.struct_members[key] = val;
+            }
+            sleep_task.use_internal_future = true;
+
+            // タスクをイベントループに登録
+            int task_id =
+                interpreter_.get_simple_event_loop().register_task(sleep_task);
+
+            debug_msg(DebugMsgId::SLEEP_TASK_REGISTER, task_id, milliseconds,
+                      sleep_task.wake_up_time_ms);
+
+            // task_idフィールドを設定
+            Variable task_id_field;
+            task_id_field.type = TYPE_INT;
+            task_id_field.value = task_id;
+            task_id_field.is_assigned = true;
+            future_var.struct_members["task_id"] = task_id_field;
+
+            debug_msg(DebugMsgId::SLEEP_RETURN_FUTURE, task_id);
+
+            // ReturnExceptionでFutureを返す
+            ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
+            ret.is_struct = true;
+            ret.struct_value = future_var;
+            ret.struct_value.type = TYPE_STRUCT;
+            ret.struct_value.is_struct = true;
+            throw ret;
         }
 
         // その他の組み込み関数は後続の処理で対応
@@ -3898,6 +4081,36 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         // フラグが立っていない場合、戻り値型をチェック
         if (!is_async && !func->return_type_name.empty()) {
             is_async = (func->return_type_name.find("Future") == 0);
+        }
+    }
+
+    // v0.13.0 Phase 2.0: interfaceメソッドのasyncチェック
+    // レシーバーがinterface型の場合、interface定義からis_asyncフラグを取得
+    if (!is_async && is_method_call && !receiver_name.empty()) {
+        Variable *receiver_var = nullptr;
+        if (used_resolution_ptr && dereferenced_struct_ptr) {
+            receiver_var = dereferenced_struct_ptr;
+        } else {
+            receiver_var = interpreter_.find_variable(receiver_name);
+        }
+
+        if (receiver_var && receiver_var->type == TYPE_INTERFACE) {
+            const InterfaceDefinition *interface_def =
+                interpreter_.find_interface_definition(
+                    receiver_var->interface_name);
+            if (interface_def) {
+                const InterfaceMember *method =
+                    interface_def->find_method(node->name);
+                if (method && method->is_async) {
+                    is_async = true;
+                    if (debug_mode) {
+                        std::cerr << "[ASYNC_INTERFACE] Method '" << node->name
+                                  << "' in interface '"
+                                  << receiver_var->interface_name
+                                  << "' is marked as async" << std::endl;
+                    }
+                }
+            }
         }
     }
 
@@ -5028,6 +5241,10 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         }
                     }
                 }
+            } else if (receiver_var && receiver_var->type == TYPE_INTERFACE) {
+                // v0.13.0 Phase 2.0: interfaceメソッド呼び出しの型コンテキスト
+                // interface型のレシーバーの場合、実装構造体の型を使用
+                receiver_type_name = receiver_var->struct_type_name;
             }
         }
 
@@ -5041,104 +5258,128 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         // async関数は常にFutureを返す（await可能にするため）
         // バックグラウンドで実行され、mainが終了したら途中でも終了する
         if (is_async) {
-            // Futureを先に作成（is_ready = false, task_idを後で設定）
-            Variable future_var;
-            future_var.is_struct = true;
-            future_var.struct_type_name = "Future";
-            future_var.type = TYPE_STRUCT;
+            // v0.12.1: asyncキーワードがない関数がFutureを返す場合、
+            // 通常の同期関数として実行し、返されたFutureをそのまま使う
+            if (!func->is_async_function) {
+                // 通常の関数として実行
+                // 次の通常の関数実行パスに進む
+                is_async = false;
+            } else {
+                // 真のasync関数：EventLoopで非同期実行
+                // Futureを先に作成（is_ready = false, task_idを後で設定）
+                Variable future_var;
+                future_var.is_struct = true;
+                future_var.struct_type_name = "Future";
+                future_var.type = TYPE_STRUCT;
 
-            // Future.is_ready = false (まだ未完了)
-            Variable is_ready_field;
-            is_ready_field.type = TYPE_INT;
-            is_ready_field.value = 0; // false
-            is_ready_field.is_assigned = true;
-            future_var.struct_members["is_ready"] = is_ready_field;
+                // Future.is_ready = false (まだ未完了)
+                Variable is_ready_field;
+                is_ready_field.type = TYPE_INT;
+                is_ready_field.value = 0; // false
+                is_ready_field.is_assigned = true;
+                future_var.struct_members["is_ready"] = is_ready_field;
 
-            // Future.value の初期値（型はasync関数の戻り値型に依存）
-            // ※
-            // 実際の値はsimple_event_loop.cppのReturnException処理で設定される
-            Variable value_field;
-            value_field.type = TYPE_UNKNOWN; // 初期状態では不明
-            value_field.value = 0;
-            value_field.is_assigned = true;
-            future_var.struct_members["value"] = value_field;
+                // Future.value の初期値（型はasync関数の戻り値型に依存）
+                // ※
+                // 実際の値はsimple_event_loop.cppのReturnException処理で設定される
+                Variable value_field;
+                value_field.type = TYPE_UNKNOWN; // 初期状態では不明
+                value_field.value = 0;
+                value_field.is_assigned = true;
+                future_var.struct_members["value"] = value_field;
 
-            // AsyncTaskを作成
-            AsyncTask task;
-            task.function_name = func->name;
-            task.function_node = func;
+                // AsyncTaskを作成
+                AsyncTask task;
+                task.function_name = func->name;
+                task.function_node = func;
 
-            // 引数をコピー（現在のスコープから取得）
-            Scope &current = interpreter_.current_scope();
-            for (const auto &param : func->parameters) {
-                if (current.variables.find(param->name) !=
-                    current.variables.end()) {
-                    task.args.push_back(current.variables[param->name]);
+                // 引数をコピー（現在のスコープから取得）
+                Scope &current = interpreter_.current_scope();
+                for (const auto &param : func->parameters) {
+                    if (current.variables.find(param->name) !=
+                        current.variables.end()) {
+                        task.args.push_back(current.variables[param->name]);
+                    }
                 }
+
+                // v0.13.0 Phase 2.0: メソッド呼び出しの場合、selfもコピー
+                if (is_method_call &&
+                    current.variables.find("self") != current.variables.end()) {
+                    task.has_self = true;
+                    task.self_value = current.variables["self"];
+                    if (debug_mode) {
+                        std::cerr << "[ASYNC_SELF] Copied self to async task: "
+                                  << "type=" << task.self_value.type
+                                  << ", struct_type="
+                                  << task.self_value.struct_type_name
+                                  << std::endl;
+                    }
+                }
+
+                // internal_futureに設定（タスク内部でFutureを管理）
+                // 重要: deep copyして、変数とタスクのFutureを独立させる
+                task.internal_future.is_struct = true;
+                task.internal_future.struct_type_name =
+                    future_var.struct_type_name;
+                task.internal_future.type = TYPE_STRUCT;
+                // struct_membersも個別にコピー
+                for (const auto &[key, val] : future_var.struct_members) {
+                    task.internal_future.struct_members[key] = val;
+                }
+                task.use_internal_future = true;
+
+                debug_msg(DebugMsgId::ASYNC_INTERNAL_FUTURE_MEMBERS,
+                          static_cast<int>(
+                              task.internal_future.struct_members.size()));
+
+                // SimpleEventLoopに登録
+                int task_id =
+                    interpreter_.get_simple_event_loop().register_task(task);
+
+                // Future.task_id を設定（future_var と internal_future の両方）
+                Variable task_id_field;
+                task_id_field.type = TYPE_INT;
+                task_id_field.value = task_id;
+                task_id_field.is_assigned = true;
+                future_var.struct_members["task_id"] = task_id_field;
+
+                // 重要: internal_future にも task_id を設定
+                // （Task が作成された後なので、正しい task_id が設定される）
+                AsyncTask *registered_task =
+                    interpreter_.get_simple_event_loop().get_task(task_id);
+                if (registered_task) {
+                    registered_task->internal_future.struct_members["task_id"] =
+                        task_id_field;
+                }
+
+                debug_msg(DebugMsgId::ASYNC_TASK_ID_SET, task_id, task_id);
+
+                // v0.11.0: 型コンテキストをクリア
+                if (type_context_pushed) {
+                    interpreter_.pop_type_context();
+                }
+
+                // implコンテキストをクリア
+                if (impl_context_active) {
+                    interpreter_.exit_impl_context();
+                    impl_context_active = false;
+                }
+
+                // スコープのpopはcatchブロックで行うため、ここでは行わない
+
+                // ReturnExceptionでFutureを返す
+                ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
+                ret.is_struct = true;
+                ret.struct_value = future_var;
+                ret.struct_value.type = TYPE_STRUCT;
+                ret.struct_value.is_struct = true;
+
+                debug_msg(DebugMsgId::ASYNC_TASK_RETURN_FUTURE,
+                          future_var.struct_type_name.c_str(),
+                          static_cast<int>(future_var.struct_members.size()));
+
+                throw ret;
             }
-
-            // internal_futureに設定（タスク内部でFutureを管理）
-            // 重要: deep copyして、変数とタスクのFutureを独立させる
-            task.internal_future.is_struct = true;
-            task.internal_future.struct_type_name = future_var.struct_type_name;
-            task.internal_future.type = TYPE_STRUCT;
-            // struct_membersも個別にコピー
-            for (const auto &[key, val] : future_var.struct_members) {
-                task.internal_future.struct_members[key] = val;
-            }
-            task.use_internal_future = true;
-
-            debug_msg(
-                DebugMsgId::ASYNC_INTERNAL_FUTURE_MEMBERS,
-                static_cast<int>(task.internal_future.struct_members.size()));
-
-            // SimpleEventLoopに登録
-            int task_id =
-                interpreter_.get_simple_event_loop().register_task(task);
-
-            // Future.task_id を設定（future_var と internal_future の両方）
-            Variable task_id_field;
-            task_id_field.type = TYPE_INT;
-            task_id_field.value = task_id;
-            task_id_field.is_assigned = true;
-            future_var.struct_members["task_id"] = task_id_field;
-
-            // 重要: internal_future にも task_id を設定
-            // （Task が作成された後なので、正しい task_id が設定される）
-            AsyncTask *registered_task =
-                interpreter_.get_simple_event_loop().get_task(task_id);
-            if (registered_task) {
-                registered_task->internal_future.struct_members["task_id"] =
-                    task_id_field;
-            }
-
-            debug_msg(DebugMsgId::ASYNC_TASK_ID_SET, task_id, task_id);
-
-            // v0.11.0: 型コンテキストをクリア
-            if (type_context_pushed) {
-                interpreter_.pop_type_context();
-            }
-
-            // implコンテキストをクリア
-            if (impl_context_active) {
-                interpreter_.exit_impl_context();
-                impl_context_active = false;
-            }
-
-            // スコープのpopはcatchブロックで行うため、ここでは行わない
-
-            // ReturnExceptionでFutureを返す
-            ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
-            ret.is_struct = true;
-            ret.struct_value = future_var;
-            ret.struct_value.type = TYPE_STRUCT;
-            ret.struct_value.is_struct = true;
-
-            debug_msg(DebugMsgId::ASYNC_TASK_RETURN_FUTURE,
-                      future_var.struct_type_name.c_str(),
-                      static_cast<int>(future_var.struct_members.size()));
-
-            throw ret;
         }
 
         // 元のPhase 2.0実装（遅延実行、現在は使用しない）

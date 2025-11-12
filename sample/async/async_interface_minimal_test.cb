@@ -1,0 +1,31 @@
+// 最もシンプルなasync interfaceテスト
+
+interface Simple {
+    async int test();
+}
+
+struct MyStruct {
+    int value;
+};
+
+impl Simple for MyStruct {
+    async int test() {
+        println("test() called");
+        return 42;
+    }
+}
+
+void main() {
+    println("Start");
+    
+    MyStruct s;
+    s.value = 10;
+    
+    println("Before call");
+    Future<int> f = s.test();
+    println("After call, before await");
+    int result = await f;
+    println("After await");
+    
+    println("Result: {result}");
+}

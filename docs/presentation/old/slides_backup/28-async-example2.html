@@ -1,0 +1,37 @@
+<section class="left-align">
+  <h2>async/await 実例 2: 同時実行</h2>
+
+  <p class="small-text">awaitしないことで複数のタスクを同時に実行</p>
+
+  <pre><code class="language-cb"><span class="hljs-keyword">import</span> stdlib.std.time;
+
+<span class="hljs-keyword">async</span> <span class="hljs-type">void</span> task(<span class="hljs-type">int</span> id, <span class="hljs-type">int</span> duration) {
+    println(<span class="hljs-string">"Task "</span> + string(id) + <span class="hljs-string">" start"</span>);
+    <span class="hljs-keyword">await</span> sleep(duration);
+    println(<span class="hljs-string">"Task "</span> + string(id) + <span class="hljs-string">" end"</span>);
+}
+
+<span class="hljs-type">void</span> main() {
+    <span class="hljs-comment">// awaitしないので、すべて同時に実行される</span>
+    task(<span class="hljs-number">1</span>, <span class="hljs-number">1000</span>);
+    task(<span class="hljs-number">2</span>, <span class="hljs-number">500</span>);
+    task(<span class="hljs-number">3</span>, <span class="hljs-number">1500</span>);
+    
+    <span class="hljs-comment">// メインスレッドも待機</span>
+    <span class="hljs-keyword">await</span> sleep(<span class="hljs-number">2000</span>);
+    println(<span class="hljs-string">"All tasks completed"</span>);
+}
+</code></pre>
+
+  <div style="font-size: 0.7em; margin-top: 0.5em">
+    <strong>出力:</strong>
+    <pre style="background-color: #f5f5f5; color: #2c3e50; padding: 0.8em"><code>Task 1 start
+Task 2 start
+Task 3 start
+Task 2 end        (500ms後)
+Task 1 end        (1000ms後)
+Task 3 end        (1500ms後)
+All tasks completed (2000ms後)
+</code></pre>
+  </div>
+</section>

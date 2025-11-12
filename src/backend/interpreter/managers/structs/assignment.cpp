@@ -131,6 +131,27 @@ void StructAssignmentManager::assign_struct_member(
     }
     member_var->is_assigned = true;
 
+    // v0.12.1: enum関連フィールドのコピー
+    // structメンバーに代入する際、enum情報が失われないようにする
+    if (value_var.is_enum || !value_var.enum_type_name.empty()) {
+        member_var->is_enum = value_var.is_enum;
+        member_var->enum_type_name = value_var.enum_type_name;
+        member_var->enum_variant = value_var.enum_variant;
+        member_var->has_associated_value = value_var.has_associated_value;
+        member_var->associated_int_value = value_var.associated_int_value;
+        member_var->associated_str_value = value_var.associated_str_value;
+
+        if (interpreter_->debug_mode) {
+            char dbg_buf[512];
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "[STRUCT_ASSIGN] Copied enum info: is_enum=%d, "
+                     "enum_type=%s, variant=%s",
+                     member_var->is_enum, member_var->enum_type_name.c_str(),
+                     member_var->enum_variant.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+    }
+
     // ダイレクトアクセス変数も更新
     std::string direct_var_name = var_name + "." + member_name;
     Variable *direct_var = interpreter_->find_variable(direct_var_name);
@@ -198,6 +219,27 @@ void StructAssignmentManager::assign_struct_member(
             // unsignedフラグはメンバ定義から引き継がれるため、ここでは設定しない
         }
         direct_var->is_assigned = true;
+
+        // v0.12.1: enum関連フィールドのコピー (direct_var側)
+        if (value_var.is_enum || !value_var.enum_type_name.empty()) {
+            direct_var->is_enum = value_var.is_enum;
+            direct_var->enum_type_name = value_var.enum_type_name;
+            direct_var->enum_variant = value_var.enum_variant;
+            direct_var->has_associated_value = value_var.has_associated_value;
+            direct_var->associated_int_value = value_var.associated_int_value;
+            direct_var->associated_str_value = value_var.associated_str_value;
+
+            if (interpreter_->debug_mode) {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[STRUCT_ASSIGN_DIRECT] Copied enum info: is_enum=%d, "
+                         "enum_type=%s, variant=%s",
+                         direct_var->is_enum,
+                         direct_var->enum_type_name.c_str(),
+                         direct_var->enum_variant.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+        }
 
         if (interpreter_->debug_mode) {
             {

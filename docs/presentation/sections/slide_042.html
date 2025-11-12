@@ -1,0 +1,74 @@
+<section class="left-align">
+  <h2>Interface/Implの実装方法</h2>
+  <div style="display: flex; gap: 0.5em; width: 88%; margin: 0.25em auto 0">
+    <div style="flex: 1">
+      <h3 style="font-size: 0.72em; margin-bottom: 0.25em">実装の概要</h3>
+      <ul style="font-size: 0.62em; line-height: 1.2; margin: 0 0 0.4em 0; padding-left: 1.3em">
+        <li>
+          <strong>Interface</strong>
+          : 抽象メソッド定義を保持
+        </li>
+        <li>
+          <strong>Impl</strong>
+          : 具体的な実装を登録
+        </li>
+        <li>
+          <strong>動的ディスパッチ</strong>
+          : 実行時に適切なメソッドを呼び出し
+        </li>
+        <li>
+          <strong>型安全性</strong>
+          : コンパイル時に型チェック
+        </li>
+      </ul>
+      <h3 style="font-size: 0.72em; margin-bottom: 0.25em">データ構造（C++）</h3>
+      <pre
+        style="font-size: 0.46em; margin: 0.3em 0; max-height: 230px; overflow-y: auto"
+      ><code class="language-cpp" data-trim>
+// Interface定義を保持
+struct InterfaceDefinition {
+    std::string name;
+    std::vector&lt;Method&gt; methods;
+};
+
+// Impl実装を登録
+struct ImplRegistration {
+    std::string interface_name;
+    std::string type_name;
+    std::map&lt;std::string, ASTNode*&gt; method_impls;
+};
+</code></pre>
+    </div>
+    <div style="flex: 1">
+      <h3 style="font-size: 0.72em; margin-bottom: 0.25em">実行時の動的ディスパッチ</h3>
+      <pre
+        style="font-size: 0.48em; margin: 0.3em 0; max-height: 280px; overflow-y: auto"
+      ><code class="language-cpp" data-trim>
+// メソッド呼び出し時の処理
+TypedValue call_interface_method(
+    TypedValue& obj, std::string method_name,
+    std::vector&lt;TypedValue&gt;& args) {
+    
+    // 1. オブジェクトの型を取得
+    std::string type_name = obj.get_type_name();
+    
+    // 2. Interface→Impl のマッピングを検索
+    ImplRegistration* impl = find_impl(interface_name, type_name);
+    
+    // 3. 該当メソッドの実装ASTを取得
+    ASTNode* method_ast = impl->method_impls[method_name];
+    
+    // 4. スコープを作成してメソッドを実行
+    Scope method_scope;
+    method_scope.set_variable("self", obj);
+    
+    return evaluate(method_ast, method_scope);
+}
+</code></pre>
+      <p style="font-size: 0.6em; margin-top: 0.25em">
+        <strong class="highlight">ポイント</strong>
+        : Goのような暗黙的実装ではなく、<code>impl</code>で明示的に登録
+      </p>
+    </div>
+  </div>
+</section>

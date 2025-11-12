@@ -1,0 +1,43 @@
+<section class="left-align">
+  <h2>バイブコーディングのベストプラクティス</h2>
+  <div style="display: flex; gap: 1em; width: 95%; margin: 0.3em auto 0">
+    <div style="flex: 1">
+      <h3 class="success" style="font-size: 0.75em; margin-bottom: 0.25em">✅ テストファーストの重要性</h3>
+      <ul style="font-size: 0.63em; line-height: 1.3; margin: 0 0 0.6em 0; padding-left: 1.3em">
+        <li><strong>あらかじめテストを書く</strong></li>
+        <li>仕様が明確になる</li>
+        <li>リファクタリングが安全に</li>
+        <li><strong>仕様変更に気づきやすい</strong></li>
+        <li>テストが壊れる → 修正が必要</li>
+        <li>回帰バグを防げる</li>
+      </ul>
+      <div style="background-color: #e8f5e9; padding: 0.5em; border-radius: 4px; border-left: 3px solid #4caf50">
+        <p style="font-size: 0.6em; margin: 0">
+          <strong>実例</strong>
+          : 3,463個のテストが常に動作を保証
+          <br />
+          新機能追加時も既存機能が壊れていないことを即座に確認
+        </p>
+      </div>
+    </div>
+    <div style="flex: 1">
+      <h3 class="ai-color" style="font-size: 0.75em; margin-bottom: 0.25em">📝 ドキュメント駆動開発</h3>
+      <ul style="font-size: 0.63em; line-height: 1.3; margin: 0 0 0.6em 0; padding-left: 1.3em">
+        <li><strong>設計書をdocsに記載</strong></li>
+        <li>AIへのプロンプトが楽に</li>
+        <li>仕様を参照しながらコード生成</li>
+        <li><strong>コンテキストの共有</strong></li>
+        <li>「docs/spec.mdを参照して実装」</li>
+        <li>長期開発でも一貫性を保てる</li>
+      </ul>
+      <div style="background-color: #f3e5f5; padding: 0.5em; border-radius: 4px; border-left: 3px solid #9c27b0">
+        <p style="font-size: 0.6em; margin: 0">
+          <strong>実例</strong>
+          : docs/に仕様書、BNF、アーキテクチャを整理
+          <br />
+          AIに「docsを参照」と伝えるだけで高品質コード生成
+        </p>
+      </div>
+    </div>
+  </div>
+</section>

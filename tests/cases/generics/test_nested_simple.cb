@@ -1,0 +1,20 @@
+// Simple nested generic test
+void main() {
+    println("=== Test: Option<Result<int, string> > ===");
+    
+    Result<int, string> ok_val = Result<int, string>::Ok(42);
+    Option<Result<int, string> > some_ok = Option<Result<int, string> >::Some(ok_val);
+    
+    match (some_ok) {
+        Some(res) => {
+            println("Got Some, value exists");
+            // resはResult<int, string>型のはず
+        }
+        None => {
+            println("ERROR: Expected Some");
+            assert(false);
+        }
+    }
+    
+    println("✅ Nested generic test passed");
+}

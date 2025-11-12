@@ -1433,7 +1433,13 @@ int64_t evaluate_enum_construct(const ASTNode *node, Interpreter &interpreter) {
 
     // 関連値を評価して返す
     // Option<int>::Some(42) の場合、42 を返す
-    int64_t arg_value = interpreter.eval_expression(node->arguments[0].get());
+
+    // v0.13.0: TODO - 型チェックを追加
+    // Result<int, string>::Ok("NG") のようなケースを検出する必要がある
+    // 現在の実装ではジェネリック型のインスタンス化情報が適切に保持されていないため、
+    // 型チェックが機能しない。将来の改善で対応する。
+    ASTNode *arg_node = node->arguments[0].get();
+    int64_t arg_value = interpreter.eval_expression(arg_node);
 
     // デバッグ出力
     debug_msg(DebugMsgId::EXPR_EVAL_NUMBER, arg_value);

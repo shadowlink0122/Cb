@@ -11,7 +11,7 @@ async int countdown_task(string name, int seconds) {
     int count = seconds;
     while (count > 0) {
         println("  [{name}] {count}...");
-        sleep_ms(1000);
+        await sleep(1000);  // 非ブロッキングsleep
         count = count - 1;
     }
     
@@ -20,29 +20,62 @@ async int countdown_task(string name, int seconds) {
 }
 
 void demo_countdown() {
-    println("\n=== デモ1: カウントダウン ===");
+    println("\n=== デモ1a: カウントダウン（並行実行） ===");
     println("3つのロケットが同時にカウントダウンします\n");
+    println("💡 パターン: Futureを先に作成してから結果を待つ");
+    println("   → 全タスクが並行実行され、最も遅いタスクの時間で完了\n");
     
-    println("[REGISTER] ロケットAをタスクキューに登録");
+    long start = now();
+    
+    // 全タスクを先に登録（この間にprintlnを挟まない）
     Future<int> rocket1 = countdown_task("ロケットA", 5);
-    
-    println("[REGISTER] ロケットBをタスクキューに登録");
     Future<int> rocket2 = countdown_task("ロケットB", 3);
-    
-    println("[REGISTER] ロケットCをタスクキューに登録");
     Future<int> rocket3 = countdown_task("ロケットC", 4);
     
-    println("\n[AWAIT] 全タスクの完了を待機中...\n");
+    println("[REGISTERED] 全タスクを登録完了（並行実行開始）\n");
     
-    int r1 = await rocket1;
-    int r2 = await rocket2;
-    int r3 = await rocket3;
+    int r1 = await rocket1;  // 最も遅いタスクなので約5秒待つ
+    int r2 = await rocket2;  // 既に完了しているので即座に返る
+    int r3 = await rocket3;  // 既に完了しているので即座に返る
+    
+    long end = now();
     
     println("\n--- 結果 ---");
     println("ロケットA: {r1}秒");
     println("ロケットB: {r2}秒");
     println("ロケットC: {r3}秒");
+
+    println("実際の実行時間: {end - start}ms（約5000ms = 最も遅いタスクの時間）");
+}
+
+void demo_countdown_sequential() {
+    println("\n=== デモ1b: カウントダウン（順次実行） ===");
+    println("3つのロケットを順番にカウントダウンします\n");
+    println("💡 パターン: 直接awaitで呼び出す");
+    println("   → 各タスクが順番に実行され、全タスクの合計時間がかかる\n");
+    
+    long start = now();
+    
+    println("[AWAIT] ロケットAを実行して完了を待つ");
+    int r1 = await countdown_task("ロケットA", 5);  // 5秒待つ
+    println("ロケットA完了: {r1}秒\n");
+    
+    println("[AWAIT] ロケットBを実行して完了を待つ");
+    int r2 = await countdown_task("ロケットB", 3);  // 3秒待つ
+    println("ロケットB完了: {r2}秒\n");
+    
+    println("[AWAIT] ロケットCを実行して完了を待つ");
+    int r3 = await countdown_task("ロケットC", 4);  // 4秒待つ
+    println("ロケットC完了: {r3}秒\n");
+    
+    long end = now();
+    
+    println("--- 結果 ---");
+    println("ロケットA: {r1}秒");
+    println("ロケットB: {r2}秒");
+    println("ロケットC: {r3}秒");
     println("合計: {r1 + r2 + r3}秒");
+    println("実際の実行時間: {end - start}ms（約12000ms = 全タスクの合計時間）");
 }
 
 // ========================================
@@ -55,7 +88,7 @@ async int progress_task(string name, int steps) {
     while (current <= steps) {
         int percent = (current * 100) / steps;
         println("  [{name}] ステップ {current}/{steps} ({percent}%)");
-        sleep_ms(400);
+        await sleep(400);  // 非ブロッキングsleep
         current = current + 1;
     }
     
@@ -67,16 +100,12 @@ void demo_progress() {
     println("\n=== デモ2: 段階的な進行状況 ===");
     println("3つのタスクが並行して進みます\n");
     
-    println("[REGISTER] タスクAを登録");
+    // 全タスクを先に登録
     Future<int> task1 = progress_task("タスクA", 5);
-    
-    println("[REGISTER] タスクBを登録");
     Future<int> task2 = progress_task("タスクB", 3);
-    
-    println("[REGISTER] タスクCを登録");
     Future<int> task3 = progress_task("タスクC", 4);
     
-    println("\n[AWAIT] 全タスクの完了を待機中...\n");
+    println("[REGISTERED] 全タスクを登録完了\n");
     
     int score1 = await task1;
     int score2 = await task2;
@@ -104,7 +133,7 @@ async string busy_task(string operation, int duration_ms) {
         if (i % 4 == 2) println("  {operation}  -");
         if (i % 4 == 3) println("  {operation}  \\");
         
-        sleep_ms(200);
+        await sleep(200);
         i = i + 1;
     }
     
@@ -150,7 +179,7 @@ async int monitor_service(string service_name, int checks) {
             println("  [{service_name}] チェック#{check_num}: BUSY");
         }
         
-        sleep_ms(500);
+        await sleep(500);
         check_num = check_num + 1;
     }
     
@@ -196,7 +225,7 @@ async int process_batch(string data_type, int items) {
             println("  [{data_type}] {processed}/{items}件処理済み ({percent}%)");
         }
         
-        sleep_ms(150);
+        await sleep(150);
     }
     
     println("[BATCH] {data_type} の処理完了");
@@ -227,7 +256,7 @@ void demo_batch() {
 // ========================================
 // メイン実行
 // ========================================
-int main() {
+void main() {
     println("\n");
     println("========================================");
     println("   非同期処理の視覚的デモ");
@@ -235,9 +264,18 @@ int main() {
     println("\n");
     println("async/awaitが実際に動作する様子を");
     println("リアルタイムで確認できます!");
+    println("\n");
+    println("🔑 重要な概念:");
+    println("  - 並行実行: Futureを先に作成 → 全タスクが同時実行");
+    println("  - 順次実行: 直接awaitで呼び出し → タスクが順番に実行");
     
-    // デモ1: カウントダウン
+    // デモ1a: 並行実行
     demo_countdown();
+    
+    println("\n========================================");
+    
+    // デモ1b: 順次実行
+    demo_countdown_sequential();
     
     println("\n========================================");
     
@@ -264,18 +302,30 @@ int main() {
     println("   全てのデモが完了しました!");
     println("========================================");
     println("\n");
-    println("ポイント:");
-    println("  - [REGISTER]でタスクを登録");
-    println("  - 各タスクが順番に実行される");
-    println("  - awaitで結果を取得");
-    println("  - sleep_ms()で処理時間をシミュレート");
-    println("  - リアルタイムな進行状況を表示");
+    println("========================================");
+    println("   まとめ");
+    println("========================================");
     println("\n");
-    println("注記:");
-    println("  現在の実装では逐次実行ですが、");
-    println("  async/awaitの基本構造を確認できます。");
-    println("  将来のバージョンでは並行実行に対応予定。");
+    println("📚 学んだこと:");
     println("\n");
-    
-    return 0;
+    println("1️⃣  並行実行パターン（Concurrent）:");
+    println("   Future<T> f = async_function();  // タスク登録");
+    println("   T result = await f;               // 結果待ち");
+    println("   → 複数のタスクが同時に実行される");
+    println("   → 実行時間 = 最も遅いタスクの時間");
+    println("\n");
+    println("2️⃣  順次実行パターン（Sequential）:");
+    println("   T result = await async_function();  // 即座に実行");
+    println("   → タスクが順番に実行される");
+    println("   → 実行時間 = 全タスクの合計時間");
+    println("\n");
+    println("3️⃣  使い分け:");
+    println("   - 並行実行: 独立したタスクを効率的に処理");
+    println("   - 順次実行: 前のタスクの結果が必要な場合");
+    println("\n");
+    println("💡 ポイント:");
+    println("  - sleep()は非ブロッキング（他のタスクをブロックしない）");
+    println("  - ラウンドロビンスケジューリングで公平に実行");
+    println("  - awaitのタイミングで実行パターンを制御");
+    println("\n");
 }

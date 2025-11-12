@@ -1,0 +1,1667 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バイブコーディングで作る自作言語Cbインタプリタ！</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reset.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/theme/white.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/monokai.css">
+    <style>
+        /* Cbを必ず小文字のbで表示 */
+        .reveal h1, .reveal h2, .reveal h3, .reveal p, .reveal td, .reveal th, .reveal li {
+            text-transform: none !important;
+        }
+        
+        .reveal h1 { font-size: 1.5em; margin-bottom: 0.3em; line-height: 1.15; margin-top: 0.4em; }
+        .reveal h2 { 
+            font-size: 1.0em; 
+            color: #2c3e50; 
+            margin-bottom: 0.5em; 
+            margin-top: 0; 
+            padding-bottom: 0.3em;
+            border-bottom: 2px solid #3498db;
+        }
+        .reveal h3 { font-size: 0.85em; color: #34495e; margin-bottom: 0.2em; margin-top: 0; }
+        .reveal pre { font-size: 0.48em; margin: 0.4em 0; }
+        .reveal code { font-family: 'Monaco', 'Courier New', monospace; }
+        .reveal { background-color: #ffffff; color: #2c3e50; font-size: 30px; }
+        .reveal .slides { text-align: center; }
+        .reveal section { 
+            width: 92%; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 1em 0; 
+            box-sizing: border-box;
+        }
+        .reveal .left-align { text-align: left; }
+        .reveal .left-align h2 {
+            text-align: center;
+            margin-bottom: 0.6em;
+        }
+        .reveal .highlight { color: #3498db; font-weight: bold; }
+        .reveal .success { color: #27ae60; font-weight: bold; }
+        .reveal .warning { color: #e67e22; font-weight: bold; }
+        .reveal .rust-color { color: #ce422b; font-weight: bold; }
+        .reveal .go-color { color: #00add8; font-weight: bold; }
+        .reveal .python-color { color: #3776ab; font-weight: bold; }
+        .reveal .ts-color { color: #3178c6; font-weight: bold; }
+        .reveal .ai-color { color: #9b59b6; font-weight: bold; }
+        
+        /* カスタムシンタックスハイライト（VSCode風 - Dark Theme） */
+        .reveal pre {
+            background-color: #1e1e1e !important;
+            border: 1px solid #3e3e3e;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .reveal pre code {
+            background-color: #1e1e1e !important;
+            color: #d4d4d4 !important;
+            padding: 1em !important;
+        }
+        .hljs-keyword { color: #c586c0 !important; font-weight: normal !important; }
+        .hljs-type { color: #4ec9b0 !important; font-weight: normal !important; }
+        .hljs-number { color: #b5cea8 !important; }
+        .hljs-string { color: #ce9178 !important; }
+        .hljs-comment { color: #6a9955 !important; font-style: normal !important; }
+        .hljs-built_in { color: #4fc1ff !important; }
+        .hljs-literal { color: #569cd6 !important; }
+        
+        span.hljs-keyword { color: #c586c0 !important; font-weight: normal !important; }
+        span.hljs-type { color: #4ec9b0 !important; }
+        span.hljs-string { color: #ce9178 !important; }
+        span.hljs-number { color: #b5cea8 !important; }
+        span.hljs-comment { color: #6a9955 !important; font-style: normal !important; }
+        span.hljs-built_in { color: #4fc1ff !important; }
+        span.hljs-literal { color: #569cd6 !important; }
+        
+        .reveal .two-column { display: flex; gap: 1.5em; }
+        .reveal .two-column > div { flex: 1; }
+        .reveal .three-column { display: flex; gap: 0.8em; }
+        .reveal .three-column > div { flex: 1; }
+        .reveal .grid-2x2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6em; }
+        .reveal .four-column { display: flex; gap: 0.6em; }
+        .reveal .four-column > div { flex: 1; }
+        .reveal ul { font-size: 0.7em; margin: 0; padding-left: 1.3em; }
+        .reveal li { margin: 0.25em 0; line-height: 1.3; }
+        .small-text { font-size: 0.75em; }
+        .smaller-text { font-size: 0.65em; }
+        .tiny-text { font-size: 0.6em; }
+        
+        .reveal .controls { color: #e74c3c; }
+        .reveal .controls button { color: #e74c3c; }
+        
+        .profile-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2em;
+            margin-top: 1em;
+        }
+        
+        .profile-image {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #3498db;
+        }
+        
+        .profile-info {
+            text-align: left;
+        }
+        
+        .info-box {
+            background: #e8f4f8;
+            padding: 0.5em 1em;
+            border-radius: 4px;
+            margin: 0.3em 0;
+            border-left: 4px solid #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+<section>
+    <h1>バイブコーディングで作る<br>自作言語Cbインタプリタ！</h1>
+    <p style="font-size: 0.8em; margin-top: 1em;">2025/11/21</p>
+</section>
+
+<section>
+    <h2>自己紹介</h2>
+    <div style="display: flex; gap: 2em; align-items: center; justify-content: center;">
+        <img src="profile.jpg" alt="Profile" class="profile-img">
+        <div style="text-align: left; font-size: 0.8em;">
+            <p><strong>shadowlink</strong></p>
+            <p>プログラミング言語開発者</p>
+            <ul style="margin-top: 1em;">
+                <li>個人開発で自作言語Cbを開発中</li>
+                <li>2025年7月から開発開始（約4ヶ月）</li>
+                <li>GitHub Copilot Pro+ / Claude Sonnet 4.5でバイブコーディング</li>
+                <li>最近はCopilot CLIも活用</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>Cbとは？</h2>
+    <div class="info-box">
+        <p><strong>Cb (シーフラット)</strong> は、C/C++、Rust、TypeScript、Goの良いところを取り入れた実用的なプログラミング言語です。</p>
+    </div>
+    
+    <h3>名前の由来</h3>
+    <p style="font-size: 0.75em; line-height: 1.5;">
+        C → C++ → C# と、どんどん+が増えていくので、あえて逆の命名にしてみました。<br>
+        「Cより弱くなってしまった...」というユーモアを込めています。<br>
+        <span class="highlight">b</span>は音楽記号の♭（フラット）を表しています。
+    </p>
+    
+    <h3 style="margin-top: 1em;">主な特徴</h3>
+    <ul>
+        <li><strong>型安全性</strong>: コンパイル時の厳密な型チェック</li>
+        <li><strong>メモリ安全性</strong>: RAIIとムーブセマンティクス</li>
+        <li><strong>モダンな構文</strong>: interface/impl、Union型、パターンマッチング</li>
+        <li><strong>非同期処理</strong>: async/await対応</li>
+        <li><strong>学習しやすさ</strong>: C/C++経験者にとって親しみやすい構文</li>
+    </ul>
+</section>
+
+<section class="left-align">
+    <h2>なぜCbを作っているのか？</h2>
+    
+    <div class="info-box">
+        <p style="font-weight: bold; margin: 0;">&quot;使いやすく、安全で、高速な言語&quot;を作りたい</p>
+    </div>
+    
+    <h3>既存言語の課題</h3>
+    <div class="grid-2x2" style="font-size: 0.7em;">
+        <div>
+            <strong>C/C++</strong>
+            <ul>
+                <li>強力だが型安全性が弱い</li>
+                <li>メモリ管理が複雑</li>
+            </ul>
+        </div>
+        <div>
+            <strong>Rust</strong>
+            <ul>
+                <li>最高の安全性</li>
+                <li>学習曲線が非常に急峻</li>
+            </ul>
+        </div>
+        <div>
+            <strong>TypeScript</strong>
+            <ul>
+                <li>優れた型システム</li>
+                <li>ランタイムオーバーヘッドが大</li>
+            </ul>
+        </div>
+        <div>
+            <strong>Go</strong>
+            <ul>
+                <li>シンプルで学習しやすい</li>
+                <li>表現力がやや限定的</li>
+            </ul>
+        </div>
+    </div>
+    
+    <h3 style="margin-top: 0.8em;">Cbが目指すもの</h3>
+    <ul style="font-size: 0.75em;">
+        <li><strong>実用性重視</strong>: 実際に使える機能を段階的に追加</li>
+        <li><strong>型安全性</strong>: コンパイル時の厳密な型チェックで実行時エラーを防ぐ</li>
+        <li><strong>学習しやすさ</strong>: C/C++経験者がすぐに書ける親しみやすい構文</li>
+        <li><strong>開発の楽しさ</strong>: AIとのバイブコーディングで迅速に進化</li>
+    </ul>
+</section>
+
+<section class="section-divider">
+    <h1>Section 1<br>実装済み機能</h1>
+</section>
+
+<section class="left-align">
+    <h2>基本構文</h2>
+    
+    <div class="two-column">
+        <div>
+            <h3>変数宣言と型</h3>
+            <pre><code class="language-cb"><span class="hljs-type">int</span> x = <span class="hljs-number">42</span>;
+<span class="hljs-type">long</span> y = <span class="hljs-number">100L</span>;
+<span class="hljs-type">double</span> pi = <span class="hljs-number">3.14</span>;
+<span class="hljs-type">bool</span> flag = <span class="hljs-literal">true</span>;
+<span class="hljs-type">string</span> msg = <span class="hljs-string">"Hello"</span>;
+</code></pre>
+
+            <h3>制御構文</h3>
+            <pre><code class="language-cb"><span class="hljs-keyword">if</span> (x &gt; <span class="hljs-number">0</span>) {
+    println(<span class="hljs-string">"positive"</span>);
+} <span class="hljs-keyword">else</span> {
+    println(<span class="hljs-string">"negative"</span>);
+}
+
+<span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) {
+    println(i);
+}
+
+<span class="hljs-keyword">while</span> (flag) {
+    <span class="hljs-comment">// ...</span>
+    flag = <span class="hljs-literal">false</span>;
+}
+</code></pre>
+        </div>
+        
+        <div>
+            <h3>構造体</h3>
+            <pre><code class="language-cb"><span class="hljs-keyword">struct</span> Person {
+    <span class="hljs-type">string</span> name;
+    <span class="hljs-type">int</span> age;
+}
+
+Person p;
+p.<span class="hljs-built_in">name</span> = <span class="hljs-string">"Alice"</span>;
+p.<span class="hljs-built_in">age</span> = <span class="hljs-number">25</span>;
+</code></pre>
+
+            <h3>関数</h3>
+            <pre><code class="language-cb"><span class="hljs-type">int</span> add(<span class="hljs-type">int</span> a, <span class="hljs-type">int</span> b) {
+    <span class="hljs-keyword">return</span> a + b;
+}
+
+<span class="hljs-type">void</span> greet(<span class="hljs-type">string</span> name) {
+    println(<span class="hljs-string">"Hello, "</span> + name);
+}
+</code></pre>
+        </div>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>FizzBuzz - Cb固有の書き方</h2>
+    
+    <pre><code class="language-cb"><span class="hljs-keyword">interface</span> FizzBuzzable {
+    <span class="hljs-type">string</span> fizzbuzz();
+}
+
+<span class="hljs-keyword">struct</span> Number {
+    <span class="hljs-type">int</span> value;
+}
+
+<span class="hljs-keyword">impl</span> FizzBuzzable <span class="hljs-keyword">for</span> Number {
+    <span class="hljs-type">string</span> fizzbuzz() {
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">self</span>.value % <span class="hljs-number">15</span> == <span class="hljs-number">0</span>) {
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"FizzBuzz"</span>;
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (<span class="hljs-built_in">self</span>.value % <span class="hljs-number">3</span> == <span class="hljs-number">0</span>) {
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"Fizz"</span>;
+        } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (<span class="hljs-built_in">self</span>.value % <span class="hljs-number">5</span> == <span class="hljs-number">0</span>) {
+            <span class="hljs-keyword">return</span> <span class="hljs-string">"Buzz"</span>;
+        }
+        <span class="hljs-keyword">return</span> string(<span class="hljs-built_in">self</span>.value);
+    }
+}
+
+<span class="hljs-type">void</span> main() {
+    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> i = <span class="hljs-number">1</span>; i &lt;= <span class="hljs-number">100</span>; i++) {
+        Number n;
+        n.value = i;
+        println(n.<span class="hljs-built_in">fizzbuzz</span>());
+    }
+}
+</code></pre>
+    
+    <p class="small-text" style="margin-top: 0.5em;">
+        <span class="highlight">interface</span>を使うことで、構造体に振る舞いを追加できます。
+    </p>
+</section>
+
+<section class="left-align">
+    <h2>interface / impl（Rust風）</h2>
+    
+    <div class="two-column" style="font-size: 0.9em;">
+        <div>
+            <h3>Go - interface</h3>
+            <pre><code class="language-go">type Drawable interface {
+    Draw()
+}
+
+type Circle struct {
+    Radius int
+}
+
+func (c Circle) Draw() {
+    fmt.Println(c.Radius)
+}
+</code></pre>
+        </div>
+        
+        <div>
+            <h3>Rust - impl</h3>
+            <pre><code class="language-rust">trait Drawable {
+    fn draw(&self);
+}
+
+struct Circle {
+    radius: i32,
+}
+
+impl Drawable for Circle {
+    fn draw(&self) {
+        println!("{}", self.radius);
+    }
+}
+</code></pre>
+        </div>
+    </div>
+    
+    <h3 style="margin-top: 0.5em;">Cb - interface + impl</h3>
+    <pre><code class="language-cb"><span class="hljs-keyword">interface</span> Drawable {
+    <span class="hljs-type">void</span> draw();
+}
+
+<span class="hljs-keyword">struct</span> Circle {
+    <span class="hljs-type">int</span> radius;
+}
+
+<span class="hljs-keyword">impl</span> Drawable <span class="hljs-keyword">for</span> Circle {
+    <span class="hljs-type">void</span> draw() {
+        println(<span class="hljs-built_in">self</span>.radius);
+    }
+}
+</code></pre>
+</section>
+
+<section class="left-align">
+    <h2>interface型としての活用</h2>
+    
+    <p class="small-text">interfaceは型としても扱えるため、そのinterfaceを実装したオブジェクトを引数に取ることができます（Cb固有の概念）</p>
+    
+    <pre><code class="language-cb"><span class="hljs-keyword">interface</span> Printable {
+    <span class="hljs-type">void</span> print();
+}
+
+<span class="hljs-keyword">struct</span> Book {
+    <span class="hljs-type">string</span> title;
+}
+
+<span class="hljs-keyword">struct</span> Magazine {
+    <span class="hljs-type">string</span> name;
+}
+
+<span class="hljs-keyword">impl</span> Printable <span class="hljs-keyword">for</span> Book {
+    <span class="hljs-type">void</span> print() { println(<span class="hljs-string">"Book: "</span> + <span class="hljs-built_in">self</span>.title); }
+}
+
+<span class="hljs-keyword">impl</span> Printable <span class="hljs-keyword">for</span> Magazine {
+    <span class="hljs-type">void</span> print() { println(<span class="hljs-string">"Magazine: "</span> + <span class="hljs-built_in">self</span>.name); }
+}
+
+<span class="hljs-comment">// インターフェース境界として使用</span>
+<span class="hljs-type">void</span> display(Printable item) {
+    item.print();  <span class="hljs-comment">// Book でも Magazine でも OK</span>
+}
+
+<span class="hljs-type">void</span> main() {
+    Book b;
+    b.title = <span class="hljs-string">"Learning Cb"</span>;
+    display(b);  <span class="hljs-comment">// "Book: Learning Cb"</span>
+    
+    Magazine m;
+    m.name = <span class="hljs-string">"Tech Monthly"</span>;
+    display(m);  <span class="hljs-comment">// "Magazine: Tech Monthly"</span>
+}
+</code></pre>
+</section>
+
+<section class="left-align">
+    <h2>コンストラクタ / デストラクタ</h2>
+    
+    <div class="info-box">
+        <p style="margin: 0;">C++のRAII（Resource Acquisition Is Initialization）パターンを採用。<br>リソースの自動管理で安全性を確保します。</p>
+    </div>
+    
+    <pre><code class="language-cb"><span class="hljs-keyword">struct</span> Resource {
+    <span class="hljs-type">void*</span> data;
+    <span class="hljs-type">int</span> size;
+}
+
+<span class="hljs-keyword">impl</span> Resource {
+    <span class="hljs-comment">// コンストラクタ</span>
+    <span class="hljs-built_in">self</span>(<span class="hljs-type">int</span> s) {
+        <span class="hljs-built_in">self</span>.size = s;
+        <span class="hljs-built_in">self</span>.data = malloc(s);
+        println(<span class="hljs-string">"Resource acquired"</span>);
+    }
+    
+    <span class="hljs-comment">// デストラクタ</span>
+    ~<span class="hljs-built_in">self</span>() {
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">self</span>.data != <span class="hljs-literal">nullptr</span>) {
+            free(<span class="hljs-built_in">self</span>.data);
+            println(<span class="hljs-string">"Resource released"</span>);
+        }
+    }
+}
+
+<span class="hljs-type">void</span> main() {
+    Resource r(<span class="hljs-number">100</span>);  <span class="hljs-comment">// コンストラクタ呼び出し</span>
+    <span class="hljs-comment">// ... 使用 ...</span>
+}  <span class="hljs-comment">// スコープ終了時に自動的にデストラクタが呼ばれる</span>
+</code></pre>
+</section>
+
+<section class="left-align">
+    <h2>defer文（Go風）</h2>
+    
+    <p class="small-text">Goのdefer文を採用。スコープ終了時に実行される処理を予約できます。</p>
+    
+    <div class="two-column" style="font-size: 0.85em;">
+        <div>
+            <h3>defer なし</h3>
+            <pre><code class="language-cb"><span class="hljs-type">void</span> processFile(<span class="hljs-type">string</span> path) {
+    <span class="hljs-type">void*</span> file = open(path);
+    
+    <span class="hljs-keyword">if</span> (error1) {
+        close(file);
+        <span class="hljs-keyword">return</span>;
+    }
+    
+    <span class="hljs-keyword">if</span> (error2) {
+        close(file);
+        <span class="hljs-keyword">return</span>;
+    }
+    
+    close(file);
+}
+</code></pre>
+            <p class="tiny-text" style="color: #e74c3c;">❌ close()の呼び出しが重複</p>
+        </div>
+        
+        <div>
+            <h3>defer あり</h3>
+            <pre><code class="language-cb"><span class="hljs-type">void</span> processFile(<span class="hljs-type">string</span> path) {
+    <span class="hljs-type">void*</span> file = open(path);
+    <span class="hljs-keyword">defer</span> close(file);
+    
+    <span class="hljs-keyword">if</span> (error1) {
+        <span class="hljs-keyword">return</span>;
+    }
+    
+    <span class="hljs-keyword">if</span> (error2) {
+        <span class="hljs-keyword">return</span>;
+    }
+}
+</code></pre>
+            <p class="tiny-text" style="color: #27ae60;">✅ スコープ終了時に自動実行</p>
+        </div>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>パターンマッチング（Rust風）</h2>
+    
+    <pre><code class="language-cb"><span class="hljs-keyword">typedef</span> Result = <span class="hljs-type">int</span> | <span class="hljs-type">string</span>;
+
+<span class="hljs-type">void</span> processResult(Result r) {
+    <span class="hljs-keyword">match</span> (r) {
+        <span class="hljs-type">int</span> value =&gt; {
+            println(<span class="hljs-string">"Number: "</span> + string(value));
+        }
+        <span class="hljs-type">string</span> msg =&gt; {
+            println(<span class="hljs-string">"Message: "</span> + msg);
+        }
+        _ =&gt; {
+            println(<span class="hljs-string">"Unknown"</span>);
+        }
+    }
+}
+
+<span class="hljs-type">void</span> main() {
+    Result r1 = <span class="hljs-number">42</span>;
+    processResult(r1);  <span class="hljs-comment">// "Number: 42"</span>
+    
+    Result r2 = <span class="hljs-string">"Hello"</span>;
+    processResult(r2);  <span class="hljs-comment">// "Message: Hello"</span>
+}
+</code></pre>
+    
+    <p class="small-text" style="margin-top: 0.5em;">
+        Union型と組み合わせることで、型安全なパターンマッチングが可能です。
+    </p>
+</section>
+
+<section class="left-align">
+    <h2>メモリ管理</h2>
+    
+    <h3>ムーブセマンティクス（C++/Rust風）</h3>
+    <pre><code class="language-cb"><span class="hljs-keyword">struct</span> Buffer {
+    <span class="hljs-type">void*</span> data;
+    <span class="hljs-type">int</span> size;
+}
+
+<span class="hljs-keyword">impl</span> Buffer {
+    <span class="hljs-built_in">self</span>(<span class="hljs-type">int</span> s) {
+        <span class="hljs-built_in">self</span>.size = s;
+        <span class="hljs-built_in">self</span>.data = malloc(s);
+    }
+    
+    <span class="hljs-comment">// ムーブコンストラクタ</span>
+    <span class="hljs-built_in">self</span>(Buffer&amp;&amp; other) {
+        <span class="hljs-built_in">self</span>.data = other.data;
+        <span class="hljs-built_in">self</span>.size = other.size;
+        other.data = <span class="hljs-literal">nullptr</span>;  <span class="hljs-comment">// 所有権移動</span>
+        other.size = <span class="hljs-number">0</span>;
+    }
+    
+    ~<span class="hljs-built_in">self</span>() {
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">self</span>.data != <span class="hljs-literal">nullptr</span>) {
+            free(<span class="hljs-built_in">self</span>.data);
+        }
+    }
+}
+
+<span class="hljs-type">void</span> main() {
+    Buffer b1(<span class="hljs-number">1024</span>);
+    Buffer b2 = move(b1);  <span class="hljs-comment">// 所有権移動、コピーではない</span>
+    <span class="hljs-comment">// b1 は無効、b2 が所有権を持つ</span>
+}
+</code></pre>
+</section>
+
+<section class="left-align">
+    <h2>async / await（TypeScript/Rust風）</h2>
+    
+    <div class="info-box">
+        <p style="margin: 0;">async関数は暗黙的にFutureでラップされるため、明示的な型指定は不要です。</p>
+    </div>
+    
+    <pre><code class="language-cb"><span class="hljs-keyword">import</span> stdlib.std.time;
+
+<span class="hljs-keyword">async</span> <span class="hljs-type">int</span> fetchData() {
+    println(<span class="hljs-string">"Fetching..."</span>);
+    <span class="hljs-keyword">await</span> sleep(<span class="hljs-number">1000</span>);  <span class="hljs-comment">// 1秒待機（ノンブロッキング）</span>
+    <span class="hljs-keyword">return</span> <span class="hljs-number">42</span>;
+}
+
+<span class="hljs-keyword">async</span> <span class="hljs-type">void</span> processData() {
+    println(<span class="hljs-string">"Start"</span>);
+    <span class="hljs-type">int</span> result = <span class="hljs-keyword">await</span> fetchData();  <span class="hljs-comment">// 結果を待機</span>
+    println(<span class="hljs-string">"Result: "</span> + string(result));
+    println(<span class="hljs-string">"Done"</span>);
+}
+
+<span class="hljs-type">void</span> main() {
+    <span class="hljs-keyword">await</span> processData();
+}
+</code></pre>
+
+    <p class="small-text" style="margin-top: 0.5em;">
+        <span class="highlight">await</span>で非同期処理を待機。他のタスクをブロックしません。
+    </p>
+</section>
+
+<section class="left-align">
+    <h2>カプセル化</h2>
+    
+    <p class="small-text">impl内にprivateメンバ・privateメソッドを持つことができ、構造体メンバには1つだけdefaultメンバを設定できます。</p>
+    
+    <pre><code class="language-cb"><span class="hljs-keyword">struct</span> BankAccount {
+    <span class="hljs-type">string</span> <span class="hljs-built_in">owner</span>;
+    <span class="hljs-keyword">default</span> <span class="hljs-type">double</span> <span class="hljs-built_in">balance</span>;  <span class="hljs-comment">// defaultメンバ（1つのみ）</span>
+}
+
+<span class="hljs-keyword">interface</span> AccountOps {
+    <span class="hljs-type">void</span> deposit(<span class="hljs-type">double</span> amount);
+    <span class="hljs-type">void</span> withdraw(<span class="hljs-type">double</span> amount);
+    <span class="hljs-type">double</span> getBalance();
+}
+
+<span class="hljs-keyword">impl</span> AccountOps <span class="hljs-keyword">for</span> BankAccount {
+    <span class="hljs-keyword">private</span> <span class="hljs-type">double</span> minBalance = <span class="hljs-number">0.0</span>;  <span class="hljs-comment">// privateメンバ</span>
+    
+    <span class="hljs-type">void</span> deposit(<span class="hljs-type">double</span> amount) {
+        <span class="hljs-keyword">if</span> (amount > <span class="hljs-number">0</span>) {
+            <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span> = <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span> + amount;
+        }
+    }
+    
+    <span class="hljs-type">void</span> withdraw(<span class="hljs-type">double</span> amount) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">self</span>.<span class="hljs-built_in">canWithdraw</span>(amount)) {  <span class="hljs-comment">// privateメソッド呼び出し</span>
+            <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span> = <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span> - amount;
+        }
+    }
+    
+    <span class="hljs-type">double</span> getBalance() {
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span>;
+    }
+    
+    <span class="hljs-keyword">private</span> <span class="hljs-type">bool</span> canWithdraw(<span class="hljs-type">double</span> amount) {  <span class="hljs-comment">// privateメソッド</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span> - amount >= <span class="hljs-built_in">self</span>.minBalance;
+    }
+}
+</code></pre>
+</section>
+
+<section class="left-align">
+    <h2>モジュールシステム</h2>
+    
+    <div class="two-column">
+        <div>
+            <h3>export（公開）</h3>
+            <pre><code class="language-cb"><span class="hljs-comment">// math.cb</span>
+<span class="hljs-keyword">export</span> <span class="hljs-type">int</span> add(<span class="hljs-type">int</span> a, <span class="hljs-type">int</span> b) {
+    <span class="hljs-keyword">return</span> a + b;
+}
+
+<span class="hljs-keyword">export</span> <span class="hljs-keyword">struct</span> Point {
+    <span class="hljs-type">int</span> x;
+    <span class="hljs-type">int</span> y;
+}
+
+<span class="hljs-comment">// 非公開関数</span>
+<span class="hljs-type">int</span> helper() {
+    <span class="hljs-keyword">return</span> <span class="hljs-number">42</span>;
+}
+</code></pre>
+        </div>
+        
+        <div>
+            <h3>import（インポート）</h3>
+            <pre><code class="language-cb"><span class="hljs-comment">// main.cb</span>
+<span class="hljs-keyword">import</span> stdlib.std.vector;
+<span class="hljs-keyword">import</span> stdlib.std.queue;
+<span class="hljs-keyword">import</span> myproject.math;
+
+<span class="hljs-type">void</span> main() {
+    Vector&lt;<span class="hljs-type">int</span>&gt; vec;
+    vec.<span class="hljs-built_in">push_back</span>(<span class="hljs-number">1</span>);
+    
+    <span class="hljs-type">int</span> result = add(<span class="hljs-number">5</span>, <span class="hljs-number">3</span>);
+    println(result);
+}
+</code></pre>
+        </div>
+    </div>
+    
+    <p class="small-text" style="margin-top: 0.8em;">
+        <span class="highlight">import</span>は<code>import stdlib.std.vector;</code>の形式（文字列ではない）
+    </p>
+</section>
+
+<section class="left-align">
+    <h2>構文比較 - いいとこ取り</h2>
+    
+    <table style="width: 100%; font-size: 0.55em;">
+        <thead>
+            <tr>
+                <th>機能</th>
+                <th>C++</th>
+                <th>Cb</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>コンストラクタ</strong></td>
+                <td><code>ClassName(int x) { ... }</code></td>
+                <td><code>self(int x) { ... }</code></td>
+            </tr>
+            <tr>
+                <td><strong>デストラクタ</strong></td>
+                <td><code>~ClassName() { ... }</code></td>
+                <td><code>~self() { ... }</code></td>
+            </tr>
+            <tr>
+                <td><strong>ラムダ式</strong></td>
+                <td><code>[](int x) { return x * 2; }</code></td>
+                <td><code>(int x) => x * 2</code></td>
+            </tr>
+            <tr>
+                <td><strong>関数ポインタ</strong></td>
+                <td><code>int (*ptr)(int, int) = &add;</code></td>
+                <td><code>void* ptr = &add;</code></td>
+            </tr>
+            <tr>
+                <td><strong>Vector追加</strong></td>
+                <td><code>vec.<span class="member-access">push_back</span>(42);</code></td>
+                <td><code>vec.<span class="member-access">push</span>(42);</code></td>
+            </tr>
+            <tr>
+                <td><strong>Vector削除</strong></td>
+                <td><code>vec.<span class="member-access">pop_back</span>();</code></td>
+                <td><code>vec.<span class="member-access">pop</span>();</code></td>
+            </tr>
+            <tr>
+                <td><strong>Vectorアクセス</strong></td>
+                <td><code>vec[0]</code></td>
+                <td><code>vec.<span class="member-access">at</span>(0)</code></td>
+            </tr>
+            <tr>
+                <td><strong>Queue追加</strong></td>
+                <td><code>queue.<span class="member-access">push</span>(42);</code></td>
+                <td><code>queue.<span class="member-access">push</span>(42);</code></td>
+            </tr>
+            <tr>
+                <td><strong>Queue削除</strong></td>
+                <td><code>queue.<span class="member-access">pop</span>();</code></td>
+                <td><code>queue.<span class="member-access">pop</span>();</code></td>
+            </tr>
+            <tr>
+                <td><strong>async</strong></td>
+                <td><code>std::future&lt;int&gt; <span class="hljs-keyword">async</span>([]{ return 42; })</code></td>
+                <td><code><span class="hljs-keyword">async</span> <span class="hljs-type">int</span> func() { return 42; }</code></td>
+            </tr>
+        </tbody>
+    </table>
+</section>
+
+<section class="section-divider">
+    <h1>Section 2<br>インタプリタ実装</h1>
+</section>
+
+<section class="left-align">
+    <h2>アーキテクチャ概要</h2>
+    
+    <div class="info-box">
+        <p style="margin: 0;"><strong>AST（抽象構文木）インタプリタ方式</strong>を採用</p>
+    </div>
+    
+    <div style="font-size: 0.75em; margin-top: 1em;">
+        <div style="display: flex; align-items: center; gap: 1.5em; justify-content: center;">
+            <div style="text-align: center;">
+                <strong>ソースコード</strong><br>
+                <code>main.cb</code>
+            </div>
+            <div>→</div>
+            <div style="text-align: center;">
+                <strong>字句解析器</strong><br>
+                <code>Lexer</code>
+            </div>
+            <div>→</div>
+            <div style="text-align: center;">
+                <strong>構文解析器</strong><br>
+                <code>Parser</code>
+            </div>
+            <div>→</div>
+            <div style="text-align: center;">
+                <strong>AST</strong><br>
+                <code>AbstractSyntaxTree</code>
+            </div>
+            <div>→</div>
+            <div style="text-align: center;">
+                <strong>インタプリタ</strong><br>
+                <code>Interpreter</code>
+            </div>
+        </div>
+    </div>
+    
+    <h3 style="margin-top: 1.2em;">実装言語と規模</h3>
+    <ul>
+        <li><strong>C言語</strong>で実装（約11,000行）</li>
+        <li>手書きの再帰下降パーサー</li>
+        <li>3,000以上のテストケースで品質保証</li>
+        <li>v0.13.0（2025年11月時点）</li>
+    </ul>
+</section>
+
+<section class="left-align">
+    <h2>ディレクトリ構造と実行フロー</h2>
+    
+    <div class="two-column" style="font-size: 0.65em;">
+        <div>
+            <h3>プロジェクト構造</h3>
+            <pre style="font-size: 1.2em;"><code>Cb/
+├── src/           # インタプリタ実装
+│   ├── lexer.c    # 字句解析
+│   ├── parser.c   # 構文解析
+│   ├── ast.c      # AST構築
+│   ├── eval.c     # 評価エンジン
+│   └── ...
+├── stdlib/        # 標準ライブラリ（Cbで記述）
+│   └── std/
+│       ├── vector.cb
+│       ├── queue.cb
+│       └── time.cb
+├── tests/         # テストスイート
+└── docs/          # ドキュメント
+</code></pre>
+        </div>
+        
+        <div>
+            <h3>実行フロー</h3>
+            <pre style="font-size: 1.2em;"><code>1. ソースコード読み込み
+   └─ main.cb
+
+2. 字句解析（Lexer）
+   └─ トークン列生成
+
+3. 構文解析（Parser）
+   └─ AST構築
+
+4. 型チェック
+   └─ 型安全性の検証
+
+5. 実行（Interpreter）
+   └─ AST木を再帰的に評価
+   
+6. 標準ライブラリのロード
+   └─ stdlib/ 配下のモジュール
+</code></pre>
+        </div>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>interface/implの内部実装</h2>
+    
+    <p class="small-text">インタプリタ内部でどのようにinterface/implを実現しているか</p>
+    
+    <div class="two-column" style="font-size: 0.65em;">
+        <div>
+            <h3>vtable（仮想関数テーブル）</h3>
+            <ul style="font-size: 1.1em;">
+                <li>各interfaceに対してvtableを生成</li>
+                <li>implで実装されたメソッドへのポインタを格納</li>
+                <li>実行時にメソッドを動的に解決</li>
+            </ul>
+            
+            <pre style="font-size: 1.2em;"><code class="language-c">// 内部データ構造（C言語）
+typedef struct {
+    char* interface_name;
+    char* struct_name;
+    HashMap* methods;  // メソッド名 → 関数ポインタ
+} VTable;
+</code></pre>
+        </div>
+        
+        <div>
+            <h3>メソッドディスパッチ</h3>
+            <pre style="font-size: 1.2em;"><code class="language-c">// メソッド呼び出しの解決
+Value call_interface_method(
+    Object* obj,
+    char* interface_name,
+    char* method_name,
+    Args* args
+) {
+    // 1. オブジェクトの型を取得
+    char* type = get_type(obj);
+    
+    // 2. vtableを検索
+    VTable* vt = find_vtable(
+        interface_name, 
+        type
+    );
+    
+    // 3. メソッドポインタを取得
+    FuncPtr fn = vt->methods[method_name];
+    
+    // 4. メソッドを実行
+    return fn(obj, args);
+}
+</code></pre>
+        </div>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>協調的マルチタスクの実装</h2>
+    
+    <p class="small-text">async/awaitを実現するイベントループの仕組み</p>
+    
+    <div style="font-size: 0.6em;">
+        <h3>タスクキューとイベントループ</h3>
+        <pre><code class="language-c">// タスク構造体
+typedef struct Task {
+    int id;
+    ASTNode* code;           // 実行するコード
+    bool is_waiting;         // await中かどうか
+    Value* awaited_value;    // awaitしている値
+    struct Task* next;
+} Task;
+
+// イベントループ（簡略版）
+void event_loop() {
+    Queue* task_queue = create_queue();
+    
+    while (!queue_empty(task_queue)) {
+        Task* task = queue_pop(task_queue);
+        
+        if (task->is_waiting) {
+            // awaitしている場合、値が準備できているかチェック
+            if (is_ready(task->awaited_value)) {
+                task->is_waiting = false;
+                Value result = eval_resume(task);
+                if (!task->finished) {
+                    queue_push(task_queue, task);  // 再度キューに追加
+                }
+            } else {
+                queue_push(task_queue, task);  // 後回し
+            }
+        } else {
+            // 通常実行
+            Value result = eval_step(task);
+            if (task->needs_await) {
+                task->is_waiting = true;
+            }
+            if (!task->finished) {
+                queue_push(task_queue, task);
+            }
+        }
+    }
+}
+</code></pre>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>sleepの非同期実装</h2>
+    
+    <div class="info-box">
+        <p style="margin: 0;">sleepは他のタスクをブロックせず、タスクごとに独立した時間経過の概念を持ちます。</p>
+    </div>
+    
+    <div style="font-size: 0.6em; margin-top: 0.8em;">
+        <pre><code class="language-c">// タスクに時間管理を追加
+typedef struct Task {
+    int id;
+    ASTNode* code;
+    bool is_sleeping;
+    long wake_time_ms;  // 起床時刻（ミリ秒）
+    // ... その他のフィールド
+} Task;
+
+// sleep実装
+Value builtin_sleep(int milliseconds) {
+    Task* current = get_current_task();
+    current->is_sleeping = true;
+    current->wake_time_ms = current_time_ms() + milliseconds;
+    yield_task();  // 他のタスクに制御を渡す
+    return VALUE_VOID;
+}
+
+// イベントループでの処理
+void event_loop() {
+    while (has_tasks()) {
+        Task* task = get_next_task();
+        
+        if (task->is_sleeping) {
+            if (current_time_ms() >= task->wake_time_ms) {
+                task->is_sleeping = false;
+                resume_task(task);  // 実行再開
+            } else {
+                reschedule_task(task);  // まだ寝かせる
+            }
+        } else {
+            execute_task(task);
+        }
+    }
+}
+</code></pre>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>コンカレント vs シーケンシャル</h2>
+    
+    <p class="small-text">Cb上での並行処理と逐次処理の実装の違い</p>
+    
+    <div class="two-column" style="font-size: 0.65em;">
+        <div>
+            <h3>シーケンシャル（逐次）</h3>
+            <pre><code class="language-cb">async void sequential() {
+    println("Task 1 start");
+    await sleep(1000);
+    println("Task 1 end");
+    
+    println("Task 2 start");
+    await sleep(1000);
+    println("Task 2 end");
+}
+// 合計: 2秒
+</code></pre>
+            <pre style="font-size: 0.9em;"><code>出力:
+Task 1 start
+(1秒待機)
+Task 1 end
+Task 2 start
+(1秒待機)
+Task 2 end
+</code></pre>
+        </div>
+        
+        <div>
+            <h3>コンカレント（並行）</h3>
+            <pre><code class="language-cb">async void task1() {
+    println("Task 1 start");
+    await sleep(1000);
+    println("Task 1 end");
+}
+
+async void task2() {
+    println("Task 2 start");
+    await sleep(1000);
+    println("Task 2 end");
+}
+
+void main() {
+    task1();  // awaitしない
+    task2();  // awaitしない
+}
+// 合計: 1秒（並行実行）
+</code></pre>
+            <pre style="font-size: 0.9em;"><code>出力:
+Task 1 start
+Task 2 start
+(1秒待機、両方同時)
+Task 1 end
+Task 2 end
+</code></pre>
+        </div>
+    </div>
+</section>
+
+<section class="section-divider">
+    <h1>Section 3<br>バイブコーディング</h1>
+</section>
+
+<section class="left-align">
+    <h2>バイブコーディングとは？</h2>
+    
+    <div class="info-box">
+        <p style="margin: 0; font-size: 1.1em;"><strong>AI支援によるプログラミング開発手法</strong></p>
+        <p style="margin: 0.5em 0 0 0;">AIとの対話を通じて、コードを協働的に作成・改善していく開発スタイル</p>
+    </div>
+    
+    <h3>Cbでの活用</h3>
+    <ul>
+        <li><strong>GitHub Copilot Pro+</strong>: コード補完・生成</li>
+        <li><strong>Claude Sonnet 4.5</strong>: 設計相談・実装支援</li>
+        <li><strong>Copilot CLI</strong>: コマンド生成・自動化</li>
+    </ul>
+    
+    <h3 style="margin-top: 0.8em;">開発の流れ</h3>
+    <div class="two-column" style="font-size: 0.75em;">
+        <div>
+            <ol style="line-height: 1.6;">
+                <li>機能の仕様を設計</li>
+                <li>ドキュメントに記載</li>
+                <li>AIに実装を依頼</li>
+                <li>テストケースを作成</li>
+                <li>動作確認・バグ修正</li>
+            </ol>
+        </div>
+        <div>
+            <p style="color: #27ae60; font-weight: bold;">✅ 効率的</p>
+            <p style="color: #27ae60; font-weight: bold;">✅ 品質が高い</p>
+            <p style="color: #27ae60; font-weight: bold;">✅ 学びが多い</p>
+        </div>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>テスト駆動開発の重要性</h2>
+    
+    <div class="warning-box">
+        <p style="margin: 0;"><strong>仕様変更があっても壊れていることに気づきやすい</strong></p>
+    </div>
+    
+    <h3>Cbのテスト戦略</h3>
+    <ul style="font-size: 0.75em;">
+        <li><strong>統合テスト</strong>: 3,000以上のCbコードのテストケース</li>
+        <li><strong>ユニットテスト</strong>: C言語レベルでの関数テスト</li>
+        <li><strong>回帰テスト</strong>: 過去のバグの再発防止</li>
+    </ul>
+    
+    <h3 style="margin-top: 0.8em;">テストの例</h3>
+    <div class="two-column" style="font-size: 0.65em;">
+        <div>
+            <pre><code class="language-cb">// tests/async_test.cb
+async int test_sleep() {
+    int start = time_ms();
+    await sleep(100);
+    int end = time_ms();
+    return end - start >= 100;
+}
+
+void main() {
+    assert(await test_sleep());
+}
+</code></pre>
+        </div>
+        <div>
+            <pre><code class="language-bash"># テスト実行
+$ make test
+
+Running tests...
+✓ async_test.cb
+✓ vector_test.cb
+✓ interface_test.cb
+
+3000/3000 tests passed
+</code></pre>
+        </div>
+    </div>
+    
+    <p class="small-text" style="margin-top: 0.8em; color: #27ae60;">
+        <strong>💡 テストを先に書くことで、AIに仕様を明確に伝えられる</strong>
+    </p>
+</section>
+
+<section class="left-align">
+    <h2>設計書の重要性</h2>
+    
+    <div class="success-box">
+        <p style="margin: 0;"><strong>ドキュメントに設計書を記載することで、プロンプトが楽になる</strong></p>
+    </div>
+    
+    <h3>Cbのドキュメント構成</h3>
+    <div style="font-size: 0.7em;">
+        <pre><code>docs/
+├── spec.md                 # 言語仕様
+├── architecture.md         # アーキテクチャ設計
+├── features/              # 機能別ドキュメント
+│   ├── async_await.md
+│   ├── interface_impl.md
+│   └── pattern_matching.md
+└── tutorial/              # チュートリアル
+</code></pre>
+    </div>
+    
+    <h3 style="margin-top: 0.8em;">AIへのプロンプト例</h3>
+    <div style="font-size: 0.7em;">
+        <pre style="background-color: #f5f5f5; border: 2px solid #3498db; padding: 1em; color: #2c3e50;"><code>「docs/features/async_await.md の仕様に従って、
+async/await機能を実装してください。
+
+要件:
+- Futureの暗黙的なラップ
+- イベントループによる協調的マルチタスク
+- sleep()は他のタスクをブロックしない
+
+参考: docs/architecture.md のタスク管理の章を参照」
+</code></pre>
+    </div>
+    
+    <p class="small-text" style="margin-top: 0.8em; color: #2980b9;">
+        <strong>📝 設計書があれば、AIは仕様を正確に理解して実装できる</strong>
+    </p>
+</section>
+
+<section class="left-align">
+    <h2>バイブコーディングの魅力</h2>
+    
+    <div class="two-column" style="font-size: 0.75em;">
+        <div>
+            <h3>メリット</h3>
+            <ul>
+                <li><strong>開発速度の向上</strong>
+                    <ul>
+                        <li>4ヶ月で11,000行の実装</li>
+                        <li>3,000以上のテストケース</li>
+                    </ul>
+                </li>
+                <li><strong>品質の向上</strong>
+                    <ul>
+                        <li>AIによるコードレビュー</li>
+                        <li>バグの早期発見</li>
+                    </ul>
+                </li>
+                <li><strong>学習効果</strong>
+                    <ul>
+                        <li>実装パターンの理解</li>
+                        <li>アーキテクチャ設計の学び</li>
+                    </ul>
+                </li>
+                <li><strong>楽しさ</strong>
+                    <ul>
+                        <li>アイデアがすぐに形になる</li>
+                        <li>試行錯誤がしやすい</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+        
+        <div>
+            <h3>やった方が良いこと</h3>
+            <ul>
+                <li><strong>明確な設計書</strong>
+                    <ul>
+                        <li>仕様を文書化</li>
+                        <li>AIに正確に伝わる</li>
+                    </ul>
+                </li>
+                <li><strong>テストファースト</strong>
+                    <ul>
+                        <li>先にテストを書く</li>
+                        <li>仕様変更に強い</li>
+                    </ul>
+                </li>
+                <li><strong>小さく始める</strong>
+                    <ul>
+                        <li>機能を分割</li>
+                        <li>段階的に実装</li>
+                    </ul>
+                </li>
+                <li><strong>コードレビュー</strong>
+                    <ul>
+                        <li>AIの提案を確認</li>
+                        <li>理解してからマージ</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="info-box" style="margin-top: 1em;">
+        <p style="margin: 0; font-weight: bold; text-align: center;">
+            💡 あなたも自作言語開発を始めてみませんか？
+        </p>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>開発で使用しているツール</h2>
+    
+    <div class="three-column" style="font-size: 0.7em;">
+        <div class="info-box">
+            <h3 style="margin-top: 0;">GitHub Copilot Pro+</h3>
+            <ul style="font-size: 0.95em;">
+                <li>コード補完</li>
+                <li>関数生成</li>
+                <li>リファクタリング提案</li>
+                <li>コメントからコード生成</li>
+            </ul>
+            <p style="margin: 0.5em 0 0 0; color: #27ae60;"><strong>✅ メイン開発ツール</strong></p>
+        </div>
+        
+        <div class="info-box">
+            <h3 style="margin-top: 0;">Claude Sonnet 4.5</h3>
+            <ul style="font-size: 0.95em;">
+                <li>アーキテクチャ設計</li>
+                <li>複雑な実装の相談</li>
+                <li>バグ解析</li>
+                <li>ドキュメント作成</li>
+            </ul>
+            <p style="margin: 0.5em 0 0 0; color: #27ae60;"><strong>✅ メイン開発ツール</strong></p>
+        </div>
+        
+        <div class="info-box">
+            <h3 style="margin-top: 0;">Copilot CLI</h3>
+            <ul style="font-size: 0.95em;">
+                <li>コマンド生成</li>
+                <li>スクリプト自動化</li>
+                <li>テスト実行</li>
+                <li>デバッグ支援</li>
+            </ul>
+            <p style="margin: 0.5em 0 0 0; color: #3498db;"><strong>🆕 最近使い始めた</strong></p>
+        </div>
+    </div>
+    
+    <h3 style="margin-top: 1em;">開発環境</h3>
+    <ul>
+        <li><strong>エディタ</strong>: VSCode</li>
+        <li><strong>バージョン管理</strong>: Git + GitHub</li>
+        <li><strong>ビルドシステム</strong>: Make</li>
+        <li><strong>テストランナー</strong>: 自作スクリプト（Python）</li>
+    </ul>
+</section>
+
+<section class="left-align">
+    <h2>async/await 実例 1: タスク待機</h2>
+    
+    <p class="small-text">awaitでタスクの完了を待機する基本パターン</p>
+    
+    <pre><code class="language-cb"><span class="hljs-keyword">import</span> stdlib.std.time;
+
+<span class="hljs-keyword">async</span> <span class="hljs-type">int</span> fetchUserData(<span class="hljs-type">int</span> userId) {
+    println(<span class="hljs-string">"Fetching user "</span> + string(userId));
+    <span class="hljs-keyword">await</span> sleep(<span class="hljs-number">500</span>);  <span class="hljs-comment">// API呼び出しをシミュレート</span>
+    <span class="hljs-keyword">return</span> userId * <span class="hljs-number">100</span>;
+}
+
+<span class="hljs-keyword">async</span> <span class="hljs-type">void</span> processUser(<span class="hljs-type">int</span> userId) {
+    println(<span class="hljs-string">"Start processing user "</span> + string(userId));
+    
+    <span class="hljs-type">int</span> userData = <span class="hljs-keyword">await</span> fetchUserData(userId);  <span class="hljs-comment">// 完了を待機</span>
+    
+    println(<span class="hljs-string">"User data: "</span> + string(userData));
+    println(<span class="hljs-string">"Finished processing user "</span> + string(userId));
+}
+
+<span class="hljs-type">void</span> main() {
+    <span class="hljs-keyword">await</span> processUser(<span class="hljs-number">1</span>);
+    <span class="hljs-keyword">await</span> processUser(<span class="hljs-number">2</span>);
+}
+</code></pre>
+
+    <div style="font-size: 0.7em; margin-top: 0.5em;">
+        <strong>出力:</strong>
+        <pre style="background-color: #f5f5f5; color: #2c3e50; padding: 0.8em;"><code>Start processing user 1
+Fetching user 1
+User data: 100
+Finished processing user 1
+Start processing user 2
+Fetching user 2
+User data: 200
+Finished processing user 2
+</code></pre>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>async/await 実例 2: 同時実行</h2>
+    
+    <p class="small-text">awaitしないことで複数のタスクを同時に実行</p>
+    
+    <pre><code class="language-cb"><span class="hljs-keyword">import</span> stdlib.std.time;
+
+<span class="hljs-keyword">async</span> <span class="hljs-type">void</span> task(<span class="hljs-type">int</span> id, <span class="hljs-type">int</span> duration) {
+    println(<span class="hljs-string">"Task "</span> + string(id) + <span class="hljs-string">" start"</span>);
+    <span class="hljs-keyword">await</span> sleep(duration);
+    println(<span class="hljs-string">"Task "</span> + string(id) + <span class="hljs-string">" end"</span>);
+}
+
+<span class="hljs-type">void</span> main() {
+    <span class="hljs-comment">// awaitしないので、すべて同時に実行される</span>
+    task(<span class="hljs-number">1</span>, <span class="hljs-number">1000</span>);
+    task(<span class="hljs-number">2</span>, <span class="hljs-number">500</span>);
+    task(<span class="hljs-number">3</span>, <span class="hljs-number">1500</span>);
+    
+    <span class="hljs-comment">// メインスレッドも待機</span>
+    <span class="hljs-keyword">await</span> sleep(<span class="hljs-number">2000</span>);
+    println(<span class="hljs-string">"All tasks completed"</span>);
+}
+</code></pre>
+
+    <div style="font-size: 0.7em; margin-top: 0.5em;">
+        <strong>出力:</strong>
+        <pre style="background-color: #f5f5f5; color: #2c3e50; padding: 0.8em;"><code>Task 1 start
+Task 2 start
+Task 3 start
+Task 2 end        (500ms後)
+Task 1 end        (1000ms後)
+Task 3 end        (1500ms後)
+All tasks completed (2000ms後)
+</code></pre>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>async/await 実例 3: エラーハンドリング</h2>
+    
+    <p class="small-text">Resultとmatchを組み合わせたエラー処理</p>
+    
+    <pre><code class="language-cb"><span class="hljs-keyword">typedef</span> Result = <span class="hljs-type">int</span> | <span class="hljs-type">string</span>;
+
+<span class="hljs-keyword">async</span> Result fetchData(<span class="hljs-type">int</span> id) {
+    <span class="hljs-keyword">await</span> sleep(<span class="hljs-number">100</span>);
+    
+    <span class="hljs-keyword">if</span> (id &lt; <span class="hljs-number">0</span>) {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Error: Invalid ID"</span>;
+    }
+    
+    <span class="hljs-keyword">return</span> id * <span class="hljs-number">10</span>;
+}
+
+<span class="hljs-keyword">async</span> <span class="hljs-type">void</span> processData(<span class="hljs-type">int</span> id) {
+    Result result = <span class="hljs-keyword">await</span> fetchData(id);
+    
+    <span class="hljs-keyword">match</span> (result) {
+        <span class="hljs-type">int</span> value =&gt; {
+            println(<span class="hljs-string">"Success: "</span> + string(value));
+        }
+        <span class="hljs-type">string</span> error =&gt; {
+            println(<span class="hljs-string">"Error: "</span> + error);
+        }
+    }
+}
+
+<span class="hljs-type">void</span> main() {
+    <span class="hljs-keyword">await</span> processData(<span class="hljs-number">5</span>);   <span class="hljs-comment">// Success: 50</span>
+    <span class="hljs-keyword">await</span> processData(-<span class="hljs-number">1</span>);  <span class="hljs-comment">// Error: Invalid ID</span>
+}
+</code></pre>
+
+    <p class="small-text" style="margin-top: 0.5em; color: #27ae60;">
+        <strong>💡 型安全なエラーハンドリングが可能</strong>
+    </p>
+</section>
+
+<section class="left-align">
+    <h2>開発統計（2025年11月時点）</h2>
+    
+    <div class="two-column" style="font-size: 0.75em;">
+        <div>
+            <h3>コード規模</h3>
+            <table style="width: 100%; font-size: 1em;">
+                <tr>
+                    <td><strong>インタプリタ実装</strong></td>
+                    <td style="text-align: right;"><span class="highlight">約11,000行</span></td>
+                </tr>
+                <tr>
+                    <td><strong>標準ライブラリ</strong></td>
+                    <td style="text-align: right;">約2,000行</td>
+                </tr>
+                <tr>
+                    <td><strong>テストコード</strong></td>
+                    <td style="text-align: right;">約5,000行</td>
+                </tr>
+                <tr style="background-color: #e8f4f8;">
+                    <td><strong>合計</strong></td>
+                    <td style="text-align: right;"><strong>約18,000行</strong></td>
+                </tr>
+            </table>
+            
+            <h3 style="margin-top: 1em;">バージョン情報</h3>
+            <ul>
+                <li><strong>現在</strong>: v0.13.0</li>
+                <li><strong>開発期間</strong>: 2025年7月〜（約4ヶ月）</li>
+                <li><strong>リリース頻度</strong>: 月1-2回</li>
+            </ul>
+        </div>
+        
+        <div>
+            <h3>テスト統計</h3>
+            <table style="width: 100%; font-size: 1em;">
+                <tr>
+                    <td><strong>統合テスト</strong></td>
+                    <td style="text-align: right;"><span class="success">3,000以上</span></td>
+                </tr>
+                <tr>
+                    <td><strong>ユニットテスト</strong></td>
+                    <td style="text-align: right;">30以上</td>
+                </tr>
+                <tr>
+                    <td><strong>成功率</strong></td>
+                    <td style="text-align: right;"><span class="success">100%</span></td>
+                </tr>
+            </table>
+            
+            <h3 style="margin-top: 1em;">実装済み機能</h3>
+            <ul>
+                <li>✅ 基本構文（変数、関数、制御構文）</li>
+                <li>✅ 構造体とジェネリクス</li>
+                <li>✅ interface / impl</li>
+                <li>✅ コンストラクタ / デストラクタ</li>
+                <li>✅ ムーブセマンティクス</li>
+                <li>✅ Union型とパターンマッチング</li>
+                <li>✅ async / await</li>
+                <li>✅ モジュールシステム</li>
+                <li>✅ defer文</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>Cbを使ってみてください！</h2>
+    
+    <div class="info-box" style="font-size: 0.9em;">
+        <p style="margin: 0;"><strong>GitHubで公開中！</strong></p>
+        <p style="margin: 0.3em 0 0 0;">🔗 <code>https://github.com/[your-username]/Cb</code></p>
+    </div>
+    
+    <h3>始め方</h3>
+    <div style="font-size: 0.7em;">
+        <pre><code class="language-bash"># クローン
+git clone https://github.com/[your-username]/Cb.git
+cd Cb
+
+# ビルド
+make
+
+# テスト実行
+make test
+
+# サンプル実行
+./main sample/hello.cb
+</code></pre>
+    </div>
+    
+    <h3 style="margin-top: 0.8em;">フィードバック歓迎！</h3>
+    <ul style="font-size: 0.8em;">
+        <li>🐛 <strong>バグ報告</strong>: GitHub Issuesまたは Twitter/X</li>
+        <li>💡 <strong>機能提案</strong>: 歓迎します！</li>
+        <li>📖 <strong>ドキュメント</strong>: docs/ ディレクトリを参照</li>
+        <li>🎓 <strong>チュートリアル</strong>: docs/tutorial/ を用意</li>
+    </ul>
+    
+    <div class="warning-box" style="margin-top: 1em;">
+        <p style="margin: 0; font-size: 0.9em;">
+            <strong>注意:</strong> 直接的なコミットは受け付けていません。<br>
+            理由は自分が作りたいからです 😊
+        </p>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>プロジェクトから学んだこと</h2>
+    
+    <div class="two-column" style="font-size: 0.75em;">
+        <div>
+            <h3>技術的な学び</h3>
+            <ul>
+                <li><strong>言語設計</strong>
+                    <ul>
+                        <li>構文の一貫性の重要性</li>
+                        <li>型システムの設計</li>
+                        <li>パフォーマンスとのトレードオフ</li>
+                    </ul>
+                </li>
+                <li><strong>インタプリタ実装</strong>
+                    <ul>
+                        <li>字句解析・構文解析の実装</li>
+                        <li>AST評価とメモリ管理</li>
+                        <li>イベントループの実装</li>
+                    </ul>
+                </li>
+                <li><strong>テスト設計</strong>
+                    <ul>
+                        <li>包括的なテストの重要性</li>
+                        <li>回帰テストの自動化</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+        
+        <div>
+            <h3>AIとの協働</h3>
+            <ul>
+                <li><strong>効果的なプロンプト</strong>
+                    <ul>
+                        <li>明確な仕様の重要性</li>
+                        <li>段階的な実装依頼</li>
+                        <li>コンテキストの提供</li>
+                    </ul>
+                </li>
+                <li><strong>品質管理</strong>
+                    <ul>
+                        <li>AIの提案を鵜呑みにしない</li>
+                        <li>テストで検証する</li>
+                        <li>コードレビューは必須</li>
+                    </ul>
+                </li>
+                <li><strong>ドキュメント</strong>
+                    <ul>
+                        <li>設計書が開発を加速</li>
+                        <li>AIへの説明が容易に</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="success-box" style="margin-top: 1em;">
+        <p style="margin: 0; font-weight: bold; text-align: center;">
+            🎉 AIとの協働で、4ヶ月で実用的な言語が作れた！
+        </p>
+    </div>
+</section>
+
+<section class="left-align">
+    <h2>まとめ</h2>
+    
+    <div class="info-box">
+        <h3 style="margin-top: 0;">Cbの特徴</h3>
+        <ul style="margin: 0.5em 0;">
+            <li>C/C++、Rust、TypeScript、Goの良いところを統合</li>
+            <li>型安全性とメモリ安全性を重視</li>
+            <li>モダンな構文で学習しやすい</li>
+            <li>async/awaitで非同期処理をサポート</li>
+        </ul>
+    </div>
+    
+    <div class="success-box" style="margin-top: 1em;">
+        <h3 style="margin-top: 0;">バイブコーディングの効果</h3>
+        <ul style="margin: 0.5em 0;">
+            <li>4ヶ月で11,000行の実装</li>
+            <li>3,000以上のテストケース</li>
+            <li>高品質なコードベース</li>
+            <li>学びながら楽しく開発</li>
+        </ul>
+    </div>
+    
+    <div class="warning-box" style="margin-top: 1em;">
+        <h3 style="margin-top: 0;">あなたも始めてみませんか？</h3>
+        <p style="margin: 0.5em 0;">
+            <strong>自作言語開発は楽しい！</strong><br>
+            AIと一緒なら、アイデアがすぐに形になります。<br>
+            小さく始めて、段階的に機能を追加していけば、<br>
+            誰でも自分だけの言語が作れます。
+        </p>
+    </div>
+</section>
+
+<section>
+    <h1>ご清聴ありがとうございました</h1>
+    
+    <div style="margin-top: 2em; font-size: 0.8em;">
+        <p><strong>Cb (シーフラット) プログラミング言語</strong></p>
+        <p style="margin-top: 1em;">GitHub: <code>https://github.com/[your-username]/Cb</code></p>
+        <p>Twitter/X: <code>@shadowlink</code></p>
+    </div>
+    
+    <div style="margin-top: 3em; font-size: 0.7em; color: #7f8c8d;">
+        <p>質問があればお気軽にどうぞ！</p>
+    </div>
+</section>
+
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/highlight.js"></script>
+    <script>
+        Reveal.initialize({
+            controls: true,
+            progress: true,
+            center: true,
+            hash: true,
+            transition: 'slide',
+            plugins: [ RevealHighlight ],
+            width: 1280,
+            height: 720,
+            margin: 0.04,
+            minScale: 0.2,
+            maxScale: 2.0
+        });
+    </script>
+</body>
+</html>

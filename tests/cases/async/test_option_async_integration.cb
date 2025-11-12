@@ -1,0 +1,103 @@
+// Test: Option<T> and async/await integration
+// v0.12.1 Feature: Complete Option + async support
+
+async Option<int> find_value(int id) {
+    if (id == 1) {
+        return Option<int>::Some(100);
+    } else if (id == 2) {
+        return Option<int>::Some(200);
+    } else {
+        return Option<int>::None;
+    }
+}
+
+async Option<string> find_name(int id) {
+    if (id == 1) {
+        return Option<string>::Some("Alice");
+    } else if (id == 2) {
+        return Option<string>::Some("Bob");
+    } else {
+        return Option<string>::None;
+    }
+}
+
+void main() {
+    println("=== Test 1: Option<int> with async ===");
+    
+    Future<Option<int>> f1 = find_value(1);
+    Option<int> opt1 = await f1;
+    
+    match (opt1) {
+        Some(value) => {
+            println("Found value: {value}");
+            assert(value == 100);
+        }
+        None => {
+            println("No value found");
+            assert(false);
+        }
+    }
+    
+    println("\n=== Test 2: Option<int> None case ===");
+    
+    Future<Option<int>> f2 = find_value(99);
+    Option<int> opt2 = await f2;
+    
+    match (opt2) {
+        Some(value) => {
+            println("Found value: {value}");
+            assert(false);
+        }
+        None => {
+            println("No value found (expected)");
+        }
+    }
+    
+    println("\n=== Test 3: Option<string> with async ===");
+    
+    Future<Option<string>> f3 = find_name(2);
+    Option<string> opt3 = await f3;
+    
+    match (opt3) {
+        Some(name) => {
+            println("Found name: {name}");
+            assert(name == "Bob");
+        }
+        None => {
+            println("No name found");
+            assert(false);
+        }
+    }
+    
+    println("\n=== Test 4: Multiple async Option operations ===");
+    
+    Future<Option<int>> fa = find_value(1);
+    Future<Option<int>> fb = find_value(2);
+    Future<Option<int>> fc = find_value(99);
+    
+    Option<int> oa = await fa;
+    Option<int> ob = await fb;
+    Option<int> oc = await fc;
+    
+    int sum = 0;
+    
+    match (oa) {
+        Some(val) => { sum = sum + val; }
+        None => {}
+    }
+    
+    match (ob) {
+        Some(val) => { sum = sum + val; }
+        None => {}
+    }
+    
+    match (oc) {
+        Some(val) => { sum = sum + val; }
+        None => {}
+    }
+    
+    println("Sum of found values: {sum}");
+    assert(sum == 300);
+    
+    println("\n=== All Option + async tests passed! ===");
+}

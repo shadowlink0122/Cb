@@ -1,0 +1,54 @@
+<section class="left-align">
+  <h2>モジュールシステム - import/export詳細</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <div style="display: flex; gap: 1em">
+      <div style="flex: 1">
+        <h3 style="font-size: 0.75em; margin-bottom: 0.2em">export: 公開する</h3>
+        <pre style="font-size: 0.38em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// math.cb</span>
+<span style="color: #c586c0; font-weight: bold;">export</span> <span style="color: #4ec9b0;">int</span> add(<span style="color: #4ec9b0;">int</span> a, <span style="color: #4ec9b0;">int</span> b) {
+    <span style="color: #c586c0; font-weight: bold;">return</span> a + b;
+}
+
+<span style="color: #c586c0; font-weight: bold;">export</span> <span style="color: #c586c0; font-weight: bold;">struct</span> <span style="color: #4ec9b0;">Point</span> {
+    <span style="color: #4ec9b0;">int</span> x;
+    <span style="color: #4ec9b0;">int</span> y;
+}
+
+<span style="color: #c586c0; font-weight: bold;">export</span> <span style="color: #c586c0; font-weight: bold;">interface</span> <span style="color: #4ec9b0;">Drawable</span> {
+    <span style="color: #4ec9b0;">void</span> draw();
+}
+
+<span style="color: #6a9955;">// 非公開（exportなし）</span>
+<span style="color: #4ec9b0;">int</span> helper() {
+    <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #b5cea8;">42</span>;
+}</code></pre>
+      </div>
+      <div style="flex: 1">
+        <h3 style="font-size: 0.75em; margin-bottom: 0.2em">import: 使用する</h3>
+        <pre style="font-size: 0.38em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// main.cb</span>
+<span style="color: #c586c0; font-weight: bold;">import</span> math;           <span style="color: #6a9955;">// モジュール全体をインポート</span>
+
+<span style="color: #4ec9b0;">void</span> main() {
+    <span style="color: #6a9955;">// exportした関数・型が使える</span>
+    <span style="color: #4ec9b0;">int</span> result = add(<span style="color: #b5cea8;">3</span>, <span style="color: #b5cea8;">5</span>);
+    
+    <span style="color: #4ec9b0;">Point</span> p;
+    p.<span style="color: #dcdcaa;">x</span> = <span style="color: #b5cea8;">10</span>;
+    p.<span style="color: #dcdcaa;">y</span> = <span style="color: #b5cea8;">20</span>;
+    
+    <span style="color: #6a9955;">// helper()は呼べない（非公開）</span>
+}</code></pre>
+      </div>
+    </div>
+    <div style="margin-top: 0.5em">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.2em">パス指定とディレクトリ構造</h3>
+      <pre style="font-size: 0.38em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #c586c0; font-weight: bold;">import</span> stdlib.std.vector;    <span style="color: #6a9955;">// stdlib/std/vector.cb</span>
+<span style="color: #c586c0; font-weight: bold;">import</span> mylib.utils.math;     <span style="color: #6a9955;">// mylib/utils/math.cb</span>
+<span style="color: #c586c0; font-weight: bold;">import</span> models.user;          <span style="color: #6a9955;">// models/user.cb</span></code></pre>
+      <p style="font-size: 0.65em; margin-top: 0.3em">
+        <strong class="highlight">特徴</strong>
+        : ドット区切りでディレクトリ構造に対応、循環参照は検出される
+      </p>
+    </div>
+  </div>
+</section>

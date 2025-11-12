@@ -226,6 +226,76 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
         }
     }
 
+    // v0.12.1: タイムアウトチェック
+    if (task.has_timeout && !task.is_executed) {
+        // 現在時刻を取得
+        int64_t current_time_ms;
+#ifdef _WIN32
+        FILETIME ft;
+        GetSystemTimeAsFileTime(&ft);
+        ULARGE_INTEGER uli;
+        uli.LowPart = ft.dwLowDateTime;
+        uli.HighPart = ft.dwHighDateTime;
+        current_time_ms = (uli.QuadPart / 10000) - 11644473600000LL;
+#else
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        current_time_ms = static_cast<int64_t>(tv.tv_sec) * 1000 +
+                          static_cast<int64_t>(tv.tv_usec) / 1000;
+#endif
+
+        if (current_time_ms >= task.timeout_ms) {
+            // タイムアウト発生
+            task.is_executed = true;
+            task.has_return_value = true;
+            task.return_is_struct = true;
+            task.return_type = TYPE_STRUCT;
+
+            // Result::Err("Timeout")を作成
+            Variable result_var;
+            result_var.is_struct = true;
+            result_var.struct_type_name = "Result";
+            result_var.type = TYPE_STRUCT;
+
+            // Result.tag = 1 (Err)
+            Variable tag_field;
+            tag_field.type = TYPE_INT;
+            tag_field.value = 1;
+            tag_field.is_assigned = true;
+            result_var.struct_members["tag"] = tag_field;
+
+            // Result.err = "Timeout"
+            Variable err_field;
+            err_field.type = TYPE_STRING;
+            err_field.str_value = "Timeout";
+            err_field.is_assigned = true;
+            result_var.struct_members["err"] = err_field;
+
+            task.return_struct_value = result_var;
+
+            // Future.is_readyをtrueに設定
+            if (task.use_internal_future) {
+                auto ready_it =
+                    task.internal_future.struct_members.find("is_ready");
+                if (ready_it != task.internal_future.struct_members.end()) {
+                    ready_it->second.value = 1;
+                }
+                // Future.valueにResult::Err("Timeout")を設定
+                task.internal_future.struct_members["value"] = result_var;
+            } else if (task.future_var) {
+                auto ready_it =
+                    task.future_var->struct_members.find("is_ready");
+                if (ready_it != task.future_var->struct_members.end()) {
+                    ready_it->second.value = 1;
+                }
+                // Future.valueにResult::Err("Timeout")を設定
+                task.future_var->struct_members["value"] = result_var;
+            }
+
+            return false; // タスク完了
+        }
+    }
+
     // v0.12.0: auto_yieldモードを設定（forループなどで自動yieldするため）
     bool prev_auto_yield_mode = interpreter_.is_in_auto_yield_mode();
     if (task.auto_yield) {
@@ -258,8 +328,32 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
     // pushされたスコープにタスクスコープの変数をコピー
     // (上書きではなく、変数だけをコピー)
     for (auto &var_pair : task_scope_copy.variables) {
+        // v0.12.1: デバッグ - enum情報の確認
+        if (var_pair.second.is_enum) {
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "[EVENT_LOOP_SCOPE] Copying var '%s': is_enum=%d, variant='%s'",
+                var_pair.first.c_str(), var_pair.second.is_enum,
+                var_pair.second.enum_variant.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
+
         interpreter_.current_scope().variables[var_pair.first] =
             var_pair.second;
+
+        // v0.12.1: コピー後の確認
+        if (var_pair.second.is_enum) {
+            Variable &copied_var =
+                interpreter_.current_scope().variables[var_pair.first];
+            char dbg_buf[512];
+            snprintf(
+                dbg_buf, sizeof(dbg_buf),
+                "[EVENT_LOOP_SCOPE] After copy '%s': is_enum=%d, variant='%s'",
+                var_pair.first.c_str(), copied_var.is_enum,
+                copied_var.enum_variant.c_str());
+            debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+        }
     }
 
     try {
@@ -391,6 +485,39 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
             task.return_struct_value = e.struct_value;
         } else if (e.type == TYPE_STRING) {
             task.return_string_value = e.str_value;
+        } else if (e.type == TYPE_ENUM) {
+            // v0.13.0: TYPE_ENUMの場合、enum情報を含むstruct_valueとして保存
+            // 古いスタイルのenum (Option::None等) がTYPE_ENUMとして返される場合
+            task.return_is_struct = true;
+
+            // enum情報を持つVariable構造体を作成
+            Variable enum_var;
+            enum_var.type = TYPE_ENUM;
+            enum_var.is_enum = true;
+            enum_var.is_struct = true;
+            enum_var.value = e.value;
+            enum_var.is_assigned = true;
+
+            // 関数の戻り値型からenum型名を推定
+            // task.function_name から型情報を取得する必要があるが、
+            // ここでは簡略化して、値から判定
+            // Option::None は通常 1 を返す
+            if (e.value == 1) {
+                // 仮にOptionとして扱う（本来は型情報から判定すべき）
+                // これは暫定的な実装
+                enum_var.enum_type_name = "Option";
+                enum_var.struct_type_name = "Option";
+                enum_var.enum_variant = "None";
+            } else {
+                // その他のenum値
+                enum_var.enum_type_name = "UnknownEnum";
+                enum_var.struct_type_name = "UnknownEnum";
+            }
+
+            task.return_struct_value = enum_var;
+
+            debug_msg(DebugMsgId::GENERIC_DEBUG,
+                      "[EVENT_LOOP] Stored TYPE_ENUM as struct_value");
         } else if (e.type == TYPE_FLOAT || e.type == TYPE_DOUBLE ||
                    e.type == TYPE_QUAD) {
             task.return_double_value = e.double_value;
@@ -403,55 +530,139 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
             debug_msg(DebugMsgId::EVENT_LOOP_SET_VALUE,
                       static_cast<int>(e.type));
 
-            auto value_it = task.internal_future.struct_members.find("value");
-            if (value_it != task.internal_future.struct_members.end()) {
-                if (e.type == TYPE_STRING) {
-                    value_it->second.type = TYPE_STRING;
-                    value_it->second.str_value = e.str_value;
-                } else if (e.type == TYPE_FLOAT || e.type == TYPE_DOUBLE ||
-                           e.type == TYPE_QUAD) {
-                    value_it->second.type = e.type;
-                    value_it->second.double_value = e.double_value;
-                } else if (e.is_struct) {
-                    value_it->second = e.struct_value;
-                } else {
-                    value_it->second.type = TYPE_INT;
-                    value_it->second.value = e.value;
-                }
-                value_it->second.is_assigned = true;
+            // v0.12.1: デバッグ - struct_type_nameを確認
+            if (e.is_struct) {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[EVENT_LOOP_DEBUG] Returned struct_type_name='%s'",
+                         e.struct_value.struct_type_name.c_str());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
             }
 
-            // is_readyをtrueに設定
-            auto ready_it =
-                task.internal_future.struct_members.find("is_ready");
-            if (ready_it != task.internal_future.struct_members.end()) {
-                ready_it->second.value = 1;
-                debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETED, task_id);
+            // v0.12.1: 関数が返したのがFuture型自体の場合、その内容を使用
+            if (e.is_struct &&
+                e.struct_value.struct_type_name.find("Future") == 0) {
+                // 返されたのはFuture構造体
+                // その中のvalueとis_readyをコピー
+                auto returned_value_it =
+                    e.struct_value.struct_members.find("value");
+                auto returned_ready_it =
+                    e.struct_value.struct_members.find("is_ready");
+
+                if (returned_value_it != e.struct_value.struct_members.end()) {
+                    auto value_it =
+                        task.internal_future.struct_members.find("value");
+                    if (value_it != task.internal_future.struct_members.end()) {
+                        value_it->second = returned_value_it->second;
+                        value_it->second.is_assigned = true;
+                    }
+                }
+
+                if (returned_ready_it != e.struct_value.struct_members.end()) {
+                    auto ready_it =
+                        task.internal_future.struct_members.find("is_ready");
+                    if (ready_it != task.internal_future.struct_members.end()) {
+                        ready_it->second = returned_ready_it->second;
+                    }
+                }
+
+                debug_msg(
+                    DebugMsgId::GENERIC_DEBUG,
+                    "[EVENT_LOOP] Copied Future contents from returned Future");
+            } else {
+                // 通常の戻り値処理
+                auto value_it =
+                    task.internal_future.struct_members.find("value");
+                if (value_it != task.internal_future.struct_members.end()) {
+                    if (e.type == TYPE_STRING) {
+                        value_it->second.type = TYPE_STRING;
+                        value_it->second.str_value = e.str_value;
+                    } else if (e.type == TYPE_FLOAT || e.type == TYPE_DOUBLE ||
+                               e.type == TYPE_QUAD) {
+                        value_it->second.type = e.type;
+                        value_it->second.double_value = e.double_value;
+                    } else if (e.is_struct || task.return_is_struct) {
+                        // v0.13.0:
+                        // task.return_is_structもチェック（TYPE_ENUMの場合）
+                        if (task.return_is_struct) {
+                            value_it->second = task.return_struct_value;
+                        } else {
+                            value_it->second = e.struct_value;
+                        }
+                    } else {
+                        value_it->second.type = TYPE_INT;
+                        value_it->second.value = e.value;
+                    }
+                    value_it->second.is_assigned = true;
+                }
+
+                // is_readyをtrueに設定
+                auto ready_it =
+                    task.internal_future.struct_members.find("is_ready");
+                if (ready_it != task.internal_future.struct_members.end()) {
+                    ready_it->second.value = 1;
+                    debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETED, task_id);
+                }
             }
         } else if (task.future_var) {
-            auto value_it = task.future_var->struct_members.find("value");
-            if (value_it != task.future_var->struct_members.end()) {
-                if (e.type == TYPE_STRING) {
-                    value_it->second.type = TYPE_STRING;
-                    value_it->second.str_value = e.str_value;
-                } else if (e.type == TYPE_FLOAT || e.type == TYPE_DOUBLE ||
-                           e.type == TYPE_QUAD) {
-                    value_it->second.type = e.type;
-                    value_it->second.double_value = e.double_value;
-                } else if (e.is_struct) {
-                    value_it->second = e.struct_value;
-                } else {
-                    value_it->second.type = TYPE_INT;
-                    value_it->second.value = e.value;
-                }
-                value_it->second.is_assigned = true;
-            }
+            // v0.12.1: 関数が返したのがFuture型自体の場合、その内容を使用
+            if (e.is_struct &&
+                e.struct_value.struct_type_name.find("Future") == 0) {
+                // 返されたのはFuture構造体
+                auto returned_value_it =
+                    e.struct_value.struct_members.find("value");
+                auto returned_ready_it =
+                    e.struct_value.struct_members.find("is_ready");
 
-            // is_readyをtrueに設定
-            auto ready_it = task.future_var->struct_members.find("is_ready");
-            if (ready_it != task.future_var->struct_members.end()) {
-                ready_it->second.value = 1;
-                debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETED, task_id);
+                if (returned_value_it != e.struct_value.struct_members.end()) {
+                    auto value_it =
+                        task.future_var->struct_members.find("value");
+                    if (value_it != task.future_var->struct_members.end()) {
+                        value_it->second = returned_value_it->second;
+                        value_it->second.is_assigned = true;
+                    }
+                }
+
+                if (returned_ready_it != e.struct_value.struct_members.end()) {
+                    auto ready_it =
+                        task.future_var->struct_members.find("is_ready");
+                    if (ready_it != task.future_var->struct_members.end()) {
+                        ready_it->second = returned_ready_it->second;
+                    }
+                }
+            } else {
+                // 通常の戻り値処理
+                auto value_it = task.future_var->struct_members.find("value");
+                if (value_it != task.future_var->struct_members.end()) {
+                    if (e.type == TYPE_STRING) {
+                        value_it->second.type = TYPE_STRING;
+                        value_it->second.str_value = e.str_value;
+                    } else if (e.type == TYPE_FLOAT || e.type == TYPE_DOUBLE ||
+                               e.type == TYPE_QUAD) {
+                        value_it->second.type = e.type;
+                        value_it->second.double_value = e.double_value;
+                    } else if (e.is_struct || task.return_is_struct) {
+                        // v0.13.0:
+                        // task.return_is_structもチェック（TYPE_ENUMの場合）
+                        if (task.return_is_struct) {
+                            value_it->second = task.return_struct_value;
+                        } else {
+                            value_it->second = e.struct_value;
+                        }
+                    } else {
+                        value_it->second.type = TYPE_INT;
+                        value_it->second.value = e.value;
+                    }
+                    value_it->second.is_assigned = true;
+                }
+
+                // is_readyをtrueに設定
+                auto ready_it =
+                    task.future_var->struct_members.find("is_ready");
+                if (ready_it != task.future_var->struct_members.end()) {
+                    ready_it->second.value = 1;
+                    debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETED, task_id);
+                }
             }
         }
 
@@ -481,6 +692,16 @@ void SimpleEventLoop::initialize_task_scope(AsyncTask &task) {
          i++) {
         const auto &param = func->parameters[i];
         task.task_scope->variables[param->name] = task.args[i];
+    }
+
+    // v0.13.0 Phase 2.0: selfをタスクスコープに設定
+    if (task.has_self) {
+        task.task_scope->variables["self"] = task.self_value;
+        debug_msg(
+            DebugMsgId::GENERIC_DEBUG,
+            "[TASK_SCOPE] Set self in task scope: type=%d, struct_type=%s",
+            static_cast<int>(task.self_value.type),
+            task.self_value.struct_type_name.c_str());
     }
 }
 

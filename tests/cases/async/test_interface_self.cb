@@ -1,0 +1,41 @@
+// async interface + self テスト
+
+interface Greeter {
+    async string greet();
+    async int getAge();
+}
+
+struct Person {
+    string name;
+    int age;
+};
+
+impl Greeter for Person {
+    async string greet() {
+        await sleep(10);
+        return self.name;
+    }
+    
+    async int getAge() {
+        await sleep(10);
+        return self.age;
+    }
+}
+
+void main() {
+    Person p;
+    p.name = "Bob";
+    p.age = 25;
+    
+    // 並行実行
+    Future<string> f_name = p.greet();
+    Future<int> f_age = p.getAge();
+    
+    string name = await f_name;
+    int age = await f_age;
+    
+    assert(name == "Bob");
+    assert(age == 25);
+    
+    println("PASS: async interface with self test");
+}

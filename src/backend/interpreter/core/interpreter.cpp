@@ -2722,6 +2722,14 @@ void Interpreter::assign_struct_member(const std::string &var_name,
                                                      value_var);
 }
 
+// v0.12.1: structメンバに値を代入（Variable）
+void Interpreter::assign_struct_member(const std::string &var_name,
+                                       const std::string &member_name,
+                                       const Variable &value_var) {
+    struct_assignment_manager_->assign_struct_member(var_name, member_name,
+                                                     value_var);
+}
+
 // structメンバに構造体を代入
 void Interpreter::assign_struct_member_struct(const std::string &var_name,
                                               const std::string &member_name,

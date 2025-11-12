@@ -1,0 +1,20 @@
+// v0.14.0: Test RuntimeError enum
+
+void main() {
+    // RuntimeError enumが認識されることをテスト
+    println("Testing RuntimeError enum");
+    
+    // 基本的な構築テスト
+    RuntimeError err = RuntimeError::NullPointerError("test null pointer");
+    
+    match (err) {
+        NullPointerError(msg) => {
+            println("Caught null pointer error: {msg}");
+        }
+        _ => {
+            println("Other error");
+        }
+    }
+    
+    println("RuntimeError enum test passed!");
+}

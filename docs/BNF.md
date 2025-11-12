@@ -1,7 +1,7 @@
 # Cb言語 BNF文法定義
 
-**バージョン**: v0.11.0  
-**最終更新**: 2025年11月5日
+**バージョン**: v0.12.1  
+**最終更新**: 2025年11月11日
 
 ## 概要
 
@@ -55,6 +55,7 @@
               | <return_statement>
               | <break_statement>
               | <continue_statement>
+              | <yield_statement>
               | <block>
 ```
 
@@ -157,11 +158,11 @@ Pair<string, int> age_pair;
 ### Interface/Impl
 
 ```
-<interface_declaration> ::= 'interface' <identifier> '{' <method_signature_list> '}' ';'
+<interface_declaration> ::= 'interface' <identifier> [ <generic_params> ] '{' <method_signature_list> '}' ';'
 
 <method_signature_list> ::= <method_signature> { <method_signature> }
 
-<method_signature> ::= <type_specifier> <identifier> '(' <parameter_list> ')' ';'
+<method_signature> ::= [ 'async' ] <type_specifier> <identifier> '(' <parameter_list> ')' ';'
 
 <impl_block> ::= 'impl' <identifier> [ <generic_params> ] [ 'for' <type_specifier> ] '{' <impl_body> '}' ';'
 
@@ -172,15 +173,35 @@ Pair<string, int> age_pair;
                 | <constructor_declaration>
                 | <destructor_declaration>
 
+<method_declaration> ::= [ 'async' ] <type_specifier> <identifier> '(' <parameter_list> ')' <block>
+
 <constructor_declaration> ::= 'self' '(' <parameter_list> ')' <block>
 
 <destructor_declaration> ::= '~' 'self' '(' ')' <block>
 
 <method_list> ::= <method_declaration> { <method_declaration> }
 
-<method_declaration> ::= [ 'private' ] <type_specifier> <identifier> '(' <parameter_list> ')' <block>
+<method_declaration> ::= [ 'private' ] [ 'async' ] <type_specifier> <identifier> '(' <parameter_list> ')' <block>
 
 <interface_type> ::= <identifier>
+```
+
+**v0.12.1追加: Generic Interface + Async**:
+```cb
+interface AsyncProcessor<T> {
+    async Result<T, string> process(T value);
+}
+
+struct IntProcessor {};
+
+impl AsyncProcessor<int> for IntProcessor {
+    async Result<int, string> process(int value) {
+        if (value < 0) {
+            return Result<int, string>::Err("Negative");
+        }
+        return Result<int, string>::Ok(value * 2);
+    }
+}
 ```
 
 ### typedef
@@ -236,13 +257,28 @@ Result<int, string> ok = Result<int, string>::Ok(100);
 ## 関数
 
 ```
-<function_declaration> ::= [ 'export' ] <type_specifier> <identifier> [ <generic_params> ] '(' <parameter_list> ')' <block>
+<function_declaration> ::= [ 'export' ] [ 'async' ] <type_specifier> <identifier> [ <generic_params> ] '(' <parameter_list> ')' <block>
 
 <parameter_list> ::= [ <parameter> { ',' <parameter> } ]
 
 <parameter> ::= [ 'const' ] <type_specifier> <identifier> [ '=' <default_value> ]
 
 <default_value> ::= <expression>
+```
+
+**v0.12.1追加: async関数**:
+```cb
+// async関数宣言（asyncキーワード追加）
+async int compute(int x) {
+    return x * 2;
+}
+
+async Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
 ```
 
 **ジェネリクス関数の例** (v0.11.0):
@@ -335,9 +371,21 @@ int m = max<int>(10, 20);
 
 <continue_statement> ::= 'continue' ';'
 
+<yield_statement> ::= 'yield' ';'
+
 <defer_statement> ::= 'defer' <statement>
 
 <block> ::= '{' { <statement> } '}'
+```
+
+**v0.12.1追加: yield文**:
+```cb
+async int task() {
+    println("Task: Start");
+    yield;  // 他のタスクに実行権を渡す
+    println("Task: After yield");
+    return 100;
+}
 ```
 
 ---
@@ -416,6 +464,7 @@ int m = max<int>(10, 20);
                      | '++' <unary_expression>
                      | '--' <unary_expression>
                      | <unary_operator> <unary_expression>
+                     | 'await' <unary_expression>
 
 <unary_operator> ::= '&'    // アドレス演算子
                    | '*'    // デリファレンス
@@ -423,6 +472,15 @@ int m = max<int>(10, 20);
                    | '~'    // ビットNOT
                    | '+'    // 正号
                    | '-'    // 負号
+```
+
+**v0.12.1追加: await式**:
+```cb
+void main() {
+    Future<int> f = compute(21);
+    int result = await f;  // Futureから値を取得
+    println("Result: {result}");
+}
 ```
 
 ### 後置演算
@@ -436,8 +494,23 @@ int m = max<int>(10, 20);
                      | '->' <identifier>                       // ポインタメンバーアクセス ✅
                      | '++'                                    // 後置インクリメント ✅
                      | '--'                                    // 後置デクリメント ✅
+                     | '?'                                     // エラー伝播 (v0.12.1) 🆕
 
 <argument_list> ::= [ <expression> { ',' <expression> } ]
+```
+
+**?オペレーターの使用例** (v0.12.1):
+```cb
+Result<int, string> chain_divide(int x) {
+    int a = divide(x, 2)?;  // Errの場合は即座にreturn
+    int b = divide(a, 3)?;
+    return Result<int, string>::Ok(b);
+}
+
+Option<int> find_and_process(int[] arr, int target) {
+    int idx = find(arr, target)?;  // Noneの場合は即座にreturn
+    return Option<int>::Some(arr[idx] * 2);
+}
 ```
 
 ### 基本要素
@@ -665,6 +738,9 @@ import stdlib.std.map;
 関数:
   export, import
 
+非同期: (v0.12.1)
+  async, await, yield
+
 リテラル:
   true, false
 
@@ -683,7 +759,8 @@ break, case, char, const, continue, default, defer, do, double, else, enum,
 export, extern, float, for, goto, if, impl, import, int, interface,
 long, match, return, short, signed, sizeof, static, string, struct, switch,
 tiny, typedef, union, unsigned, void, while, bool, true, false, self,
-malloc, free, new, delete, array_get, array_set
+malloc, free, new, delete, array_get, array_set,
+async, await, yield
 ```
 
 ---

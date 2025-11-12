@@ -314,9 +314,8 @@ TestSuiteResult run_async_tests() {
     TestResult t;
     
     test_async_int(&t);
-    // TODO: Fix string and struct async tests
-    // test_async_string(&t);
-    // test_async_struct(&t);
+    test_async_string(&t);
+    test_async_struct(&t);
     
     result.passed = t.passed;
     result.failed = t.failed;
@@ -338,8 +337,8 @@ void main() {
     int suites_passed = 0;
     int suites_failed = 0;
     
-    // [1/4] Allocators
-    println("[1/4] Running Allocator Tests...");
+    // [1/5] Allocators
+    println("[1/5] Running Allocator Tests...");
     TestSuiteResult r1 = run_allocator_tests();
     total_passed = total_passed + r1.passed;
     total_failed = total_failed + r1.failed;
@@ -352,8 +351,8 @@ void main() {
     }
     println("");
     
-    // [2/4] Vector
-    println("[2/4] Running Vector Tests...");
+    // [2/5] Vector
+    println("[2/5] Running Vector Tests...");
     TestSuiteResult r2 = run_vector_tests();
     total_passed = total_passed + r2.passed;
     total_failed = total_failed + r2.failed;
@@ -366,8 +365,8 @@ void main() {
     }
     println("");
     
-    // [3/4] Queue
-    println("[3/4] Running Queue Tests...");
+    // [3/5] Queue
+    println("[3/5] Running Queue Tests...");
     TestSuiteResult r3 = run_queue_tests();
     total_passed = total_passed + r3.passed;
     total_failed = total_failed + r3.failed;
@@ -380,8 +379,8 @@ void main() {
     }
     println("");
     
-    // [4/4] Map
-    println("[4/4] Running Map Tests...");
+    // [4/5] Map
+    println("[4/5] Running Map Tests...");
     TestSuiteResult r4 = run_map_tests();
     total_passed = total_passed + r4.passed;
     total_failed = total_failed + r4.failed;
@@ -394,19 +393,19 @@ void main() {
     }
     println("");
     
-    // [5/5] Async/Await (TODO: Fix and re-enable)
-    // println("[5/5] Running Async/Await Tests...");
-    // TestSuiteResult r5 = run_async_tests();
-    // total_passed = total_passed + r5.passed;
-    // total_failed = total_failed + r5.failed;
-    // if (r5.success) {
-    //     println("  ✅ {r5.suite_name}: {r5.passed} tests passed");
-    //     suites_passed = suites_passed + 1;
-    // } else {
-    //     println("  ❌ {r5.suite_name}: {r5.failed} tests failed");
-    //     suites_failed = suites_failed + 1;
-    // }
-    // println("");
+    // [5/5] Async/Await
+    println("[5/5] Running Async/Await Tests...");
+    TestSuiteResult r5 = run_async_tests();
+    total_passed = total_passed + r5.passed;
+    total_failed = total_failed + r5.failed;
+    if (r5.success) {
+        println("  ✅ {r5.suite_name}: {r5.passed} tests passed");
+        suites_passed = suites_passed + 1;
+    } else {
+        println("  ❌ {r5.suite_name}: {r5.failed} tests failed");
+        suites_failed = suites_failed + 1;
+    }
+    println("");
     
     // 最終サマリー
     println("╔═══════════════════════════════════════════════════════════╗");
@@ -423,9 +422,6 @@ void main() {
     println("Test Suites:  {total_suites} suites");
     println("  Passed:     {suites_passed} suites");
     println("  Failed:     {suites_failed} suites");
-    println("");
-    
-    println("⚠️  Note: Async/Await tests temporarily disabled (issue tracked)");
     println("");
     
     if (total_failed == 0) {

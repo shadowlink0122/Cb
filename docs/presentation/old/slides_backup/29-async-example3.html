@@ -1,0 +1,40 @@
+<section class="left-align">
+  <h2>async/await 実例 3: エラーハンドリング</h2>
+
+  <p class="small-text">Resultとmatchを組み合わせたエラー処理</p>
+
+  <pre><code class="language-cb"><span class="hljs-keyword">typedef</span> Result = <span class="hljs-type">int</span> | <span class="hljs-type">string</span>;
+
+<span class="hljs-keyword">async</span> Result fetchData(<span class="hljs-type">int</span> id) {
+    <span class="hljs-keyword">await</span> sleep(<span class="hljs-number">100</span>);
+    
+    <span class="hljs-keyword">if</span> (id &lt; <span class="hljs-number">0</span>) {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"Error: Invalid ID"</span>;
+    }
+    
+    <span class="hljs-keyword">return</span> id * <span class="hljs-number">10</span>;
+}
+
+<span class="hljs-keyword">async</span> <span class="hljs-type">void</span> processData(<span class="hljs-type">int</span> id) {
+    Result result = <span class="hljs-keyword">await</span> fetchData(id);
+    
+    <span class="hljs-keyword">match</span> (result) {
+        <span class="hljs-type">int</span> value =&gt; {
+            println(<span class="hljs-string">"Success: "</span> + string(value));
+        }
+        <span class="hljs-type">string</span> error =&gt; {
+            println(<span class="hljs-string">"Error: "</span> + error);
+        }
+    }
+}
+
+<span class="hljs-type">void</span> main() {
+    <span class="hljs-keyword">await</span> processData(<span class="hljs-number">5</span>);   <span class="hljs-comment">// Success: 50</span>
+    <span class="hljs-keyword">await</span> processData(-<span class="hljs-number">1</span>);  <span class="hljs-comment">// Error: Invalid ID</span>
+}
+</code></pre>
+
+  <p class="small-text" style="margin-top: 0.5em; color: #27ae60">
+    <strong>💡 型安全なエラーハンドリングが可能</strong>
+  </p>
+</section>

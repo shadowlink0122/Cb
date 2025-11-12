@@ -1,0 +1,11 @@
+// Simple test for nested generic return type
+async int simple_async() {
+    await sleep(10);
+    return 42;
+}
+
+void main() {
+    Future<int> f = simple_async();
+    int result = await f;
+    println("Result: {result}");
+}

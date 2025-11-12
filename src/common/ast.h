@@ -629,13 +629,17 @@ struct ASTNode;
 
 // Interface定義情報を格納する構造体
 struct InterfaceMember {
-    std::string name;                // 関数名
-    TypeInfo return_type;            // 戻り値の型
+    std::string name;     // 関数名
+    TypeInfo return_type; // 戻り値の型
+    std::string
+        return_type_name; // v0.12.1: 戻り値の型名（Future<int>など複合型用）
     bool return_is_unsigned = false; // 戻り値がunsignedかどうか
-    bool is_async = false;           // v0.13.0 Phase 2.0: asyncメソッドか
+    bool is_async = false;           // v0.12.1 Phase 2.0: asyncメソッドか
     std::vector<std::pair<std::string, TypeInfo>>
         parameters; // パラメータのリスト (名前, 型)
     std::vector<bool> parameter_is_unsigned; // 各パラメータがunsignedかどうか
+    std::vector<std::string>
+        parameter_type_names; // v0.13.1: 型パラメータ名保存用（"T", "U"など）
 
     InterfaceMember() : return_type(TYPE_UNKNOWN), is_async(false) {}
     InterfaceMember(const std::string &n, TypeInfo ret_type,
@@ -643,30 +647,36 @@ struct InterfaceMember {
         : name(n), return_type(ret_type), return_is_unsigned(ret_unsigned),
           is_async(false) {}
 
-    // v0.13.0 Phase 2.0: 明示的コピーコンストラクタ（is_asyncをコピー）
+    // v0.12.1 Phase 2.0: 明示的コピーコンストラクタ（is_asyncをコピー）
     InterfaceMember(const InterfaceMember &other)
         : name(other.name), return_type(other.return_type),
+          return_type_name(other.return_type_name),
           return_is_unsigned(other.return_is_unsigned),
           is_async(other.is_async), parameters(other.parameters),
-          parameter_is_unsigned(other.parameter_is_unsigned) {}
+          parameter_is_unsigned(other.parameter_is_unsigned),
+          parameter_type_names(other.parameter_type_names) {}
 
-    // v0.13.0 Phase 2.0: 明示的コピー代入演算子（is_asyncをコピー）
+    // v0.12.1 Phase 2.0: 明示的コピー代入演算子（is_asyncをコピー）
     InterfaceMember &operator=(const InterfaceMember &other) {
         if (this != &other) {
             name = other.name;
             return_type = other.return_type;
+            return_type_name = other.return_type_name;
             return_is_unsigned = other.return_is_unsigned;
             is_async = other.is_async;
             parameters = other.parameters;
             parameter_is_unsigned = other.parameter_is_unsigned;
+            parameter_type_names = other.parameter_type_names;
         }
         return *this;
     }
 
     void add_parameter(const std::string &param_name, TypeInfo param_type,
-                       bool is_unsigned = false) {
+                       bool is_unsigned = false,
+                       const std::string &type_name = "") {
         parameters.emplace_back(param_name, param_type);
         parameter_is_unsigned.push_back(is_unsigned);
+        parameter_type_names.push_back(type_name); // v0.13.1: 型名を保存
     }
 
     bool get_parameter_is_unsigned(size_t index) const {
@@ -674,6 +684,14 @@ struct InterfaceMember {
             return false;
         }
         return parameter_is_unsigned[index];
+    }
+
+    // v0.13.1: パラメータの型名を取得
+    std::string get_parameter_type_name(size_t index) const {
+        if (index >= parameter_type_names.size()) {
+            return "";
+        }
+        return parameter_type_names[index];
     }
 };
 
@@ -690,14 +708,14 @@ struct InterfaceDefinition {
     InterfaceDefinition() {}
     InterfaceDefinition(const std::string &n) : name(n) {}
 
-    // v0.13.0 Phase 2.0:
+    // v0.12.1 Phase 2.0:
     // 明示的コピーコンストラクタ（is_asyncを含むメソッドをコピー）
     InterfaceDefinition(const InterfaceDefinition &other)
         : name(other.name), methods(other.methods),
           is_generic(other.is_generic), type_parameters(other.type_parameters),
           interface_bounds(other.interface_bounds) {}
 
-    // v0.13.0 Phase 2.0:
+    // v0.12.1 Phase 2.0:
     // 明示的コピー代入演算子（is_asyncを含むメソッドをコピー）
     InterfaceDefinition &operator=(const InterfaceDefinition &other) {
         if (this != &other) {
@@ -920,8 +938,9 @@ enum class ASTNodeType {
     // 演算子
     AST_BINARY_OP,
     AST_UNARY_OP,
-    AST_TERNARY_OP, // 三項演算子 condition ? value1 : value2
-    AST_CAST_EXPR,  // 型キャスト (type)expr
+    AST_TERNARY_OP,        // 三項演算子 condition ? value1 : value2
+    AST_ERROR_PROPAGATION, // v0.12.1: エラー伝播演算子 expr?
+    AST_CAST_EXPR,         // 型キャスト (type)expr
     AST_ASSIGN,
     AST_ARRAY_ASSIGN, // 配列代入 (arr1 = arr2)
 
@@ -1020,7 +1039,13 @@ enum class ASTNodeType {
 
     // v0.11.0 文字列補間
     AST_INTERPOLATED_STRING, // 補間文字列全体
-    AST_STRING_INTERPOLATION_SEGMENT // 補間セグメント（文字列部分または式）
+    AST_STRING_INTERPOLATION_SEGMENT, // 補間セグメント（文字列部分または式）
+
+    // v0.14.0 包括的エラーハンドリング
+    AST_TRY_EXPR,     // try式 (try expression)
+    AST_CHECKED_EXPR, // checked式 (checked expression)
+    AST_PANIC_EXPR,   // panic式 (panic!(...))
+    AST_UNWRAP_EXPR   // unwrap式 (expr.unwrap())
 };
 
 // 位置情報構造体
@@ -1061,7 +1086,7 @@ struct ASTNode {
     bool is_array = false;          // 配列パラメータフラグ
     bool is_array_return = false;   // 配列戻り値フラグ
     bool is_private_method = false; // privateメソッドフラグ
-    bool is_async = false; // v0.13.0 Phase 2.0: asyncメソッド/関数フラグ
+    bool is_async = false; // v0.12.1 Phase 2.0: asyncメソッド/関数フラグ
     bool is_private_member = false;     // struct privateメンバフラグ
     bool is_default_member = false;     // struct defaultメンバフラグ
     bool is_pointer = false;            // ポインタ型フラグ

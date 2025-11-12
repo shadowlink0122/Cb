@@ -1,0 +1,22 @@
+// Test nested generic type - non-async function
+Future<Result<int, string>> get_future_result() {
+    Result<int, string> ok = Result<int, string>::Ok(42);
+    Future<Result<int, string>> future;
+    future.value = ok;
+    future.is_ready = true;
+    return future;
+}
+
+void main() {
+    Future<Result<int, string>> f = get_future_result();
+    Result<int, string> r = f.value;
+    
+    match (r) {
+        Ok(value) => {
+            println("Ok: {value}");
+        }
+        Err(msg) => {
+            println("Err: {msg}");
+        }
+    }
+}

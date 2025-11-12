@@ -1,0 +1,43 @@
+<section class="left-align">
+  <h2>カプセル化</h2>
+
+  <p class="small-text">
+    impl内にprivateメンバ・privateメソッドを持つことができ、構造体メンバには1つだけdefaultメンバを設定できます。
+  </p>
+
+  <pre><code class="language-cb"><span class="hljs-keyword">struct</span> BankAccount {
+    <span class="hljs-type">string</span> <span class="hljs-built_in">owner</span>;
+    <span class="hljs-keyword">default</span> <span class="hljs-type">double</span> <span class="hljs-built_in">balance</span>;  <span class="hljs-comment">// defaultメンバ（1つのみ）</span>
+}
+
+<span class="hljs-keyword">interface</span> AccountOps {
+    <span class="hljs-type">void</span> deposit(<span class="hljs-type">double</span> amount);
+    <span class="hljs-type">void</span> withdraw(<span class="hljs-type">double</span> amount);
+    <span class="hljs-type">double</span> getBalance();
+}
+
+<span class="hljs-keyword">impl</span> AccountOps <span class="hljs-keyword">for</span> BankAccount {
+    <span class="hljs-keyword">private</span> <span class="hljs-type">double</span> minBalance = <span class="hljs-number">0.0</span>;  <span class="hljs-comment">// privateメンバ</span>
+    
+    <span class="hljs-type">void</span> deposit(<span class="hljs-type">double</span> amount) {
+        <span class="hljs-keyword">if</span> (amount > <span class="hljs-number">0</span>) {
+            <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span> = <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span> + amount;
+        }
+    }
+    
+    <span class="hljs-type">void</span> withdraw(<span class="hljs-type">double</span> amount) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-built_in">self</span>.<span class="hljs-built_in">canWithdraw</span>(amount)) {  <span class="hljs-comment">// privateメソッド呼び出し</span>
+            <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span> = <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span> - amount;
+        }
+    }
+    
+    <span class="hljs-type">double</span> getBalance() {
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span>;
+    }
+    
+    <span class="hljs-keyword">private</span> <span class="hljs-type">bool</span> canWithdraw(<span class="hljs-type">double</span> amount) {  <span class="hljs-comment">// privateメソッド</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">self</span>.<span class="hljs-built_in">balance</span> - amount >= <span class="hljs-built_in">self</span>.minBalance;
+    }
+}
+</code></pre>
+</section>

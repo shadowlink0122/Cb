@@ -1,0 +1,134 @@
+// ========================================
+// async interface/impl with yield デモ
+// v0.13.0 Phase 2.0
+// ========================================
+// yieldを使った協調的マルチタスキングのテスト
+
+// interfaceで定義
+interface TaskProcessor {
+    async int execute(int iterations);
+}
+
+// 実装1: CPUバウンドなタスク（yieldで他のタスクに譲る）
+struct CPUBoundTask {
+    string name;
+};
+
+impl TaskProcessor for CPUBoundTask {
+    async int execute(int iterations) {
+        println("[CPU] 開始: {iterations}回の反復");
+        
+        int sum = 0;
+        for (int i = 0; i < iterations; i = i + 1) {
+            sum = sum + i;
+            
+            // 10回ごとにyieldして他のタスクに譲る
+            if (i % 10 == 0) {
+                yield;
+                println("[CPU] 再開: iteration {i}/{iterations}");
+            }
+        }
+        
+        println("[CPU] 完了: sum = {sum}");
+        return sum;
+    }
+}
+
+// 実装2: I/Oバウンドなタスク（sleepとyieldを併用）
+struct IOBoundTask {
+    string name;
+};
+
+impl TaskProcessor for IOBoundTask {
+    async int execute(int iterations) {
+        println("[IO] {self.name} 開始: {iterations}回のI/O");
+        
+        int count = 0;
+        for (int i = 0; i < iterations; i = i + 1) {
+            // I/Oをシミュレート
+            await sleep(100);
+            count = count + 1;
+            
+            // 処理の途中でyield
+            if (i % 2 == 0) {
+                yield;
+                println("[IO] {self.name} 再開: {i}/{iterations}");
+            }
+        }
+        
+        println("[IO] {self.name} 完了: count = {count}");
+        return count;
+    }
+}
+
+void main() {
+    println("\n========================================");
+    println("  async interface + yield デモ");
+    println("========================================\n");
+    
+    long start = now();
+    
+    println("=== テスト1: 複数のCPUバウンドタスク ===\n");
+    
+    CPUBoundTask cpu1;
+    cpu1.name = "CPU-Task-1";
+    
+    CPUBoundTask cpu2;
+    cpu2.name = "CPU-Task-2";
+    
+    // 両方のタスクを並行実行
+    Future<int> f1 = cpu1.execute(30);
+    Future<int> f2 = cpu2.execute(30);
+    
+    println("[登録完了] 2つのCPUタスクを並行実行中...\n");
+    
+    int result1 = await f1;
+    int result2 = await f2;
+    
+    long test1_end = now();
+    
+    println("\n結果:");
+    println("  CPU-Task-1: {result1}");
+    println("  CPU-Task-2: {result2}");
+    println("  実行時間: {test1_end - start}ms\n");
+    
+    println("========================================\n");
+    
+    println("=== テスト2: CPUとI/Oの混在タスク ===\n");
+    
+    long test2_start = now();
+    
+    CPUBoundTask cpu3;
+    cpu3.name = "CPU-Task-3";
+    
+    IOBoundTask io1;
+    io1.name = "IO-Task-1";
+    
+    // CPU-boundとI/O-boundを並行実行
+    Future<int> f3 = cpu3.execute(25);
+    Future<int> f4 = io1.execute(5);
+    
+    println("[登録完了] CPUタスクとI/Oタスクを並行実行中...\n");
+    
+    int result3 = await f3;
+    int result4 = await f4;
+    
+    long test2_end = now();
+    
+    println("\n結果:");
+    println("  CPU-Task-3: {result3}");
+    println("  IO-Task-1: {result4}");
+    println("  実行時間: {test2_end - test2_start}ms\n");
+    
+    println("========================================\n");
+    
+    long end = now();
+    
+    println("まとめ:");
+    println("  - async interfaceでyieldが正しく動作");
+    println("  - yieldにより他のタスクに実行を譲渡");
+    println("  - CPUバウンドとI/Oバウンドのタスク混在");
+    println("  - 協調的マルチタスキングの実現");
+    println("  - 合計実行時間: 約{end - start}ms");
+    println("\n");
+}

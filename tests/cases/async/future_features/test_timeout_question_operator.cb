@@ -1,0 +1,36 @@
+// Test: Timeout with ? operator
+// Tests that timeout works with the ? operator for error propagation
+
+async Result<int, string> fetch(int id) {
+    await sleep(100);
+    if id < 0 {
+        return Result::Err("Invalid ID");
+    }
+    return Result::Ok(id * 10);
+}
+
+async Result<int, string> fetch_with_timeout(int id, int timeout_ms) {
+    int result = await timeout(fetch(id), timeout_ms)?;
+    return Result::Ok(result);
+}
+
+async int main() {
+    // Success case - fast enough
+    Result<int, string> r1 = await fetch_with_timeout(5, 500);
+    assert(r1.is_ok());
+    assert(r1.unwrap() == 50);
+    println("Success case passed");
+    
+    // Timeout case
+    Result<int, string> r2 = await fetch_with_timeout(10, 50);
+    assert(r2.is_err());
+    println("Timeout case passed");
+    
+    // Error case from fetch
+    Result<int, string> r3 = await fetch_with_timeout(-1, 500);
+    assert(r3.is_err());
+    println("Error case passed");
+    
+    println("All timeout + ? operator tests passed!");
+    return 0;
+}

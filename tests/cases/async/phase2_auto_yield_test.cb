@@ -3,7 +3,7 @@
 // Note: Future<T> は組み込み型なので定義不要
 
 // yield文なし: 各ステートメント後に自動yield
-async Future<int> task1() {
+async int task1() {
     println("Task1: Statement 1");
     println("Task1: Statement 2");
     println("Task1: Statement 3");
@@ -12,7 +12,7 @@ async Future<int> task1() {
 }
 
 // yield文なし: 各ステートメント後に自動yield
-async Future<int> task2() {
+async int task2() {
     println("Task2: Statement 1");
     println("Task2: Statement 2");
     println("Task2: Done");
@@ -20,7 +20,7 @@ async Future<int> task2() {
 }
 
 // 明示的なyield文あり: 従来通りの動作
-async Future<int> task3() {
+async int task3() {
     println("Task3: Before explicit yield");
     yield;
     println("Task3: After explicit yield");

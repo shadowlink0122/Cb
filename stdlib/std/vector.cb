@@ -379,11 +379,11 @@ impl VectorOps<T> for Vector<T> {
                     void** right_ptr_array = node_array + j * ptr_size;
                     void* right_node = *right_ptr_array;
                     
-                    // データを読み取り (インライン)
-                    void** left_data_array = left_node + data_offset;
-                    T left_data = *left_data_array;
-                    void** right_data_array = right_node + data_offset;
-                    T right_data = *right_data_array;
+                    // データを読み取り (array_get使用)
+                    void* left_data_ptr = left_node + data_offset;
+                    T left_data = array_get(left_data_ptr, 0);
+                    void* right_data_ptr = right_node + data_offset;
+                    T right_data = array_get(right_data_ptr, 0);
                     
                     // 比較
                     bool left_first = false;

@@ -35,8 +35,7 @@ struct AsyncStringResult {
 // エラーハンドリング付き非同期関数
 // ============================================
 
-Future<AsyncResult> divide_async(int a, int b) {
-    Future<AsyncResult> result;
+async AsyncResult divide_async(int a, int b) {
     AsyncResult res;
     
     if (b == 0) {
@@ -51,13 +50,10 @@ Future<AsyncResult> divide_async(int a, int b) {
         res.value = a / b;
     }
     
-    result.value = res;
-    result.is_ready = true;
-    return result;
+    return res;
 }
 
-Future<AsyncStringResult> fetch_user_name(int user_id) {
-    Future<AsyncStringResult> result;
+async AsyncStringResult fetch_user_name(int user_id) {
     AsyncStringResult res;
     
     if (user_id < 1 || user_id > 3) {
@@ -82,17 +78,14 @@ Future<AsyncStringResult> fetch_user_name(int user_id) {
         res.value = "Charlie";
     }
     
-    result.value = res;
-    result.is_ready = true;
-    return result;
+    return res;
 }
 
 // ============================================
 // タイムアウトシミュレーション
 // ============================================
 
-Future<AsyncResult> fetch_with_timeout(int delay_ms) {
-    Future<AsyncResult> result;
+async AsyncResult fetch_with_timeout(int delay_ms) {
     AsyncResult res;
     
     if (delay_ms > 1000) {
@@ -107,17 +100,14 @@ Future<AsyncResult> fetch_with_timeout(int delay_ms) {
         res.value = 42;
     }
     
-    result.value = res;
-    result.is_ready = true;
-    return result;
+    return res;
 }
 
 // ============================================
 // ネットワークリクエストシミュレーション
 // ============================================
 
-Future<AsyncStringResult> fetch_api_data(string endpoint) {
-    Future<AsyncStringResult> result;
+async AsyncStringResult fetch_api_data(string endpoint) {
     AsyncStringResult res;
     
     // エンドポイントに応じてシミュレート
@@ -143,9 +133,7 @@ Future<AsyncStringResult> fetch_api_data(string endpoint) {
         res.value = "";
     }
     
-    result.value = res;
-    result.is_ready = true;
-    return result;
+    return res;
 }
 
 // ============================================
@@ -153,7 +141,7 @@ Future<AsyncStringResult> fetch_api_data(string endpoint) {
 // ============================================
 
 // パターン1: 成功/失敗をチェックして処理
-void pattern1_check_success() {
+async void pattern1_check_success() {
     print("=== Pattern 1: Success Check ===\n");
     
     AsyncResult res1 = await divide_async(10, 2);
@@ -184,7 +172,7 @@ void pattern1_check_success() {
 }
 
 // パターン2: 複数の非同期処理でエラーチェック
-void pattern2_multiple_checks() {
+async void pattern2_multiple_checks() {
     print("=== Pattern 2: Multiple Async with Error Checks ===\n");
     int[4] user_ids;
     user_ids[0] = 1;
@@ -213,7 +201,7 @@ void pattern2_multiple_checks() {
 }
 
 // パターン3: タイムアウトハンドリング
-void pattern3_timeout_handling() {
+async void pattern3_timeout_handling() {
     print("=== Pattern 3: Timeout Handling ===\n");
     
     int[3] delays;
@@ -243,7 +231,7 @@ void pattern3_timeout_handling() {
 }
 
 // パターン4: APIリクエストのエラーハンドリング
-void pattern4_api_requests() {
+async void pattern4_api_requests() {
     print("=== Pattern 4: API Request Error Handling ===\n");
     
     // 成功するリクエスト
@@ -296,7 +284,7 @@ void pattern4_api_requests() {
 }
 
 // パターン5: エラーからのリカバリー
-void pattern5_error_recovery() {
+async void pattern5_error_recovery() {
     print("=== Pattern 5: Error Recovery with Fallback ===\n");
     
     // 最初の試行
@@ -336,7 +324,7 @@ void pattern5_error_recovery() {
 }
 
 // パターン6: チェーン処理でのエラーハンドリング
-void pattern6_chain_error_handling() {
+async void pattern6_chain_error_handling() {
     print("=== Pattern 6: Error Handling in Chains ===\n");
     
     // ステップ1: ユーザーを取得
@@ -374,22 +362,20 @@ void pattern6_chain_error_handling() {
 // メイン関数
 // ============================================
 
-int main() {
+void main() {
     print("==========================================\n");
     print("  Cb Async Error Handling Patterns\n");
     print("==========================================\n\n");
     
     // すべてのパターンを実行
-    pattern1_check_success();
-    pattern2_multiple_checks();
-    pattern3_timeout_handling();
-    pattern4_api_requests();
-    pattern5_error_recovery();
-    pattern6_chain_error_handling();
+    await pattern1_check_success();
+    await pattern2_multiple_checks();
+    await pattern3_timeout_handling();
+    await pattern4_api_requests();
+    await pattern5_error_recovery();
+    await pattern6_chain_error_handling();
     
     print("==========================================\n");
     print("  All Patterns Completed!\n");
     print("==========================================\n");
-    
-    return 0;
 }

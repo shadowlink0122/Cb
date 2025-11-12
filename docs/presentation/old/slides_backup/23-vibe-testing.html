@@ -1,0 +1,57 @@
+<section class="left-align">
+  <h2>テスト駆動開発の重要性</h2>
+
+  <div class="warning-box">
+    <p style="margin: 0"><strong>仕様変更があっても壊れていることに気づきやすい</strong></p>
+  </div>
+
+  <h3>Cbのテスト戦略</h3>
+  <ul style="font-size: 0.75em">
+    <li>
+      <strong>統合テスト</strong>
+      : 3,000以上のCbコードのテストケース
+    </li>
+    <li>
+      <strong>ユニットテスト</strong>
+      : C言語レベルでの関数テスト
+    </li>
+    <li>
+      <strong>回帰テスト</strong>
+      : 過去のバグの再発防止
+    </li>
+  </ul>
+
+  <h3 style="margin-top: 0.8em">テストの例</h3>
+  <div class="two-column" style="font-size: 0.65em">
+    <div>
+      <pre><code class="language-cb">// tests/async_test.cb
+async int test_sleep() {
+    int start = time_ms();
+    await sleep(100);
+    int end = time_ms();
+    return end - start >= 100;
+}
+
+void main() {
+    assert(await test_sleep());
+}
+</code></pre>
+    </div>
+    <div>
+      <pre><code class="language-bash"># テスト実行
+$ make test
+
+Running tests...
+✓ async_test.cb
+✓ vector_test.cb
+✓ interface_test.cb
+
+3000/3000 tests passed
+</code></pre>
+    </div>
+  </div>
+
+  <p class="small-text" style="margin-top: 0.8em; color: #27ae60">
+    <strong>💡 テストを先に書くことで、AIに仕様を明確に伝えられる</strong>
+  </p>
+</section>

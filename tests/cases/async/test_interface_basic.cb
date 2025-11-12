@@ -1,0 +1,36 @@
+// async interface基本テスト
+
+interface Calculator {
+    async int add(int a, int b);
+    async int multiply(int a, int b);
+}
+
+struct SimpleCalc {};
+
+impl Calculator for SimpleCalc {
+    async int add(int a, int b) {
+        await sleep(10);
+        return a + b;
+    }
+    
+    async int multiply(int a, int b) {
+        await sleep(10);
+        return a * b;
+    }
+}
+
+void main() {
+    SimpleCalc calc;
+    
+    // 並行実行
+    Future<int> f1 = calc.add(5, 3);
+    Future<int> f2 = calc.multiply(4, 2);
+    
+    int sum = await f1;
+    int product = await f2;
+    
+    assert(sum == 8);
+    assert(product == 8);
+    
+    println("PASS: async interface basic test");
+}

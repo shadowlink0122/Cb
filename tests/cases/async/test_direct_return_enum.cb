@@ -1,0 +1,83 @@
+// Test for direct return of enum variants (v0.12.1 fix)
+// Tests the fix for Option::None and Result direct return
+
+async Option<int> return_none_direct() {
+    return Option<int>::None;  // Direct return
+}
+
+async Option<int> return_some_direct() {
+    return Option<int>::Some(99);  // Direct return
+}
+
+async Result<int, string> return_ok_direct() {
+    return Result<int, string>::Ok(123);  // Direct return
+}
+
+async Result<int, string> return_err_direct() {
+    return Result<int, string>::Err("test error");  // Direct return
+}
+
+void main() {
+    println("=== Direct Return Enum Variants Test ===");
+    
+    // Test 1: Direct return Option::None
+    println("\n--- Test 1: Direct return Option::None ---");
+    Future<Option<int>> f1 = return_none_direct();
+    Option<int> r1 = await f1;
+    match (r1) {
+        Some(v) => {
+            println("ERROR: Got Some({v})");
+            assert(false);
+        }
+        None => {
+            println("SUCCESS: Got None");
+        }
+    }
+    
+    // Test 2: Direct return Option::Some
+    println("\n--- Test 2: Direct return Option::Some ---");
+    Future<Option<int>> f2 = return_some_direct();
+    Option<int> r2 = await f2;
+    match (r2) {
+        Some(v) => {
+            println("SUCCESS: Got Some({v})");
+            assert(v == 99);
+        }
+        None => {
+            println("ERROR: Got None");
+            assert(false);
+        }
+    }
+    
+    // Test 3: Direct return Result::Ok
+    println("\n--- Test 3: Direct return Result::Ok ---");
+    Future<Result<int, string>> f3 = return_ok_direct();
+    Result<int, string> r3 = await f3;
+    match (r3) {
+        Ok(v) => {
+            println("SUCCESS: Got Ok({v})");
+            assert(v == 123);
+        }
+        Err(e) => {
+            println("ERROR: Got Err({e})");
+            assert(false);
+        }
+    }
+    
+    // Test 4: Direct return Result::Err
+    println("\n--- Test 4: Direct return Result::Err ---");
+    Future<Result<int, string>> f4 = return_err_direct();
+    Result<int, string> r4 = await f4;
+    match (r4) {
+        Ok(v) => {
+            println("ERROR: Got Ok({v})");
+            assert(false);
+        }
+        Err(e) => {
+            println("SUCCESS: Got Err({e})");
+            assert(e == "test error");
+        }
+    }
+    
+    println("\n=== All Direct Return Tests Passed! ===");
+}

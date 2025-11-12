@@ -1,0 +1,65 @@
+<section class="left-align">
+    <h2>構文比較 - いいとこ取り</h2>
+    
+    <table style="width: 100%; font-size: 0.55em;">
+        <thead>
+            <tr>
+                <th>機能</th>
+                <th>C++</th>
+                <th>Cb</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>コンストラクタ</strong></td>
+                <td><code>ClassName(int x) { ... }</code></td>
+                <td><code>self(int x) { ... }</code></td>
+            </tr>
+            <tr>
+                <td><strong>デストラクタ</strong></td>
+                <td><code>~ClassName() { ... }</code></td>
+                <td><code>~self() { ... }</code></td>
+            </tr>
+            <tr>
+                <td><strong>ラムダ式</strong></td>
+                <td><code>[](int x) { return x * 2; }</code></td>
+                <td><code>(int x) => x * 2</code></td>
+            </tr>
+            <tr>
+                <td><strong>関数ポインタ</strong></td>
+                <td><code>int (*ptr)(int, int) = &add;</code></td>
+                <td><code>void* ptr = &add;</code></td>
+            </tr>
+            <tr>
+                <td><strong>Vector追加</strong></td>
+                <td><code>vec.<span class="member-access">push_back</span>(42);</code></td>
+                <td><code>vec.<span class="member-access">push</span>(42);</code></td>
+            </tr>
+            <tr>
+                <td><strong>Vector削除</strong></td>
+                <td><code>vec.<span class="member-access">pop_back</span>();</code></td>
+                <td><code>vec.<span class="member-access">pop</span>();</code></td>
+            </tr>
+            <tr>
+                <td><strong>Vectorアクセス</strong></td>
+                <td><code>vec[0]</code></td>
+                <td><code>vec.<span class="member-access">at</span>(0)</code></td>
+            </tr>
+            <tr>
+                <td><strong>Queue追加</strong></td>
+                <td><code>queue.<span class="member-access">push</span>(42);</code></td>
+                <td><code>queue.<span class="member-access">push</span>(42);</code></td>
+            </tr>
+            <tr>
+                <td><strong>Queue削除</strong></td>
+                <td><code>queue.<span class="member-access">pop</span>();</code></td>
+                <td><code>queue.<span class="member-access">pop</span>();</code></td>
+            </tr>
+            <tr>
+                <td><strong>async</strong></td>
+                <td><code>std::future&lt;int&gt; <span class="hljs-keyword">async</span>([]{ return 42; })</code></td>
+                <td><code><span class="hljs-keyword">async</span> <span class="hljs-type">int</span> func() { return 42; }</code></td>
+            </tr>
+        </tbody>
+    </table>
+</section>

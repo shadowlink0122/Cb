@@ -1,0 +1,51 @@
+// async interface 並行実行テスト
+
+interface Processor {
+    async int process(int value);
+}
+
+struct FastProcessor {};
+struct SlowProcessor {};
+
+impl Processor for FastProcessor {
+    async int process(int value) {
+        await sleep(50);
+        return value * 2;
+    }
+}
+
+impl Processor for SlowProcessor {
+    async int process(int value) {
+        await sleep(100);
+        return value * 3;
+    }
+}
+
+void main() {
+    FastProcessor fast;
+    SlowProcessor slow;
+    
+    long start = now();
+    
+    // 並行実行
+    Future<int> f1 = fast.process(10);
+    Future<int> f2 = slow.process(10);
+    Future<int> f3 = fast.process(20);
+    
+    int r1 = await f1;
+    int r2 = await f2;
+    int r3 = await f3;
+    
+    long elapsed = now() - start;
+    
+    assert(r1 == 20);
+    assert(r2 == 30);
+    assert(r3 == 40);
+    
+    // 並行実行なので約100ms（最も遅いタスク）で完了するはず
+    // 順次実行なら 50 + 100 + 50 = 200ms かかる
+    // 少し余裕を持たせて200ms以下なら並行実行とみなす
+    assert(elapsed < 200);
+    
+    println("PASS: async interface concurrent test (elapsed: {elapsed}ms)");
+}

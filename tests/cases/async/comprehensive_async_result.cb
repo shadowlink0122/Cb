@@ -1,0 +1,230 @@
+// Comprehensive async/await + Result<T,E> Integration Test
+// v0.12.1
+
+// Test 1: Basic async function returning Result
+async Result<int, string> divide_async(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+// Test 2: Nested Result types
+async Result<Result<int, string>, string> nested_result() {
+    Result<int, string> inner = Result<int, string>::Ok(42);
+    return Result<Result<int, string>, string>::Ok(inner);
+}
+
+// Test 3: String Result
+async Result<string, string> get_message(bool success) {
+    if (success) {
+        return Result<string, string>::Ok("Success message");
+    }
+    return Result<string, string>::Err("Error message");
+}
+
+// Test 4: Multiple await operations
+async Result<int, string> chain_operations(int a, int b, int c) {
+    Future<Result<int, string>> f1 = divide_async(a, b);
+    Result<int, string> r1 = await f1;
+    
+    match (r1) {
+        Ok(val) => {
+            Future<Result<int, string>> f2 = divide_async(val, c);
+            Result<int, string> r2 = await f2;
+            return r2;
+        }
+        Err(msg) => {
+            return Result<int, string>::Err(msg);
+        }
+    }
+}
+
+// Test 5: async with early return
+async Result<int, string> early_return(int x) {
+    if (x < 0) {
+        return Result<int, string>::Err("Negative number");
+    }
+    if (x == 0) {
+        return Result<int, string>::Ok(0);
+    }
+    return Result<int, string>::Ok(x * 2);
+}
+
+void main() {
+    println("=== Comprehensive Async/Await + Result Test ===");
+    
+    // Test 1: Basic success case
+    println("\n--- Test 1: Basic async Result (success) ---");
+    Future<Result<int, string>> f1 = divide_async(10, 2);
+    Result<int, string> r1 = await f1;
+    
+    match (r1) {
+        Ok(value) => {
+            assert(value == 5);
+            println("Test 1.1: divide_async(10, 2) = {value} - PASSED");
+        }
+        Err(msg) => {
+            println("Test 1.1 FAILED: Unexpected error: {msg}");
+        }
+    }
+    
+    // Test 2: Error case
+    println("\n--- Test 2: Basic async Result (error) ---");
+    Future<Result<int, string>> f2 = divide_async(10, 0);
+    Result<int, string> r2 = await f2;
+    
+    match (r2) {
+        Ok(value) => {
+            println("Test 2.1 FAILED: Expected error but got value: {value}");
+        }
+        Err(msg) => {
+            println("Test 2.1: Error caught: {msg} - PASSED");
+        }
+    }
+    
+    // Test 3: Variant access
+    println("\n--- Test 3: Variant access ---");
+    Future<Result<int, string>> f3 = divide_async(20, 4);
+    Result<int, string> r3 = await f3;
+    println("Test 3.1: Result variant = {r3.variant} - PASSED");
+    assert(r3.variant == "Ok");
+    
+    // Test 4: Nested Result - simplified (nested match not yet supported)
+    println("\n--- Test 4: Nested Result ---");
+    Future<Result<Result<int, string>, string>> f4 = nested_result();
+    Result<Result<int, string>, string> r4 = await f4;
+    
+    match (r4) {
+        Ok(inner) => {
+            // Note: Nested match not yet supported, but we can verify the structure
+            println("Test 4.1: Nested Result retrieved successfully - PASSED");
+        }
+        Err(msg) => {
+            println("Test 4.1 FAILED: Outer error: {msg}");
+        }
+    }
+    
+    // Test 5: String Result
+    println("\n--- Test 5: String Result ---");
+    Future<Result<string, string>> f5a = get_message(true);
+    Result<string, string> r5a = await f5a;
+    
+    match (r5a) {
+        Ok(msg) => {
+            println("Test 5.1: Success message = {msg} - PASSED");
+        }
+        Err(msg) => {
+            println("Test 5.1 FAILED: {msg}");
+        }
+    }
+    
+    Future<Result<string, string>> f5b = get_message(false);
+    Result<string, string> r5b = await f5b;
+    
+    match (r5b) {
+        Ok(msg) => {
+            println("Test 5.2 FAILED: Expected error but got: {msg}");
+        }
+        Err(msg) => {
+            println("Test 5.2: Error message = {msg} - PASSED");
+        }
+    }
+    
+    // Test 6: Chained operations (success)
+    println("\n--- Test 6: Chained operations ---");
+    Future<Result<int, string>> f6a = chain_operations(20, 2, 5);
+    Result<int, string> r6a = await f6a;
+    
+    match (r6a) {
+        Ok(value) => {
+            assert(value == 2);  // 20/2=10, 10/5=2
+            println("Test 6.1: chain_operations(20,2,5) = {value} - PASSED");
+        }
+        Err(msg) => {
+            println("Test 6.1 FAILED: {msg}");
+        }
+    }
+    
+    // Test 7: Chained operations (error)
+    Future<Result<int, string>> f6b = chain_operations(20, 0, 5);
+    Result<int, string> r6b = await f6b;
+    
+    match (r6b) {
+        Ok(value) => {
+            println("Test 6.2 FAILED: Expected error but got: {value}");
+        }
+        Err(msg) => {
+            println("Test 6.2: Chained error caught: {msg} - PASSED");
+        }
+    }
+    
+    // Test 8: Early return cases
+    println("\n--- Test 7: Early return cases ---");
+    Future<Result<int, string>> f7a = early_return(-5);
+    Result<int, string> r7a = await f7a;
+    
+    match (r7a) {
+        Ok(value) => {
+            println("Test 7.1 FAILED: Expected error for negative");
+        }
+        Err(msg) => {
+            println("Test 7.1: Negative error: {msg} - PASSED");
+        }
+    }
+    
+    Future<Result<int, string>> f7b = early_return(0);
+    Result<int, string> r7b = await f7b;
+    
+    match (r7b) {
+        Ok(value) => {
+            assert(value == 0);
+            println("Test 7.2: early_return(0) = {value} - PASSED");
+        }
+        Err(msg) => {
+            println("Test 7.2 FAILED: {msg}");
+        }
+    }
+    
+    Future<Result<int, string>> f7c = early_return(5);
+    Result<int, string> r7c = await f7c;
+    
+    match (r7c) {
+        Ok(value) => {
+            assert(value == 10);
+            println("Test 7.3: early_return(5) = {value} - PASSED");
+        }
+        Err(msg) => {
+            println("Test 7.3 FAILED: {msg}");
+        }
+    }
+    
+    // Test 9: Multiple sequential awaits
+    println("\n--- Test 8: Multiple sequential awaits ---");
+    Future<Result<int, string>> fa = divide_async(100, 5);
+    Future<Result<int, string>> fb = divide_async(80, 4);
+    Future<Result<int, string>> fc = divide_async(60, 3);
+    
+    Result<int, string> ra = await fa;
+    Result<int, string> rb = await fb;
+    Result<int, string> rc = await fc;
+    
+    int sum = 0;
+    match (ra) {
+        Ok(value) => { sum = sum + value; }
+        Err(msg) => {}
+    }
+    match (rb) {
+        Ok(value) => { sum = sum + value; }
+        Err(msg) => {}
+    }
+    match (rc) {
+        Ok(value) => { sum = sum + value; }
+        Err(msg) => {}
+    }
+    
+    assert(sum == 60);  // 20 + 20 + 20
+    println("Test 8.1: Sum of multiple awaits = {sum} - PASSED");
+    
+    println("\n=== All Tests Passed ===");
+}

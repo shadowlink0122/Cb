@@ -1,0 +1,44 @@
+// Test timeout with chained async operations
+
+async int fetch_data(int id, int delay_ms) {
+    await sleep(delay_ms);
+    return id * 10;
+}
+
+async int process_data(int data, int delay_ms) {
+    await sleep(delay_ms);
+    return data + 5;
+}
+
+async int pipeline(int id) {
+    int data = await timeout(fetch_data(id, 50), 200);
+    int result = await timeout(process_data(data, 50), 200);
+    return result;
+}
+
+async int main() {
+    // Test 1: Complete pipeline success
+    int result1 = await pipeline(1);
+    assert(result1 == 15);
+    
+    // Test 2: First stage timeout
+    Future<int> f2 = timeout(fetch_data(2, 300), 100);
+    int result2 = await f2;
+    assert(result2 == 0);
+    
+    // Test 3: Second stage timeout
+    int data3 = await timeout(fetch_data(3, 50), 200);
+    Future<int> f3 = timeout(process_data(data3, 300), 100);
+    int result3 = await f3;
+    assert(data3 == 30);
+    assert(result3 == 0);
+    
+    // Test 4: Multiple pipeline calls
+    int r1 = await pipeline(4);
+    int r2 = await pipeline(5);
+    assert(r1 == 45);
+    assert(r2 == 55);
+    
+    println("All timeout chained tests passed!");
+    return 0;
+}

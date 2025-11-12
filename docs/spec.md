@@ -1,7 +1,7 @@
-# Cb言語 完全仕様書 v0.11.0
+# Cb言語 完全仕様書 v0.12.1
 
-**最終更新**: 2025年11月5日  
-**バージョン**: v0.11.0 - Generics, String Interpolation, Destructors & Collections
+**最終更新**: 2025年11月11日  
+**バージョン**: v0.12.1 - Complete Async/Await System
 
 ## 目次
 
@@ -19,10 +19,11 @@
 12. [デストラクタとRAII](#デストラクタとraii)
 13. [文字列補間](#文字列補間)
 14. [ポインタと参照](#ポインタと参照)
-15. [モジュールシステム](#モジュールシステム)
-16. [入出力](#入出力)
-17. [エラーハンドリング](#エラーハンドリング)
-18. [メモリ管理](#メモリ管理)
+15. [Async/Await](#asyncawait) 🆕
+16. [モジュールシステム](#モジュールシステム)
+17. [入出力](#入出力)
+18. [エラーハンドリング](#エラーハンドリング)
+19. [メモリ管理](#メモリ管理)
 
 ---
 
@@ -2931,6 +2932,450 @@ Cb言語は現在インタープリタとして実装されており、型チェ
 
 ---
 
+## Async/Await
+
+**バージョン**: v0.12.1（2025年11月11日実装）
+
+### 概要
+
+Cb言語は、**協調的マルチタスク**による非同期処理システムを提供します。`async`/`await`/`yield`キーワードにより、型安全で高性能な非同期プログラミングが可能です。
+
+### 基本構文
+
+#### async関数宣言
+
+```cb
+// ✨ 推奨される構文
+async int compute(int x) {
+    return x * 2;
+}
+
+async string get_message() {
+    return "Hello, async!";
+}
+
+// Result/Option型との統合
+async Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+async Option<int> find_value(int id) {
+    if (id == 1) {
+        return Option<int>::Some(42);
+    }
+    return Option<int>::None;
+}
+```
+
+**構文規則**:
+- `async T func()` は自動的に `Future<T>` を返す
+- パーサーが自動的にFuture<T>にラッピング
+- `async Future<T>` は冗長なので非推奨
+
+#### await式
+
+```cb
+void main() {
+    Future<int> f = compute(21);
+    int result = await f;  // Futureから値を取得
+    println("Result: {result}");  // 42
+}
+```
+
+**動作**:
+1. async関数呼び出しは即座にFuture<T>を返す
+2. await式でFutureの完了を待機
+3. 完了後、Future.valueから値を取得
+
+#### yield式
+
+```cb
+async int task1() {
+    println("Task1: Start");
+    yield;  // 他のタスクに実行権を渡す
+    println("Task1: After yield");
+    return 100;
+}
+
+async int task2() {
+    println("Task2: Start");
+    yield;
+    println("Task2: After yield");
+    return 200;
+}
+
+void main() {
+    Future<int> f1 = task1();
+    Future<int> f2 = task2();
+    
+    int r1 = await f1;
+    int r2 = await f2;
+    
+    println("Results: {r1}, {r2}");
+}
+```
+
+**出力**:
+```
+Task1: Start
+Task2: Start
+Task1: After yield
+Task2: After yield
+Results: 100, 200
+```
+
+### Future<T>型
+
+**定義**:
+```cb
+struct Future<T> {
+    T value;
+    bool is_ready;
+    int task_id;
+}
+```
+
+**特徴**:
+- ジェネリック型パラメータ対応
+- Result<T,E>/Option<T>との統合
+- enum情報完全保持
+
+**使用例**:
+```cb
+Future<int> f_int = async_compute(10);
+Future<string> f_str = async_message();
+Future<Result<int, string>> f_result = async_divide(10, 2);
+Future<Option<int>> f_option = async_find(42);
+```
+
+### Result/Option統合
+
+#### Result<T,E>との統合
+
+```cb
+async Result<int, string> safe_operation(int x) {
+    if (x < 0) {
+        return Result<int, string>::Err("Negative value");
+    }
+    return Result<int, string>::Ok(x * 2);
+}
+
+void main() {
+    Result<int, string> result = await safe_operation(10);
+    match (result) {
+        Ok(value) => {
+            println("Success: {value}");
+        }
+        Err(error) => {
+            println("Error: {error}");
+        }
+    }
+}
+```
+
+**特徴**:
+- await後のResult型を保持
+- パターンマッチング完全対応
+- enum情報完全保持
+
+#### Option<T>との統合
+
+```cb
+async Option<int> find(int id) {
+    if (id == 1) {
+        return Option<int>::Some(42);
+    }
+    return Option<int>::None;  // 直接returnも動作
+}
+
+void main() {
+    Option<int> opt = await find(1);
+    match (opt) {
+        Some(v) => { println("Found: {v}"); }
+        None => { println("Not found"); }
+    }
+}
+```
+
+**v0.12.1完全対応**:
+- ✅ 直接return Option::None/Some
+- ✅ 直接return Result::Ok/Err
+- ✅ enum情報完全保持
+
+### 協調的マルチタスク
+
+#### タスクフェアネス
+
+**自動yield**:
+ループや再帰関数内で自動的にyieldが挿入され、タスクの公平性が保証されます。
+
+```cb
+async int heavy_task(int n) {
+    int sum = 0;
+    for (int i = 0; i < n; i++) {
+        // 自動的にyield挿入
+        sum += i;
+    }
+    return sum;
+}
+
+async int recursive_task(int n) {
+    if (n == 0) return 1;
+    // 自動的にyield挿入
+    return await recursive_task(n - 1) * 2;
+}
+```
+
+#### 複数タスクの並行実行
+
+```cb
+async int task_a() { return 10; }
+async int task_b() { return 20; }
+async int task_c() { return 30; }
+
+void main() {
+    Future<int> fa = task_a();
+    Future<int> fb = task_b();
+    Future<int> fc = task_c();
+    
+    // 全タスクが協調的に実行される
+    int a = await fa;
+    int b = await fb;
+    int c = await fc;
+    
+    println("Sum: {a + b + c}");  // 60
+}
+```
+
+### Generic Interface + Async
+
+```cb
+interface AsyncProcessor<T> {
+    async Result<T, string> process(T value);
+}
+
+struct IntProcessor {
+    int multiplier;
+};
+
+impl AsyncProcessor<int> for IntProcessor {
+    async Result<int, string> process(int value) {
+        if (value < 0) {
+            return Result<int, string>::Err("Negative value");
+        }
+        return Result<int, string>::Ok(value * self.multiplier);
+    }
+}
+
+void main() {
+    IntProcessor processor;
+    processor.multiplier = 2;
+    
+    Result<int, string> result = await processor.process(21);
+    match (result) {
+        Ok(v) => { println("Processed: {v}"); }  // 42
+        Err(e) => { println("Error: {e}"); }
+    }
+}
+```
+
+### 実行モデル
+
+**EventLoop**:
+- シングルスレッド協調的マルチタスク
+- タスクキューによるスケジューリング
+- yield時のタスク切り替え
+- auto-yieldによる公平性保証
+
+**パフォーマンス特性**:
+- スレッド不要（オーバーヘッド最小）
+- ゼロコスト抽象化（await時のみコスト）
+- メモリ効率的（タスク毎に最小限）
+- スケーラブル（O(n)タスク）
+
+### 制限事項
+
+**現在の制限**:
+- ネイティブI/Oブロッキングは非同期化されない
+- スレッド並列実行は未対応（協調的マルチタスクのみ）
+- タイムアウトのResult型統合は部分実装（v0.15.0で完全実装予定）
+- タイムアウト後のタスクキャンセルは未実装
+
+**将来の拡張（v0.14.0以降）**:
+- Stream/AsyncIterator
+- Channel (MPSC)
+- race機能（複数Futureから先に完了したものを選択）
+- select!マクロ
+
+### エラー伝播（?オペレーター）🆕 v0.12.1
+
+**概要**:
+Rustスタイルの`?`オペレーターにより、`Result<T, E>`と`Option<T>`のエラー処理を簡潔に記述できます。
+
+**Result<T, E>での使用例**:
+```cb
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+Result<int, string> chain_divide(int x) {
+    int a = divide(x, 2)?;  // Errの場合は即座にreturn
+    int b = divide(a, 3)?;
+    return Result<int, string>::Ok(b);
+}
+```
+
+**Option<T>での使用例**:
+```cb
+Option<int> find(int[] arr, int target) {
+    for (int i = 0; i < arr.len; i++) {
+        if (arr[i] == target) {
+            return Option<int>::Some(i);
+        }
+    }
+    return Option<int>::None;
+}
+
+Option<int> find_and_double(int[] arr, int target) {
+    int idx = find(arr, target)?;  // Noneの場合は即座にreturn
+    return Option<int>::Some(arr[idx] * 2);
+}
+```
+
+**async関数との組み合わせ**:
+```cb
+async Result<int, string> async_calc() {
+    int x = await async_divide(10, 2)?;
+    int y = await async_divide(x, 3)?;
+    return Result<int, string>::Ok(y);
+}
+```
+
+### タイムアウト機能 🆕 v0.12.1
+
+**概要**:
+async関数にタイムアウトを設定する基本機能です。指定時間内に完了しない場合、型のデフォルト値を返します。
+
+**使用例**:
+```cb
+async int fast_task() {
+    await sleep(100);  // 0.1秒
+    return 42;
+}
+
+async int slow_task() {
+    await sleep(2000);  // 2秒
+    return 99;
+}
+
+async int main() {
+    // タイムアウト機能
+    Future<int> f1 = timeout(fast_task(), 500);
+    int result1 = await f1;  // 42 (完了)
+    
+    Future<int> f2 = timeout(slow_task(), 200);
+    int result2 = await f2;  // 0 (タイムアウト、デフォルト値)
+    
+    return 0;
+}
+```
+
+**実装内容**:
+- ✅ `timeout()` builtin関数
+- ✅ Event loopでのタイムアウトチェック
+- ✅ 複数タスクの同時タイムアウト管理
+
+**制限事項**:
+- タイムアウト時は型のデフォルト値を返却（intなら0、structならデフォルト初期化値）
+- Result<T, E>との完全統合は未実装（v0.15.0予定）
+- タイムアウト後のタスクキャンセル処理は未実装（タスクは実行継続）
+
+### ベストプラクティス
+
+#### ✅ DO（推奨）
+
+```cb
+// 簡潔な構文
+async int compute(int x) { return x * 2; }
+async Result<T, E> process<T, E>(T value) { ... }
+
+// Result/Optionとの統合
+async Result<int, string> safe_op() { ... }
+async Option<int> find() { ... }
+
+// 適切なyield
+async void long_task() {
+    for (int i = 0; i < 1000; i++) {
+        work(i);
+        // 自動yieldにより他のタスクも実行される
+    }
+}
+```
+
+#### ❌ DON'T（非推奨）
+
+```cb
+// 冗長な構文
+async Future<int> compute(int x) { return x * 2; }
+async Future<Result<T, E>> process<T, E>(T value) { ... }
+
+// yieldなしの長時間タスク（他のタスクがブロック）
+async void monopolize() {
+    int sum = 0;
+    for (int i = 0; i < 1000000; i++) {
+        sum += i;  // 自動yieldがあるので実際は問題ない
+    }
+}
+```
+
+### サンプルコード
+
+#### 例1: 非同期データ処理
+
+```cb
+async Result<string, string> fetch_data(int id) {
+    if (id <= 0) {
+        return Result<string, string>::Err("Invalid ID");
+    }
+    yield;  // I/O待機をシミュレート
+    return Result<string, string>::Ok("Data for ID {id}");
+}
+
+void main() {
+    Result<string, string> data = await fetch_data(42);
+    match (data) {
+        Ok(d) => { println("Fetched: {d}"); }
+        Err(e) => { println("Failed: {e}"); }
+    }
+}
+```
+
+#### 例2: 複数の非同期タスク
+
+```cb
+async int download(string url) {
+    yield;
+    return url.length();
+}
+
+void main() {
+    Future<int> f1 = download("https://example.com/file1");
+    Future<int> f2 = download("https://example.com/file2");
+    Future<int> f3 = download("https://example.com/file3");
+    
+    int total = await f1 + await f2 + await f3;
+    println("Total bytes: {total}");
+}
+```
+
+---
+
 ## モジュールシステム
 
 ### モジュールのインポート
@@ -3474,7 +3919,7 @@ int main() {
 
 **注意**: コンストラクタ/デストラクタの自動呼び出しは将来のバージョンで実装予定です。現在は手動で初期化・後処理を行う必要があります。
 
-### 将来実装: スマートポインタ（v0.13.0以降で実装予定）
+### 将来実装: スマートポインタ（v0.12.1以降で実装予定）
 
 ```cb
 // 将来実装予定

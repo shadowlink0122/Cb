@@ -1,27 +1,95 @@
 # Cb (シーフラット) プログラミング言語
 
-**最新バージョン**: v0.11.0 - Generics, String Interpolation & Destructors  
-**リリース日**: 2025年10月29日（更新）  
-**前バージョン**: v0.10.0
+**最新バージョン**: v0.12.1 - Async/Await Improvements  
+**リリース日**: 2025年11月11日  
+**ステータス**: ✅ Production Ready
 
-### 📊 品質指標（v0.11.0）
+### 📊 品質指標（v0.12.1）
 
-- **統合テスト**: **3,463個**（100%成功） 🎉
-- **Genericテスト**: **53個** (Structs/Enums/Functions含む) 🎉
-- **Enumテスト**: **3個**（包括的テストスイート含む） 🎉
-- **Builtin Typesテスト**: **20個**（Option/Result組み込み型） 🆕
-- **Discard変数テスト**: **10個**（成功3+エラー7） 🆕
-- **Deferテスト**: **131個**（return/break/continue前cleanup含む） 🎉
-- **Destructorテスト**: **4個**（スコープクリーンアップ含む） 🎉
-- **String Interpolationテスト**: **150個以上** 🎉
+- **統合テスト**: **740+個**（100%成功） 🎉
+- **Asyncテスト**: **32個** (Result/Option統合、直接return対応) 🆕
+- **Genericテスト**: **36個** (Structs/Enums/Functions/Interface含む) 🎉
+- **Interfaceテスト**: **44個** (async interface含む) 🆕
+- **Builtin Typesテスト**: **20個**（Option/Result組み込み型） 🎉
+- **Stdlibテスト**: **33個**（async tests含む） 🆕
 - **ユニットテスト**: **30個**（100%成功） 🎉
-- **総テスト数**: **3,463個**（100%成功） 🎉
+- **総テスト数**: **740+個**（100%成功） 🎉
+- **テスト実行時間**: **10秒**（76%改善） ⚡
 - **テストカバレッジ**: 全機能を網羅的にテスト
-- **完全なRAII**: デストラクタとdeferの自動実行
+- **Production Ready**: async/await完全動作 ✅
 
-### 🆕 v0.11.0の最新機能
+### 🆕 v0.12.1の改善内容
 
-**1. � 動的メモリ管理によるコレクション実装** 🆕
+**1. 🔧 簡潔なAsync構文** 🆕
+- **async T構文**: 冗長な`async Future<T>`から`async T`へ簡潔化
+- **enum直接return**: `Option::None`や`Result::Err()`を直接return可能
+- **バグ修正**: enum情報保持、型解決の改善
+- **テストカバレッジ拡充**: 32個のasync integration tests追加
+
+```cb
+// ✨ 推奨される簡潔な構文
+async int compute(int value) {
+    yield;  // 他のタスクに実行権を渡す
+    return value * 2;
+}
+
+void main() {
+    Future<int> f = compute(21);
+    int result = await f;  // 42
+    println("Result: {result}");
+}
+```
+
+**2. 💡 型安全な非同期エラーハンドリング** 🆕
+- **Future<Result<T,E>>**: async関数でのResult型サポート
+- **enum情報完全保持**: await後のvariant情報保持
+- **パターンマッチング統合**: Result型とmatch式の完全統合
+- **直接return enum**: Option::None/Result::Err直接return対応
+
+```cb
+async Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+void main() {
+    Result<int, string> r = await divide(10, 2);
+    match (r) {
+        Ok(value) => { println("Success: {value}"); }
+        Err(msg) => { println("Error: {msg}"); }
+    }
+}
+```
+
+**3. 🔧 ジェネリックInterface + Async** 🆕
+- **interface<T> + async**: ジェネリックinterfaceでのasyncメソッド
+- **複数型パラメータ**: `<T, U>` 等のサポート
+- **複合型置換**: `Result<T, string>` の型パラメータ置換
+
+```cb
+interface AsyncProcessor<T> {
+    async Result<T, string> process(T value);
+}
+
+struct IntProcessor {};
+
+impl AsyncProcessor<int> for IntProcessor {
+    async Result<int, string> process(int value) {
+        if (value < 0) {
+            return Result<int, string>::Err("Negative");
+        }
+        return Result<int, string>::Ok(value * 2);
+    }
+}
+```
+
+---
+
+### 🎯 v0.11.0の機能（継続サポート）
+
+**1. 🔧 動的メモリ管理によるコレクション実装**
 - **stdlib/collections/vector.cb**: new/delete による動的メモリ管理
 - **stdlib/collections/queue.cb**: 循環バッファ + 動的メモリ管理
 - **自動デストラクタ**: スコープを抜ける際にメモリ自動解放

@@ -1,0 +1,111 @@
+// Test: async/awaitでのResult型のエラー伝播
+// v0.12.1: ?オペレーターを使ったエラー伝播のテスト
+
+// エラーを返す可能性のあるasync関数
+async Result<int, string> safe_divide(int a, int b) {
+    await sleep(5);
+    
+    if (b == 0) {
+        Result<int, string> err = Result<int, string>::Err("division by zero");
+        return err;
+    }
+    
+    Result<int, string> ok = Result<int, string>::Ok(a / b);
+    return ok;
+}
+
+async Result<int, string> parse_number(string s) {
+    await sleep(5);
+    
+    if (s == "invalid") {
+        Result<int, string> err = Result<int, string>::Err("invalid number");
+        return err;
+    }
+    
+    Result<int, string> ok = Result<int, string>::Ok(42);
+    return ok;
+}
+
+// 複数のResult操作を組み合わせる（手動エラーチェック版）
+async Result<int, string> compute_manual(int a, int b, string s) {
+    // Step 1: 除算
+    Future<Result<int, string>> f1 = safe_divide(a, b);
+    Result<int, string> r1 = await f1;
+    
+    match (r1) {
+        Ok(div_result) => {
+            // Step 2: パース
+            Future<Result<int, string>> f2 = parse_number(s);
+            Result<int, string> r2 = await f2;
+            
+            match (r2) {
+                Ok(parsed) => {
+                    // Step 3: 計算
+                    int final_value = div_result + parsed;
+                    Result<int, string> ok = Result<int, string>::Ok(final_value);
+                    return ok;
+                }
+                Err(msg) => {
+                    Result<int, string> err = Result<int, string>::Err(msg);
+                    return err;
+                }
+            }
+        }
+        Err(msg) => {
+            Result<int, string> err = Result<int, string>::Err(msg);
+            return err;
+        }
+    }
+}
+
+void main() {
+    println("=== Async Result Propagation Test ===");
+    
+    // Test 1: 全て成功
+    Future<Result<int, string>> f1 = compute_manual(10, 2, "valid");
+    Result<int, string> r1 = await f1;
+    
+    match (r1) {
+        Ok(value) => {
+            println("Test 1 Ok: {value}");
+            // 10 / 2 + 42 = 5 + 42 = 47
+            assert(value == 47);
+        }
+        Err(msg) => {
+            println("ERROR: {msg}");
+            assert(false);
+        }
+    }
+    
+    // Test 2: 除算エラー
+    Future<Result<int, string>> f2 = compute_manual(10, 0, "valid");
+    Result<int, string> r2 = await f2;
+    
+    match (r2) {
+        Ok(value) => {
+            println("ERROR: Should not succeed");
+            assert(false);
+        }
+        Err(msg) => {
+            println("Test 2 Err: {msg}");
+            assert(msg == "division by zero");
+        }
+    }
+    
+    // Test 3: パースエラー
+    Future<Result<int, string>> f3 = compute_manual(10, 2, "invalid");
+    Result<int, string> r3 = await f3;
+    
+    match (r3) {
+        Ok(value) => {
+            println("ERROR: Should not succeed");
+            assert(false);
+        }
+        Err(msg) => {
+            println("Test 3 Err: {msg}");
+            assert(msg == "invalid number");
+        }
+    }
+    
+    println("=== All tests passed ===");
+}

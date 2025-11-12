@@ -1,0 +1,51 @@
+<section class="left-align">
+  <h2>interface/implの内部実装</h2>
+
+  <p class="small-text">インタプリタ内部でどのようにinterface/implを実現しているか</p>
+
+  <div class="two-column" style="font-size: 0.65em">
+    <div>
+      <h3>vtable（仮想関数テーブル）</h3>
+      <ul style="font-size: 1.1em">
+        <li>各interfaceに対してvtableを生成</li>
+        <li>implで実装されたメソッドへのポインタを格納</li>
+        <li>実行時にメソッドを動的に解決</li>
+      </ul>
+
+      <pre style="font-size: 1.2em"><code class="language-c">// 内部データ構造（C言語）
+typedef struct {
+    char* interface_name;
+    char* struct_name;
+    HashMap* methods;  // メソッド名 → 関数ポインタ
+} VTable;
+</code></pre>
+    </div>
+
+    <div>
+      <h3>メソッドディスパッチ</h3>
+      <pre style="font-size: 1.2em"><code class="language-c">// メソッド呼び出しの解決
+Value call_interface_method(
+    Object* obj,
+    char* interface_name,
+    char* method_name,
+    Args* args
+) {
+    // 1. オブジェクトの型を取得
+    char* type = get_type(obj);
+    
+    // 2. vtableを検索
+    VTable* vt = find_vtable(
+        interface_name, 
+        type
+    );
+    
+    // 3. メソッドポインタを取得
+    FuncPtr fn = vt->methods[method_name];
+    
+    // 4. メソッドを実行
+    return fn(obj, args);
+}
+</code></pre>
+    </div>
+  </div>
+</section>

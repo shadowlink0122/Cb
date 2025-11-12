@@ -23,6 +23,15 @@ void ReturnHandler::execute_return_statement(const ASTNode *node) {
 
     debug_msg(DebugMsgId::INTERPRETER_RETURN_STMT);
 
+    // v0.13.0: デバッグ - return式のノードタイプを確認
+    if (interpreter_->debug_mode) {
+        char dbg_buf[512];
+        snprintf(
+            dbg_buf, sizeof(dbg_buf), "[RETURN_DEBUG] node_type=%d, name='%s'",
+            static_cast<int>(node->left->node_type), node->left->name.c_str());
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
+
     // ノードタイプに応じて処理を分岐
     switch (node->left->node_type) {
     case ASTNodeType::AST_ARRAY_LITERAL:
@@ -370,6 +379,25 @@ void ReturnHandler::handle_enum_construct_return(const ASTNode *node) {
     enum_var.is_enum = true;
     enum_var.enum_variant = enum_construct->enum_member;
 
+    // v0.13.0: enum_type_nameとstruct_type_nameを設定
+    // Option::Noneのような場合、enum_construct->enum_nameに"Option"が入っている
+    enum_var.enum_type_name = enum_construct->enum_name;
+    enum_var.struct_type_name =
+        enum_construct->enum_name; // enumはstruct表現でもある
+    enum_var.is_struct = true;     // enumはstruct表現でもある
+    enum_var.type = TYPE_ENUM;
+
+    // v0.13.0: デバッグ
+    if (interpreter_->debug_mode) {
+        char dbg_buf[512];
+        snprintf(dbg_buf, sizeof(dbg_buf),
+                 "[ENUM_RETURN] enum_name='%s', variant='%s', is_struct=%d",
+                 enum_construct->enum_name.c_str(),
+                 enum_construct->enum_member.c_str(),
+                 enum_var.is_struct ? 1 : 0);
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
+
     // 関連値を評価（型に応じて適切なフィールドに格納）
     if (!enum_construct->arguments.empty()) {
         TypedValue typed_result =
@@ -392,6 +420,7 @@ void ReturnHandler::handle_enum_construct_return(const ASTNode *node) {
 }
 
 // 古いスタイルのEnum（AST_ENUM_ACCESS）のreturn処理
+// v0.12.1: Option::NoneやResult<T,E>のvariantにも対応
 void ReturnHandler::handle_enum_access_return(const ASTNode *node) {
     // nodeはAST_RETURN_STMTなので、node->leftがAST_ENUM_ACCESSノード
     const auto *enum_access = node->left.get();
@@ -399,18 +428,38 @@ void ReturnHandler::handle_enum_access_return(const ASTNode *node) {
     // enum値を評価
     int64_t enum_value = interpreter_->eval_expression(enum_access);
 
-    // enum型変数として返す（v0.11.0互換）
-    Variable enum_var;
-    enum_var.is_enum =
-        false; // 古いスタイルenumはis_enum=falseで整数値として扱う
-    enum_var.type = TYPE_ENUM;
-    enum_var.value = enum_value;
-    enum_var.enum_variant = enum_access->enum_member; // variant名を保存
-    enum_var.has_associated_value = false;
-    enum_var.is_assigned = true;
+    // v0.12.1: Result/Optionの場合は、?演算子対応のため構造体として返す
+    std::string enum_name = enum_access->enum_name;
+    bool is_result_or_option =
+        (enum_name.find("Result") == 0 || enum_name.find("Option") == 0);
 
-    // 整数値として返す（古いスタイルenum）
-    throw ReturnException(enum_value, TYPE_INT);
+    if (is_result_or_option) {
+        // Result/Optionの場合：構造体として返す
+        Variable enum_var;
+        enum_var.is_enum = true;
+        enum_var.type = TYPE_ENUM;
+        enum_var.value = enum_value;
+        enum_var.enum_variant = enum_access->enum_member;
+        enum_var.has_associated_value = false;
+        enum_var.is_assigned = true;
+        enum_var.enum_type_name = enum_access->enum_name;
+        enum_var.struct_type_name = enum_access->enum_name;
+        enum_var.is_struct = true;
+
+        throw ReturnException(enum_var);
+    } else {
+        // 古いスタイルenum（Status::ERRORなど）：整数値として返す
+        Variable enum_var;
+        enum_var.is_enum = false; // 古いスタイルenumはis_enum=false
+        enum_var.type = TYPE_ENUM;
+        enum_var.value = enum_value;
+        enum_var.enum_variant = enum_access->enum_member;
+        enum_var.has_associated_value = false;
+        enum_var.is_assigned = true;
+
+        // v0.13.0: TYPE_ENUMとして返す（asyncで正しく処理されるように）
+        throw ReturnException(enum_value, TYPE_ENUM);
+    }
 }
 
 // 配列変数のreturn処理

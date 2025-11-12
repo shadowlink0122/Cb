@@ -1,0 +1,244 @@
+<section class="left-align">
+  <h2>構文比較 - いいとこ取り</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <table class="comparison-table">
+      <tr>
+        <th style="width: 20%">機能</th>
+        <th style="width: 30%">影響を受けた言語</th>
+        <th style="width: 50%">Cbでの実装</th>
+      </tr>
+      <tr class="fragment">
+        <td>基本構文</td>
+        <td><span class="highlight">C/C++</span></td>
+        <td>
+          <code>
+            <span style="color: #4ec9b0">int</span>
+            x =
+            <span style="color: #b5cea8">42</span>
+            ;
+            <span style="color: #4ec9b0">int</span>
+            * ptr = &amp;x;
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>Interface/Impl</td>
+        <td><span class="go-color">Go</span> / <span class="rust-color">Rust</span></td>
+        <td>
+          <code>
+            <span style="color: #c586c0; font-weight: bold">interface</span>
+            <span style="color: #4ec9b0">Shape</span>
+            {
+            <span style="color: #4ec9b0">int</span>
+            area(); }
+            <span style="color: #c586c0; font-weight: bold">impl</span>
+            <span style="color: #4ec9b0">Shape</span>
+            <span style="color: #c586c0; font-weight: bold">for</span>
+            <span style="color: #4ec9b0">Rectangle</span>
+            { ... }
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>Interface境界</td>
+        <td><span class="rust-color">Rust</span></td>
+        <td>
+          <code>
+            <span style="color: #4ec9b0">T</span>
+            ,
+            <span style="color: #4ec9b0">A</span>
+            :
+            <span style="color: #4ec9b0">IName</span>
+            &gt;
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>Result/Option</td>
+        <td><span class="rust-color">Rust</span></td>
+        <td>
+          <code>
+            <span style="color: #4ec9b0">Result</span>
+            &lt;
+            <span style="color: #4ec9b0">T</span>
+            ,
+            <span style="color: #4ec9b0">E</span>
+            &gt;,
+            <span style="color: #4ec9b0">Option</span>
+            &lt;
+            <span style="color: #4ec9b0">T</span>
+            &gt;
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>パターンマッチ</td>
+        <td><span class="rust-color">Rust</span></td>
+        <td>
+          <code>
+            <span style="color: #c586c0; font-weight: bold">match</span>
+            (x) {
+            <span style="color: #4ec9b0">Ok</span>
+            (v) => ...,
+            <span style="color: #4ec9b0">Err</span>
+            (e) => ... }
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>defer文</td>
+        <td><span class="go-color">Go</span></td>
+        <td>
+          <code>
+            <span style="color: #c586c0; font-weight: bold">defer</span>
+            cleanup();
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>ジェネリクス</td>
+        <td>
+          <span class="rust-color">Rust</span>
+          /
+          <span class="highlight">C++</span>
+        </td>
+        <td>
+          <code>
+            <span style="color: #4ec9b0">Vector</span>
+            &lt;
+            <span style="color: #4ec9b0">T</span>
+            &gt;,
+            <span style="color: #4ec9b0">Map</span>
+            &lt;
+            <span style="color: #4ec9b0">K</span>
+            ,
+            <span style="color: #4ec9b0">V</span>
+            &gt;
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>文字列補間</td>
+        <td>
+          <span class="python-color">Python</span>
+          /
+          <span class="ts-color">JS</span>
+        </td>
+        <td>
+          <code>
+            println(
+            <span style="color: #ce9178">"x = {x}"</span>
+            );
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>async/await</td>
+        <td>
+          <span class="python-color">Python</span>
+          /
+          <span class="ts-color">TS</span>
+        </td>
+        <td>
+          <code>
+            <span style="color: #c586c0; font-weight: bold">async</span>
+            <span style="color: #4ec9b0">int</span>
+            func() {
+            <span style="color: #c586c0; font-weight: bold">await</span>
+            sleep(
+            <span style="color: #b5cea8">100</span>
+            ); }
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>コンストラクタ</td>
+        <td><span class="highlight">C++</span></td>
+        <td>
+          <code>
+            <span style="color: #c586c0; font-weight: bold">impl</span>
+            <span style="color: #4ec9b0">Resource</span>
+            { self(
+            <span style="color: #4ec9b0">int</span>
+            id) { self.
+            <span style="color: #dcdcaa">id</span>
+            = id; } }
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>デストラクタ</td>
+        <td>
+          <span class="highlight">C++</span>
+          /
+          <span class="rust-color">Rust</span>
+        </td>
+        <td>
+          <code>
+            <span style="color: #c586c0; font-weight: bold">impl</span>
+            <span style="color: #4ec9b0">Resource</span>
+            { ~self() { cleanup(); } }
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>関数ポインタ</td>
+        <td><span class="highlight">C</span></td>
+        <td>
+          <code>
+            <span style="color: #4ec9b0">void</span>
+            * funcPtr = &amp;add; call_function_pointer(funcPtr, x, y);
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>ラムダ式</td>
+        <td>
+          <span class="highlight">C++</span>
+          /
+          <span class="ts-color">JS</span>
+        </td>
+        <td>
+          <code>
+            <span style="color: #4ec9b0">void</span>
+            * f =
+            <span style="color: #c586c0; font-weight: bold">int</span>
+            (
+            <span style="color: #4ec9b0">int</span>
+            x) {
+            <span style="color: #c586c0; font-weight: bold">return</span>
+            x *
+            <span style="color: #b5cea8">2</span>
+            ; };
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>ユニオン型</td>
+        <td><span class="ts-color">TypeScript</span></td>
+        <td>
+          <code>
+            <span style="color: #4ec9b0">int</span>
+            |
+            <span style="color: #4ec9b0">string</span>
+            |
+            <span style="color: #4ec9b0">bool</span>
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>リテラル型</td>
+        <td><span class="ts-color">TypeScript</span></td>
+        <td>
+          <code>
+            <span style="color: #ce9178">"success"</span>
+            |
+            <span style="color: #ce9178">"error"</span>
+            |
+            <span style="color: #ce9178">"pending"</span>
+          </code>
+        </td>
+      </tr>
+    </table>
+  </div>
+</section>

@@ -1,12 +1,12 @@
 // Phase 1: 複数のasync関数呼び出しテスト
 // Future<T>は組み込み型なので定義不要
 
-async Future<int> fetch_data(int id) {
+async int fetch_data(int id) {
     println("Fetching data for ID: {id}");
     return id * 100;
 }
 
-async Future<int> process_data(int value) {
+async int process_data(int value) {
     println("Processing value: {value}");
     return value + 50;
 }

@@ -1,0 +1,8 @@
+Result<int, string> get_value() {
+    return Result<int, string>::Ok(42);
+}
+
+void main() {
+    int x = get_value()?;
+    println("x = {x}");
+}

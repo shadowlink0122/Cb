@@ -1,7 +1,7 @@
-// v0.13.0 Phase 2.0: 再帰関数での協調マルチタスク
+// v0.12.1 Phase 2.0: 再帰関数での協調マルチタスク
 // 再帰呼び出しの各レベルでバックグラウンドタスクと交互実行される
 
-async Future<void> background_task() {
+async void background_task() {
     for (int i = 0; i < 6; i = i + 1) {
         println("[BG] Step %d", i);
     }

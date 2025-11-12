@@ -133,4 +133,237 @@ TypedValue evaluate_ternary_typed(
     return result;
 }
 
+// v0.12.1: エラー伝播演算子（?）の評価
+int64_t evaluate_error_propagation(
+    const ASTNode *node, Interpreter &interpreter,
+    std::function<int64_t(const ASTNode *)> evaluate_expression_callback) {
+
+    if (!node || !node->left) {
+        throw std::runtime_error(
+            "Error propagation operator requires an operand");
+    }
+
+    // 左側の式を評価（Result<T, E>またはOption<T>であるべき）
+    const ASTNode *operand = node->left.get();
+
+    // まず式を評価して変数を取得
+    Variable *result_var = nullptr;
+
+    if (operand->node_type == ASTNodeType::AST_VARIABLE) {
+        result_var = interpreter.find_variable(operand->name);
+    } else if (operand->node_type == ASTNodeType::AST_UNARY_OP &&
+               operand->is_await_expression) {
+        // await式の場合、まず評価してから結果を取得
+        try {
+            evaluate_expression_callback(operand);
+            throw std::runtime_error(
+                "Await expression did not throw ReturnException");
+        } catch (const ReturnException &ret_ex) {
+            if (ret_ex.is_struct && ret_ex.struct_value.is_enum) {
+                // 一時変数として扱う
+                static Variable temp_result;
+                temp_result = ret_ex.struct_value;
+                result_var = &temp_result;
+            } else {
+                throw std::runtime_error(
+                    "Await expression did not return an enum (Result/Option)");
+            }
+        }
+    } else if (operand->node_type == ASTNodeType::AST_FUNC_CALL) {
+        // 関数呼び出しの結果を評価
+        try {
+            evaluate_expression_callback(operand);
+            throw std::runtime_error(
+                "Function call did not throw ReturnException");
+        } catch (const ReturnException &ret_ex) {
+            if (ret_ex.is_struct && ret_ex.struct_value.is_enum) {
+                // 一時変数として扱う
+                static Variable temp_result;
+                temp_result = ret_ex.struct_value;
+                result_var = &temp_result;
+            } else {
+                throw std::runtime_error(
+                    "Function did not return an enum (Result/Option)");
+            }
+        }
+    } else if (operand->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+        // メンバーアクセスの結果を取得
+        // 例: future.value?
+        std::string obj_name = operand->left->name;
+        std::string member_name = operand->name;
+        result_var = interpreter.get_struct_member(obj_name, member_name);
+    } else {
+        throw std::runtime_error("Unsupported expression for ? operator");
+    }
+
+    if (!result_var || !result_var->is_enum) {
+        throw std::runtime_error(
+            "? operator can only be used with Result<T, E> or Option<T>");
+    }
+
+    // variant名をチェック
+    std::string variant = result_var->enum_variant;
+
+    // Result<T, E>の場合
+    if (result_var->enum_type_name.find("Result") == 0) {
+        if (variant == "Ok") {
+            // Ok(value)の場合、関連値を返す
+            if (result_var->has_associated_value) {
+                return result_var->associated_int_value;
+            }
+            return 0;
+        } else if (variant == "Err") {
+            // Err(e)の場合、早期リターン
+            // 現在の関数からErrを返す
+            Variable return_value;
+            return_value.is_enum = true;
+            return_value.enum_type_name = result_var->enum_type_name;
+            return_value.enum_variant = "Err";
+            return_value.has_associated_value =
+                result_var->has_associated_value;
+            return_value.associated_int_value =
+                result_var->associated_int_value;
+            return_value.associated_str_value =
+                result_var->associated_str_value;
+            return_value.type = TYPE_ENUM;
+
+            throw ReturnException(return_value);
+        }
+    }
+    // Option<T>の場合
+    else if (result_var->enum_type_name.find("Option") == 0) {
+        if (variant == "Some") {
+            // Some(value)の場合、関連値を返す
+            if (result_var->has_associated_value) {
+                return result_var->associated_int_value;
+            }
+            return 0;
+        } else if (variant == "None") {
+            // Noneの場合、早期リターン
+            Variable return_value;
+            return_value.is_enum = true;
+            return_value.enum_type_name = result_var->enum_type_name;
+            return_value.enum_variant = "None";
+            return_value.type = TYPE_ENUM;
+
+            throw ReturnException(return_value);
+        }
+    }
+
+    throw std::runtime_error("? operator used with unsupported enum type: " +
+                             result_var->enum_type_name);
+}
+
+// v0.12.1: エラー伝播演算子（?）の評価（TypedValue版）
+int64_t
+evaluate_error_propagation_typed(const ASTNode *node, Interpreter &interpreter,
+                                 std::function<TypedValue(const ASTNode *)>
+                                     evaluate_typed_expression_callback) {
+
+    if (!node || !node->left) {
+        throw std::runtime_error(
+            "Error propagation operator requires an operand");
+    }
+
+    // 左側の式を評価（Result<T, E>またはOption<T>であるべき）
+    const ASTNode *operand = node->left.get();
+
+    // まず式を評価して変数を取得
+    Variable *result_var = nullptr;
+
+    if (operand->node_type == ASTNodeType::AST_VARIABLE) {
+        result_var = interpreter.find_variable(operand->name);
+    } else if (operand->node_type == ASTNodeType::AST_UNARY_OP &&
+               operand->is_await_expression) {
+        // await式の場合、TypedValueとして評価
+        TypedValue typed_result = evaluate_typed_expression_callback(operand);
+
+        // TypedValueからVariableを取得
+        if (typed_result.is_struct() && typed_result.struct_data) {
+            static Variable temp_result;
+            temp_result = *typed_result.struct_data;
+            result_var = &temp_result;
+        } else {
+            throw std::runtime_error(
+                "Await expression did not return an enum (Result/Option)");
+        }
+    } else if (operand->node_type == ASTNodeType::AST_FUNC_CALL) {
+        // 関数呼び出しの結果を評価
+        TypedValue typed_result = evaluate_typed_expression_callback(operand);
+
+        if (typed_result.is_struct() && typed_result.struct_data &&
+            typed_result.struct_data->is_enum) {
+            static Variable temp_result;
+            temp_result = *typed_result.struct_data;
+            result_var = &temp_result;
+        } else {
+            throw std::runtime_error(
+                "Function did not return an enum (Result/Option)");
+        }
+    } else if (operand->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
+        // メンバーアクセスの結果を取得
+        std::string obj_name = operand->left->name;
+        std::string member_name = operand->name;
+        result_var = interpreter.get_struct_member(obj_name, member_name);
+    } else {
+        throw std::runtime_error("Unsupported expression for ? operator");
+    }
+
+    if (!result_var || !result_var->is_enum) {
+        throw std::runtime_error(
+            "? operator can only be used with Result<T, E> or Option<T>");
+    }
+
+    // variant名をチェック
+    std::string variant = result_var->enum_variant;
+
+    // Result<T, E>の場合
+    if (result_var->enum_type_name.find("Result") == 0) {
+        if (variant == "Ok") {
+            // Ok(value)の場合、関連値を返す
+            if (result_var->has_associated_value) {
+                return result_var->associated_int_value;
+            }
+            return 0;
+        } else if (variant == "Err") {
+            // Err(e)の場合、早期リターン
+            Variable return_value;
+            return_value.is_enum = true;
+            return_value.enum_type_name = result_var->enum_type_name;
+            return_value.enum_variant = "Err";
+            return_value.has_associated_value =
+                result_var->has_associated_value;
+            return_value.associated_int_value =
+                result_var->associated_int_value;
+            return_value.associated_str_value =
+                result_var->associated_str_value;
+            return_value.type = TYPE_ENUM;
+
+            throw ReturnException(return_value);
+        }
+    }
+    // Option<T>の場合
+    else if (result_var->enum_type_name.find("Option") == 0) {
+        if (variant == "Some") {
+            // Some(value)の場合、関連値を返す
+            if (result_var->has_associated_value) {
+                return result_var->associated_int_value;
+            }
+            return 0;
+        } else if (variant == "None") {
+            // Noneの場合、早期リターン
+            Variable return_value;
+            return_value.is_enum = true;
+            return_value.enum_type_name = result_var->enum_type_name;
+            return_value.enum_variant = "None";
+            return_value.type = TYPE_ENUM;
+
+            throw ReturnException(return_value);
+        }
+    }
+
+    throw std::runtime_error("? operator used with unsupported enum type: " +
+                             result_var->enum_type_name);
+}
+
 } // namespace TernaryHelpers

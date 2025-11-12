@@ -2,11 +2,11 @@
 // async関数呼び出し = タスク登録（まだ実行されない）
 // await = SimpleEventLoop実行 + 結果待機
 
-async Future<void> log_message(string msg) {
+async void log_message(string msg) {
     println("LOG: {msg}");
 }
 
-async Future<int> compute(int x) {
+async int compute(int x) {
     println("Computing {x} * 2");
     int result = x * 2;
     println("Result: {result}");

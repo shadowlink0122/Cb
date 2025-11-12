@@ -8,40 +8,30 @@ import stdlib.std.future;
 // ============================================
 
 // 単純な非同期計算をシミュレート
-Future<int> compute_async() {
-    Future<int> result;
-    
+async int compute_async() {
     // 何らかの計算を実行
     int sum = 0;
     for (int i = 1; i <= 100; i = i + 1) {
         sum = sum + i;
     }
     
-    result.value = sum;
-    result.is_ready = true;
-    return result;
+    return sum;
 }
 
 // ============================================
 // 2. 複数のFutureを組み合わせる
 // ============================================
 
-Future<int> fetch_data_1() {
-    Future<int> result;
-    result.value = 42;
-    result.is_ready = true;
-    return result;
+async int fetch_data_1() {
+    return 42;
 }
 
-Future<int> fetch_data_2() {
-    Future<int> result;
-    result.value = 58;
-    result.is_ready = true;
-    return result;
+async int fetch_data_2() {
+    return 58;
 }
 
 // 2つの非同期処理の結果を合算
-int combine_results() {
+async int combine_results() {
     int data1 = await fetch_data_1();
     int data2 = await fetch_data_2();
     return data1 + data2;
@@ -51,44 +41,36 @@ int combine_results() {
 // 3. 文字列を返す非同期処理
 // ============================================
 
-Future<string> fetch_message() {
-    Future<string> result;
-    result.value = "Hello from async world!";
-    result.is_ready = true;
-    return result;
+async string fetch_message() {
+    return "Hello from async world!";
 }
 
 // ============================================
 // 4. 条件分岐を使った非同期処理
 // ============================================
 
-Future<int> fetch_with_condition(int choice) {
-    Future<int> result;
-    
+async int fetch_with_condition(int choice) {
     if (choice == 1) {
-        result.value = 100;
+        return 100;
     } else if (choice == 2) {
-        result.value = 200;
+        return 200;
     } else {
-        result.value = 0;
+        return 0;
     }
-    
-    result.is_ready = true;
-    return result;
 }
 
 // ============================================
 // 5. awaitを式の中で使用
 // ============================================
 
-int compute_with_await() {
-    Future<int> fut;
-    fut.value = 10;
-    fut.is_ready = true;
+async int compute_with_await() {
+    async int get_ten() {
+        return 10;
+    }
     
     // awaitを式の中で直接使用
-    int doubled = (await fut) * 2;
-    int tripled = (await fut) * 3;
+    int doubled = (await get_ten()) * 2;
+    int tripled = (await get_ten()) * 3;
     
     return doubled + tripled;  // 10*2 + 10*3 = 50
 }
@@ -97,24 +79,15 @@ int compute_with_await() {
 // 6. 複数の非同期処理を順次実行
 // ============================================
 
-void process_multiple_futures() {
-    // 複数のFutureを個別に作成
-    Future<int> future1;
-    future1.value = 10;
-    future1.is_ready = true;
-    
-    Future<int> future2;
-    future2.value = 20;
-    future2.is_ready = true;
-    
-    Future<int> future3;
-    future3.value = 30;
-    future3.is_ready = true;
+async void process_multiple_futures() {
+    async int get_value(int val) {
+        return val;
+    }
     
     // すべての結果を取得して合計
-    int val1 = await future1;
-    int val2 = await future2;
-    int val3 = await future3;
+    int val1 = await get_value(10);
+    int val2 = await get_value(20);
+    int val3 = await get_value(30);
     int total = val1 + val2 + val3;
     
     print("Total from futures: ");
@@ -126,9 +99,7 @@ void process_multiple_futures() {
 // 7. 複雑な計算を非同期で実行
 // ============================================
 
-Future<int> calculate_fibonacci(int n) {
-    Future<int> result;
-    
+async int calculate_fibonacci(int n) {
     int a = 0;
     int b = 1;
     int fib = 0;
@@ -145,56 +116,38 @@ Future<int> calculate_fibonacci(int n) {
         }
     }
     
-    result.value = fib;
-    result.is_ready = true;
-    
-    return result;
+    return fib;
 }
 
 // ============================================
 // 8. エラーシミュレーション（成功/失敗）
 // ============================================
 
-Future<int> fetch_with_status(bool should_succeed) {
-    Future<int> result;
-    
+async int fetch_with_status(bool should_succeed) {
     if (should_succeed) {
-        result.value = 999;
-        result.is_ready = true;
+        return 999;
     } else {
-        result.value = -1;  // エラーコード
-        result.is_ready = true;
+        return -1;  // エラーコード
     }
-    
-    return result;
 }
 
 // ============================================
 // 9. チェーン化された非同期処理
 // ============================================
 
-Future<int> step1() {
-    Future<int> result;
-    result.value = 5;
-    result.is_ready = true;
-    return result;
+async int step1() {
+    return 5;
 }
 
-Future<int> step2(int input) {
-    Future<int> result;
-    result.value = input * 2;
-    result.is_ready = true;
-    return result;
+async int step2(int input) {
+    return input * 2;
 }
 
-Future<int> step3(int input) {
-    Future<int> result;
-    result.value = input + 10;
-    result.is_ready = true;
-    return result;
+async int step3(int input) {
+    return input + 10;
 }
 
-int execute_chain() {
+async int execute_chain() {
     int val1 = await step1();      // 5
     int val2 = await step2(val1);  // 10
     int val3 = await step3(val2);  // 20
@@ -205,7 +158,7 @@ int execute_chain() {
 // メイン関数 - すべてのサンプルを実行
 // ============================================
 
-int main() {
+void main() {
     print("=== Cb async/await サンプル集 ===\n\n");
     
     // 1. 基本的な非同期計算
@@ -217,7 +170,7 @@ int main() {
     
     // 2. 複数の結果を組み合わせ
     print("2. 複数の結果を組み合わせ:\n");
-    int combined = combine_results();
+    int combined = await combine_results();
     print("  Combined result: ");
     print(combined);
     print("\n\n");
@@ -242,14 +195,14 @@ int main() {
     
     // 5. 式の中でawait
     print("5. 式の中でawaitを使用:\n");
-    int computed = compute_with_await();
+    int computed = await compute_with_await();
     print("  Computed: ");
     print(computed);
     print("\n\n");
     
     // 6. 複数の非同期処理を順次実行
     print("6. 複数のFutureを順次処理:\n");
-    process_multiple_futures();
+    await process_multiple_futures();
     print("\n");
     
     // 7. 複雑な計算（フィボナッチ数列）
@@ -276,12 +229,10 @@ int main() {
     
     // 9. チェーン化された処理
     print("9. チェーン化された非同期処理:\n");
-    int chain_result = execute_chain();
+    int chain_result = await execute_chain();
     print("  Chain result (5 -> *2 -> +10): ");
     print(chain_result);
     print("\n\n");
     
     print("=== すべてのサンプル完了! ===\n");
-    
-    return 0;
 }

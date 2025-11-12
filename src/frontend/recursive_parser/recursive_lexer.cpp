@@ -470,8 +470,12 @@ TokenType RecursiveLexer::getKeywordType(const std::string &text) {
         {"func", TokenType::TOK_FUNC},
         {"import", TokenType::TOK_IMPORT},
         {"export", TokenType::TOK_EXPORT},
-        {"async", TokenType::TOK_ASYNC},  // v0.12.0: async keyword
-        {"await", TokenType::TOK_AWAIT}}; // v0.12.0: await keyword
+        {"async", TokenType::TOK_ASYNC},     // v0.12.0: async keyword
+        {"await", TokenType::TOK_AWAIT},     // v0.12.0: await keyword
+        {"try", TokenType::TOK_TRY},         // v0.14.0: try keyword
+        {"checked", TokenType::TOK_CHECKED}, // v0.14.0: checked keyword
+        {"panic", TokenType::TOK_PANIC},     // v0.14.0: panic keyword
+        {"unwrap", TokenType::TOK_UNWRAP}};  // v0.14.0: unwrap keyword
 
     auto it = keywords.find(text);
     if (it != keywords.end()) {

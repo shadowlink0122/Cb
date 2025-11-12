@@ -1,0 +1,32 @@
+<section class="left-align">
+  <h2>async/awaitパターン 2: 同時実行</h2>
+  <div style="width: 95%; margin: 0.5em auto 0">
+    <pre style="font-size: 0.45em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// awaitしないと同時実行される（コンカレント）</span>
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">int</span> fetch_data(<span style="color: #4ec9b0;">int</span> id) {
+    <span style="color: #c586c0; font-weight: bold;">await</span> sleep(<span style="color: #b5cea8;">1000</span>);
+    println(<span style="color: #ce9178;">"Data {id} fetched"</span>);
+    <span style="color: #c586c0; font-weight: bold;">return</span> id;
+}
+
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">void</span> fetch_all_concurrent() {
+    <span style="color: #6a9955;">// 3つのタスクを同時に開始（awaitしない）</span>
+    <span style="color: #4ec9b0;">int</span> data1 = fetch_data(<span style="color: #b5cea8;">1</span>);  <span style="color: #6a9955;">// すぐ次へ</span>
+    <span style="color: #4ec9b0;">int</span> data2 = fetch_data(<span style="color: #b5cea8;">2</span>);  <span style="color: #6a9955;">// すぐ次へ</span>
+    <span style="color: #4ec9b0;">int</span> data3 = fetch_data(<span style="color: #b5cea8;">3</span>);  <span style="color: #6a9955;">// すぐ次へ</span>
+    
+    <span style="color: #6a9955;">// 全タスクの完了を待つ</span>
+    <span style="color: #c586c0; font-weight: bold;">await</span> sleep(<span style="color: #b5cea8;">1500</span>);  <span style="color: #6a9955;">// 全タスクが完了するまで待機</span>
+    
+    println(<span style="color: #ce9178;">"All tasks completed!"</span>);
+    println(<span style="color: #ce9178;">"Data: {data1}, {data2}, {data3}"</span>);
+}
+
+<span style="color: #4ec9b0;">void</span> main() {
+    fetch_all_concurrent();  <span style="color: #6a9955;">// 合計約1.5秒（並行実行のため）</span>
+}</code></pre>
+    <p style="font-size: 0.65em; margin-top: 0.5em">
+      <strong class="success">効率化</strong>
+      : 複数のタスクを同時に実行し、待ち時間を短縮
+    </p>
+  </div>
+</section>

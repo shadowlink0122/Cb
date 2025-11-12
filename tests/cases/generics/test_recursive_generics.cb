@@ -1,0 +1,89 @@
+// Test: Recursive generic types - Box<Box<T>>
+// Priority 1: Essential test for nested generic structures
+
+struct Box<T> {
+    T value;
+    bool is_initialized;
+};
+
+struct Triple<T> {
+    T first;
+    T second;
+    T third;
+};
+
+void main() {
+    println("=== Test 1: Box<Box<int>> ===");
+    
+    // Nested Box
+    Box<int> inner;
+    inner.value = 42;
+    inner.is_initialized = true;
+    
+    Box<Box<int>> outer;
+    outer.value = inner;
+    outer.is_initialized = true;
+    
+    int result = outer.value.value;
+    println("Nested Box value: {result}");
+    assert(result == 42);
+    
+    println("\n=== Test 2: Box<Box<Box<int>>> ===");
+    
+    // Triple nested
+    Box<int> level1;
+    level1.value = 100;
+    level1.is_initialized = true;
+    
+    Box<Box<int>> level2;
+    level2.value = level1;
+    level2.is_initialized = true;
+    
+    Box<Box<Box<int>>> level3;
+    level3.value = level2;
+    level3.is_initialized = true;
+    
+    int deep_value = level3.value.value.value;
+    println("Triple nested value: {deep_value}");
+    assert(deep_value == 100);
+    
+    println("\n=== Test 3: Triple<Box<int>> ===");
+    
+    Box<int> box1;
+    box1.value = 10;
+    box1.is_initialized = true;
+    
+    Box<int> box2;
+    box2.value = 20;
+    box2.is_initialized = true;
+    
+    Box<int> box3;
+    box3.value = 30;
+    box3.is_initialized = true;
+    
+    Triple<Box<int>> triple;
+    triple.first = box1;
+    triple.second = box2;
+    triple.third = box3;
+    
+    int sum = triple.first.value + triple.second.value + triple.third.value;
+    println("Sum of triple boxes: {sum}");
+    assert(sum == 60);
+    
+    println("\n=== Test 4: Box<Triple<int>> ===");
+    
+    Triple<int> int_triple;
+    int_triple.first = 1;
+    int_triple.second = 2;
+    int_triple.third = 3;
+    
+    Box<Triple<int>> boxed_triple;
+    boxed_triple.value = int_triple;
+    boxed_triple.is_initialized = true;
+    
+    int product = boxed_triple.value.first * boxed_triple.value.second * boxed_triple.value.third;
+    println("Product: {product}");
+    assert(product == 6);
+    
+    println("\n=== All recursive generic tests passed! ===");
+}

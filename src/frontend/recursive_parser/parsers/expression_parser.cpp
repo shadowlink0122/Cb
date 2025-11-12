@@ -716,6 +716,10 @@ ASTNode *ExpressionParser::parsePostfix() {
         return postfix;
     }
 
+    // NOTE: ? operator is NOT parsed here because it conflicts with ternary.
+    // Error propagation (expr?) is checked AFTER all binary operators but
+    // BEFORE ternary at the parseTernary level to avoid ambiguity.
+
     return primary;
 }
 

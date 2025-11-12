@@ -1,0 +1,41 @@
+<section class="left-align">
+  <h2>async/await 実例 1: タスク待機</h2>
+
+  <p class="small-text">awaitでタスクの完了を待機する基本パターン</p>
+
+  <pre><code class="language-cb"><span class="hljs-keyword">import</span> stdlib.std.time;
+
+<span class="hljs-keyword">async</span> <span class="hljs-type">int</span> fetchUserData(<span class="hljs-type">int</span> userId) {
+    println(<span class="hljs-string">"Fetching user "</span> + string(userId));
+    <span class="hljs-keyword">await</span> sleep(<span class="hljs-number">500</span>);  <span class="hljs-comment">// API呼び出しをシミュレート</span>
+    <span class="hljs-keyword">return</span> userId * <span class="hljs-number">100</span>;
+}
+
+<span class="hljs-keyword">async</span> <span class="hljs-type">void</span> processUser(<span class="hljs-type">int</span> userId) {
+    println(<span class="hljs-string">"Start processing user "</span> + string(userId));
+    
+    <span class="hljs-type">int</span> userData = <span class="hljs-keyword">await</span> fetchUserData(userId);  <span class="hljs-comment">// 完了を待機</span>
+    
+    println(<span class="hljs-string">"User data: "</span> + string(userData));
+    println(<span class="hljs-string">"Finished processing user "</span> + string(userId));
+}
+
+<span class="hljs-type">void</span> main() {
+    <span class="hljs-keyword">await</span> processUser(<span class="hljs-number">1</span>);
+    <span class="hljs-keyword">await</span> processUser(<span class="hljs-number">2</span>);
+}
+</code></pre>
+
+  <div style="font-size: 0.7em; margin-top: 0.5em">
+    <strong>出力:</strong>
+    <pre style="background-color: #f5f5f5; color: #2c3e50; padding: 0.8em"><code>Start processing user 1
+Fetching user 1
+User data: 100
+Finished processing user 1
+Start processing user 2
+Fetching user 2
+User data: 200
+Finished processing user 2
+</code></pre>
+  </div>
+</section>
