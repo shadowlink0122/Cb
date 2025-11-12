@@ -6,6 +6,7 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
+    { "include": "#import-statement" },
     { "include": "#keywords" },
     { "include": "#constants" },
     { "include": "#builtin-functions" },
@@ -17,6 +18,50 @@
     { "include": "#punctuation" }
   ],
   "repository": {
+    "import-statement": {
+      "patterns": [
+        {
+          "begin": "\\b(import)\\s+",
+          "end": ";",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.import.cb" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.terminator.statement.cb" }
+          },
+          "patterns": [
+            {
+              "begin": "\\{",
+              "end": "\\}",
+              "beginCaptures": {
+                "0": { "name": "punctuation.definition.imports.begin.cb" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.definition.imports.end.cb" }
+              },
+              "patterns": [
+                {
+                  "name": "variable.other.readwrite.cb",
+                  "match": "[a-zA-Z_][a-zA-Z0-9_]*"
+                },
+                {
+                  "name": "punctuation.separator.comma.cb",
+                  "match": ","
+                }
+              ]
+            },
+            {
+              "name": "entity.name.type.module.cb",
+              "match": "[a-zA-Z_][a-zA-Z0-9_]*"
+            },
+            {
+              "name": "punctuation.accessor.cb",
+              "match": "\\."
+            }
+          ]
+        }
+      ]
+    },
     "comments": {
       "patterns": [
         {
@@ -105,8 +150,8 @@
           "match": "\\b(async|await)\\b"
         },
         {
-          "name": "keyword.control.import.cb",
-          "match": "\\b(export|import|private)\\b"
+          "name": "keyword.control.export.cb",
+          "match": "\\b(export|private)\\b"
         },
         {
           "name": "keyword.control.exception.cb",

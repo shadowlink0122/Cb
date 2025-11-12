@@ -20,7 +20,7 @@
     "url": "https://github.com/shadowlink0122/Cb"
   },
   "license": "MIT",
-  "icon": "images/icon.png",
+  "icon": "images/icon-b.png",
   "contributes": {
     "languages": [
       {
