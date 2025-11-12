@@ -164,6 +164,7 @@ class RecursiveLexer {
     char advance();
     void skipWhitespace();
     void skipComment();
+    void skipBlockComment();
     Token makeToken(TokenType type, const std::string &value);
     Token makeIdentifier();
     Token makeNumber();

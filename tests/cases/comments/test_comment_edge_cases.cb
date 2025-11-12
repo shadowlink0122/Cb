@@ -1,0 +1,33 @@
+// コメントのエッジケーステスト
+
+void main() {
+    // 空のブロックコメント
+    /**/
+    int x = 10;
+    println("x = {x}");
+
+    // スペースのみのブロックコメント
+    /*   */
+    int y = 20;
+    println("y = {y}");
+
+    // 演算子の後のコメント
+    int a = 5 + /* コメント */ 3;
+    println("a = {a}");
+
+    int b = 10 - /* 減算 */ 2;
+    println("b = {b}");
+
+    int c = 4 * /* 乗算 */ 3;
+    println("c = {c}");
+
+    int d = 20 / /* 除算 */ 4;
+    println("d = {d}");
+
+    // 括弧の前後のコメント
+    int result = /* 計算開始 */ (a + b) /* 計算終了 */ * 2;
+    println("result = {result}");
+
+    // 関数呼び出しの中のコメント
+    println(/* コメント */ "Done");
+}

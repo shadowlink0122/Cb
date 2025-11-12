@@ -1,0 +1,23 @@
+// 文字列リテラル内のコメント記号テスト
+
+void main() {
+    // 文字列内の // はコメントではない
+    string s1 = "This is // not a comment";
+    println("s1 = {s1}");
+
+    // 文字列内の /* */ はコメントではない
+    string s2 = "This is /* not a comment */";
+    println("s2 = {s2}");
+
+    // 実際のコメント
+    string s3 = "Valid string"; // これはコメント
+    println("s3 = {s3}");
+
+    /* ブロックコメント */
+    string s4 = "Another valid string"; /* これもコメント */
+    println("s4 = {s4}");
+
+    // 複雑な例
+    string url = "http://example.com"; // URL内の // はコメントではない
+    println("url = {url}");
+}

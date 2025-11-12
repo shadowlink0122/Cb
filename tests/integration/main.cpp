@@ -82,6 +82,7 @@
 #include "sample_scenarios/test_sample_scenarios.hpp"
 #include "switch/test_switch.hpp"
 // #include "samples/test_actual_samples.hpp"
+#include "comments/test_comments.hpp"
 #include "self_assign/test_self_assign.hpp"
 #include "sizeof_array/test_sizeof_array.hpp"
 #include "static_variables/test_static_variables.hpp"
@@ -160,6 +161,8 @@ int main() {
     std::cout << "[integration-test] === Core Language Tests ===" << std::endl;
     CategoryTimingStats::set_current_category("Core Language");
     run_test_with_continue(test_integration_basic, "Basic Tests", failed_tests);
+    run_test_with_continue(CommentTests::runCommentTests, "Comment Tests",
+                           failed_tests);
     run_test_with_continue(test_integration_arithmetic, "Arithmetic Tests",
                            failed_tests);
     run_test_with_continue(test_integration_floating_point,

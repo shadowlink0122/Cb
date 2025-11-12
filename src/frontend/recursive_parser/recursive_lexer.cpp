@@ -67,6 +67,11 @@ Token RecursiveLexer::nextToken() {
             skipComment();
             return nextToken();
         }
+        if (peek() == '*') {
+            advance(); // consume '*'
+            skipBlockComment();
+            return nextToken();
+        }
         if (peek() == '=') {
             advance(); // consume '='
             return makeToken(TokenType::TOK_DIV_ASSIGN, "/=");
@@ -255,6 +260,21 @@ void RecursiveLexer::skipComment() {
     while (peek() != '\n' && !isAtEnd()) {
         advance();
     }
+}
+
+void RecursiveLexer::skipBlockComment() {
+    // Skip the initial /*
+    while (!isAtEnd()) {
+        if (peek() == '*' && peekNext() == '/') {
+            // Found closing */
+            advance(); // consume '*'
+            advance(); // consume '/'
+            return;
+        }
+        advance();
+    }
+    // If we reach here, the comment was not closed
+    // This is an error, but we'll just return and let the parser handle it
 }
 
 Token RecursiveLexer::makeToken(TokenType type, const std::string &value) {
