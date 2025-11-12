@@ -3201,12 +3201,100 @@ void main() {
 **現在の制限**:
 - ネイティブI/Oブロッキングは非同期化されない
 - スレッド並列実行は未対応（協調的マルチタスクのみ）
+- タイムアウトのResult型統合は部分実装（v0.15.0で完全実装予定）
+- タイムアウト後のタスクキャンセルは未実装
 
-**将来の拡張（v0.14.0候補）**:
-- ?オペレーター（エラー自動伝播）
+**将来の拡張（v0.14.0以降）**:
 - Stream/AsyncIterator
 - Channel (MPSC)
-- タイムアウト機能
+- race機能（複数Futureから先に完了したものを選択）
+- select!マクロ
+
+### エラー伝播（?オペレーター）🆕 v0.12.1
+
+**概要**:
+Rustスタイルの`?`オペレーターにより、`Result<T, E>`と`Option<T>`のエラー処理を簡潔に記述できます。
+
+**Result<T, E>での使用例**:
+```cb
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+Result<int, string> chain_divide(int x) {
+    int a = divide(x, 2)?;  // Errの場合は即座にreturn
+    int b = divide(a, 3)?;
+    return Result<int, string>::Ok(b);
+}
+```
+
+**Option<T>での使用例**:
+```cb
+Option<int> find(int[] arr, int target) {
+    for (int i = 0; i < arr.len; i++) {
+        if (arr[i] == target) {
+            return Option<int>::Some(i);
+        }
+    }
+    return Option<int>::None;
+}
+
+Option<int> find_and_double(int[] arr, int target) {
+    int idx = find(arr, target)?;  // Noneの場合は即座にreturn
+    return Option<int>::Some(arr[idx] * 2);
+}
+```
+
+**async関数との組み合わせ**:
+```cb
+async Result<int, string> async_calc() {
+    int x = await async_divide(10, 2)?;
+    int y = await async_divide(x, 3)?;
+    return Result<int, string>::Ok(y);
+}
+```
+
+### タイムアウト機能 🆕 v0.12.1
+
+**概要**:
+async関数にタイムアウトを設定する基本機能です。指定時間内に完了しない場合、型のデフォルト値を返します。
+
+**使用例**:
+```cb
+async int fast_task() {
+    await sleep(100);  // 0.1秒
+    return 42;
+}
+
+async int slow_task() {
+    await sleep(2000);  // 2秒
+    return 99;
+}
+
+async int main() {
+    // タイムアウト機能
+    Future<int> f1 = timeout(fast_task(), 500);
+    int result1 = await f1;  // 42 (完了)
+    
+    Future<int> f2 = timeout(slow_task(), 200);
+    int result2 = await f2;  // 0 (タイムアウト、デフォルト値)
+    
+    return 0;
+}
+```
+
+**実装内容**:
+- ✅ `timeout()` builtin関数
+- ✅ Event loopでのタイムアウトチェック
+- ✅ 複数タスクの同時タイムアウト管理
+
+**制限事項**:
+- タイムアウト時は型のデフォルト値を返却（intなら0、structならデフォルト初期化値）
+- Result<T, E>との完全統合は未実装（v0.15.0予定）
+- タイムアウト後のタスクキャンセル処理は未実装（タスクは実行継続）
 
 ### ベストプラクティス
 

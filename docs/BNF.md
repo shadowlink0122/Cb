@@ -494,8 +494,23 @@ void main() {
                      | '->' <identifier>                       // ポインタメンバーアクセス ✅
                      | '++'                                    // 後置インクリメント ✅
                      | '--'                                    // 後置デクリメント ✅
+                     | '?'                                     // エラー伝播 (v0.12.1) 🆕
 
 <argument_list> ::= [ <expression> { ',' <expression> } ]
+```
+
+**?オペレーターの使用例** (v0.12.1):
+```cb
+Result<int, string> chain_divide(int x) {
+    int a = divide(x, 2)?;  // Errの場合は即座にreturn
+    int b = divide(a, 3)?;
+    return Result<int, string>::Ok(b);
+}
+
+Option<int> find_and_process(int[] arr, int target) {
+    int idx = find(arr, target)?;  // Noneの場合は即座にreturn
+    return Option<int>::Some(arr[idx] * 2);
+}
 ```
 
 ### 基本要素

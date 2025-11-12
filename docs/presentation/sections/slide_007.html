@@ -22,8 +22,8 @@
         </td>
       </tr>
       <tr class="fragment">
-        <td>Interface</td>
-        <td><span class="go-color">Go</span></td>
+        <td>Interface/Impl</td>
+        <td><span class="go-color">Go</span> / <span class="rust-color">Rust</span></td>
         <td>
           <code>
             <span style="color: #c586c0; font-weight: bold">interface</span>
@@ -31,19 +31,25 @@
             {
             <span style="color: #4ec9b0">int</span>
             area(); }
-          </code>
-        </td>
-      </tr>
-      <tr class="fragment">
-        <td>Impl</td>
-        <td><span class="rust-color">Rust</span></td>
-        <td>
-          <code>
             <span style="color: #c586c0; font-weight: bold">impl</span>
             <span style="color: #4ec9b0">Shape</span>
             <span style="color: #c586c0; font-weight: bold">for</span>
             <span style="color: #4ec9b0">Rectangle</span>
             { ... }
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>Interface境界</td>
+        <td><span class="rust-color">Rust</span></td>
+        <td>
+          <code>
+            <span style="color: #4ec9b0">T</span>
+            ,
+            <span style="color: #4ec9b0">A</span>
+            :
+            <span style="color: #4ec9b0">IName</span>
+            &gt;
           </code>
         </td>
       </tr>

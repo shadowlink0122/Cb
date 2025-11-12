@@ -1,0 +1,31 @@
+<section class="left-align">
+  <h2>async/awaitパターン 1: タスク待機</h2>
+  <div style="width: 95%; margin: 0.5em auto 0">
+    <pre style="font-size: 0.45em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// awaitでタスクの完了を待つ（順次実行）</span>
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">int</span> fetch_user(<span style="color: #4ec9b0;">int</span> id) {
+    <span style="color: #c586c0; font-weight: bold;">await</span> sleep(<span style="color: #b5cea8;">1000</span>);  <span style="color: #6a9955;">// 1秒待機（他のタスクはブロックしない）</span>
+    println(<span style="color: #ce9178;">"User {id} fetched"</span>);
+    <span style="color: #c586c0; font-weight: bold;">return</span> id * <span style="color: #b5cea8;">10</span>;
+}
+
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">void</span> process_users() {
+    <span style="color: #6a9955;">// 順次実行: task1完了 → task2開始 → task3開始</span>
+    <span style="color: #4ec9b0;">int</span> user1 = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_user(<span style="color: #b5cea8;">1</span>);  <span style="color: #6a9955;">// 1秒待機</span>
+    println(<span style="color: #ce9178;">"Got user1: {user1}"</span>);
+    
+    <span style="color: #4ec9b0;">int</span> user2 = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_user(<span style="color: #b5cea8;">2</span>);  <span style="color: #6a9955;">// さらに1秒待機</span>
+    println(<span style="color: #ce9178;">"Got user2: {user2}"</span>);
+    
+    <span style="color: #4ec9b0;">int</span> user3 = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_user(<span style="color: #b5cea8;">3</span>);  <span style="color: #6a9955;">// さらに1秒待機</span>
+    println(<span style="color: #ce9178;">"Got user3: {user3}"</span>);
+}
+
+<span style="color: #4ec9b0;">void</span> main() {
+    process_users();  <span style="color: #6a9955;">// 合計約3秒かかる</span>
+}</code></pre>
+    <p style="font-size: 0.65em; margin-top: 0.5em">
+      <strong class="highlight">特徴</strong>
+      : awaitで各タスクの完了を待つため、順次実行される
+    </p>
+  </div>
+</section>

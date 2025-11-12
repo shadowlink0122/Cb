@@ -527,8 +527,8 @@
         </td>
       </tr>
       <tr class="fragment">
-        <td>Interface</td>
-        <td><span class="go-color">Go</span></td>
+        <td>Interface/Impl</td>
+        <td><span class="go-color">Go</span> / <span class="rust-color">Rust</span></td>
         <td>
           <code>
             <span style="color: #c586c0; font-weight: bold">interface</span>
@@ -536,19 +536,25 @@
             {
             <span style="color: #4ec9b0">int</span>
             area(); }
-          </code>
-        </td>
-      </tr>
-      <tr class="fragment">
-        <td>Impl</td>
-        <td><span class="rust-color">Rust</span></td>
-        <td>
-          <code>
             <span style="color: #c586c0; font-weight: bold">impl</span>
             <span style="color: #4ec9b0">Shape</span>
             <span style="color: #c586c0; font-weight: bold">for</span>
             <span style="color: #4ec9b0">Rectangle</span>
             { ... }
+          </code>
+        </td>
+      </tr>
+      <tr class="fragment">
+        <td>Interface境界</td>
+        <td><span class="rust-color">Rust</span></td>
+        <td>
+          <code>
+            <span style="color: #4ec9b0">T</span>
+            ,
+            <span style="color: #4ec9b0">A</span>
+            :
+            <span style="color: #4ec9b0">IName</span>
+            &gt;
           </code>
         </td>
       </tr>
@@ -1072,6 +1078,54 @@ println(p2.x);   <span style="color: #6a9955;">// 20</span></code></pre>
 </section>
 
 <section class="left-align">
+  <h2>型修飾子 - const/static</h2>
+  <div style="width: 95%; margin: 0.5em auto 0">
+    <div style="display: flex; gap: 1em">
+      <div style="flex: 1">
+        <h3 style="font-size: 0.75em; margin-bottom: 0.2em">const修飾子の2つの用途</h3>
+        <pre style="font-size: 0.42em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// 1. 変数の再代入を禁止</span>
+<span style="color: #c586c0; font-weight: bold;">const</span> <span style="color: #4ec9b0;">int</span> MAX_SIZE = <span style="color: #b5cea8;">100</span>;
+<span style="color: #6a9955;">// MAX_SIZE = 200;  // エラー！</span>
+
+<span style="color: #6a9955;">// 2. ポインタの変更を禁止</span>
+<span style="color: #4ec9b0;">int</span> value = <span style="color: #b5cea8;">42</span>;
+<span style="color: #c586c0; font-weight: bold;">const</span> <span style="color: #4ec9b0;">int</span>* ptr1 = &value;  <span style="color: #6a9955;">// 値の変更不可</span>
+<span style="color: #6a9955;">// *ptr1 = 100;  // エラー！</span>
+
+<span style="color: #4ec9b0;">int</span>* <span style="color: #c586c0; font-weight: bold;">const</span> ptr2 = &value;  <span style="color: #6a9955;">// ポインタの変更不可</span>
+<span style="color: #6a9955;">// ptr2 = nullptr;  // エラー！</span>
+
+<span style="color: #6a9955;">// 両方を禁止</span>
+<span style="color: #c586c0; font-weight: bold;">const</span> <span style="color: #4ec9b0;">int</span> <span style="color: #c586c0; font-weight: bold;">const</span> ptr3 = &value;</code></pre>
+      </div>
+      <div style="flex: 1">
+        <h3 style="font-size: 0.75em; margin-bottom: 0.2em">static修飾子</h3>
+        <pre style="font-size: 0.42em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// staticローカル変数（状態を保持）</span>
+<span style="color: #4ec9b0;">int</span> counter() {
+    <span style="color: #c586c0; font-weight: bold;">static</span> <span style="color: #4ec9b0;">int</span> count = <span style="color: #b5cea8;">0</span>;
+    count = count + <span style="color: #b5cea8;">1</span>;
+    <span style="color: #c586c0; font-weight: bold;">return</span> count;
+}
+
+<span style="color: #4ec9b0;">void</span> main() {
+    println(counter());  <span style="color: #6a9955;">// 1</span>
+    println(counter());  <span style="color: #6a9955;">// 2</span>
+    println(counter());  <span style="color: #6a9955;">// 3</span>
+}</code></pre>
+        <p style="font-size: 0.65em; margin-top: 0.5em; line-height: 1.4">
+          <strong class="success">ポイント</strong>
+          :
+          <br />
+          • const: 変数やポインタの変更を防ぐ
+          <br />
+          • static: 関数呼び出し間で状態を保持
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="left-align">
   <h2>各言語から取り入れた機能</h2>
   <div style="display: flex; gap: 1.5em; width: 95%; margin: 0.4em auto 0">
     <div style="flex: 1">
@@ -1081,12 +1135,12 @@ println(p2.x);   <span style="color: #6a9955;">// 20</span></code></pre>
         <li><strong>パターンマッチング</strong></li>
         <li><strong>RAII（デストラクタ）</strong></li>
         <li><strong>Impl（実装ブロック）</strong></li>
-        <li><strong>インターフェース境界</strong></li>
+        <li><strong>インターフェース境界（&lt;T: IName&gt;）</strong></li>
         <li>所有権の概念（将来実装予定）</li>
       </ul>
       <h3 class="go-color" style="font-size: 0.8em; margin-bottom: 0.25em">🐹 Goから</h3>
       <ul style="font-size: 0.65em; line-height: 1.3; margin: 0; padding-left: 1.3em">
-        <li><strong>Interface（型システム）</strong></li>
+        <li><strong>Interface（構造的型システム）</strong></li>
         <li><strong>deferキーワード</strong></li>
         <li>シンプルな並行処理モデル</li>
         <li>明示的なエラー処理</li>
@@ -1395,6 +1449,61 @@ println(p2.x);   <span style="color: #6a9955;">// 20</span></code></pre>
 </section>
 
 <section class="left-align">
+  <h2>モジュールシステム - import/export詳細</h2>
+  <div style="width: 95%; margin: 0.3em auto 0">
+    <div style="display: flex; gap: 1em">
+      <div style="flex: 1">
+        <h3 style="font-size: 0.75em; margin-bottom: 0.2em">export: 公開する</h3>
+        <pre style="font-size: 0.38em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// math.cb</span>
+<span style="color: #c586c0; font-weight: bold;">export</span> <span style="color: #4ec9b0;">int</span> add(<span style="color: #4ec9b0;">int</span> a, <span style="color: #4ec9b0;">int</span> b) {
+    <span style="color: #c586c0; font-weight: bold;">return</span> a + b;
+}
+
+<span style="color: #c586c0; font-weight: bold;">export</span> <span style="color: #c586c0; font-weight: bold;">struct</span> <span style="color: #4ec9b0;">Point</span> {
+    <span style="color: #4ec9b0;">int</span> x;
+    <span style="color: #4ec9b0;">int</span> y;
+}
+
+<span style="color: #c586c0; font-weight: bold;">export</span> <span style="color: #c586c0; font-weight: bold;">interface</span> <span style="color: #4ec9b0;">Drawable</span> {
+    <span style="color: #4ec9b0;">void</span> draw();
+}
+
+<span style="color: #6a9955;">// 非公開（exportなし）</span>
+<span style="color: #4ec9b0;">int</span> helper() {
+    <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #b5cea8;">42</span>;
+}</code></pre>
+      </div>
+      <div style="flex: 1">
+        <h3 style="font-size: 0.75em; margin-bottom: 0.2em">import: 使用する</h3>
+        <pre style="font-size: 0.38em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// main.cb</span>
+<span style="color: #c586c0; font-weight: bold;">import</span> math;           <span style="color: #6a9955;">// モジュール全体をインポート</span>
+
+<span style="color: #4ec9b0;">void</span> main() {
+    <span style="color: #6a9955;">// exportした関数・型が使える</span>
+    <span style="color: #4ec9b0;">int</span> result = add(<span style="color: #b5cea8;">3</span>, <span style="color: #b5cea8;">5</span>);
+    
+    <span style="color: #4ec9b0;">Point</span> p;
+    p.<span style="color: #dcdcaa;">x</span> = <span style="color: #b5cea8;">10</span>;
+    p.<span style="color: #dcdcaa;">y</span> = <span style="color: #b5cea8;">20</span>;
+    
+    <span style="color: #6a9955;">// helper()は呼べない（非公開）</span>
+}</code></pre>
+      </div>
+    </div>
+    <div style="margin-top: 0.5em">
+      <h3 style="font-size: 0.75em; margin-bottom: 0.2em">パス指定とディレクトリ構造</h3>
+      <pre style="font-size: 0.38em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #c586c0; font-weight: bold;">import</span> stdlib.std.vector;    <span style="color: #6a9955;">// stdlib/std/vector.cb</span>
+<span style="color: #c586c0; font-weight: bold;">import</span> mylib.utils.math;     <span style="color: #6a9955;">// mylib/utils/math.cb</span>
+<span style="color: #c586c0; font-weight: bold;">import</span> models.user;          <span style="color: #6a9955;">// models/user.cb</span></code></pre>
+      <p style="font-size: 0.65em; margin-top: 0.3em">
+        <strong class="highlight">特徴</strong>
+        : ドット区切りでディレクトリ構造に対応、循環参照は検出される
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="left-align">
   <h2>パターンマッチング - 型安全な分岐</h2>
   <div style="width: 95%; margin: 0.3em auto 0">
     <pre style="font-size: 0.42em; margin: 0.3em 0">
@@ -1518,101 +1627,6 @@ println(p2.x);   <span style="color: #6a9955;">// 20</span></code></pre>
     <p class="fragment" style="font-size: 0.65em; margin-top: 0.3em">
       <strong class="highlight">v0.13.0の革新</strong>
       : async/awaitとResult型の完全統合により、型安全な非同期エラーハンドリングを実現
-    </p>
-  </div>
-</section>
-
-<section class="left-align">
-  <h2>カプセル化 - private/defaultアクセス修飾子</h2>
-  <div style="width: 95%; margin: 0.3em auto 0">
-    <pre style="font-size: 0.48em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape>
-<span style="color: #6a9955;">// 構造体メンバーにアクセス修飾子を適用可能</span>
-<span style="color: #c586c0; font-weight: bold;">struct</span> <span style="color: #4ec9b0;">BankAccount</span> {
-    <span style="color: #c586c0; font-weight: bold;">private</span> <span style="color: #4ec9b0;">int</span> balance;      <span style="color: #6a9955;">// 外部から直接アクセス不可</span>
-    <span style="color: #c586c0; font-weight: bold;">default</span> <span style="color: #4ec9b0;">string</span> owner;     <span style="color: #6a9955;">// デフォルトアクセス（public相当）</span>
-    <span style="color: #4ec9b0;">int</span> account_number;    <span style="color: #6a9955;">// デフォルトでpublic</span>
-}
-
-<span style="color: #c586c0; font-weight: bold;">impl</span> <span style="color: #4ec9b0;">BankAccount</span> {
-    <span style="color: #6a9955;">// コンストラクタ</span>
-    self(<span style="color: #4ec9b0;">string</span> name, <span style="color: #4ec9b0;">int</span> initial_balance) {
-        self.<span style="color: #dcdcaa;">owner</span> = name;
-        self.<span style="color: #dcdcaa;">balance</span> = initial_balance;
-        self.<span style="color: #dcdcaa;">account_number</span> = generate_account_number();
-    }
-    
-    <span style="color: #6a9955;">// privateメンバーへはimpl内からアクセス可能</span>
-    <span style="color: #4ec9b0;">void</span> deposit(<span style="color: #4ec9b0;">int</span> amount) {
-        self.<span style="color: #dcdcaa;">balance</span> = self.<span style="color: #dcdcaa;">balance</span> + amount;  <span style="color: #6a9955;">// OK: impl内</span>
-        println(<span style="color: #ce9178;">"Deposited: {amount}, New balance: {self.<span style="color: #dcdcaa;">balance</span>}"</span>);
-    }
-    
-    <span style="color: #4ec9b0;">int</span> get_balance() {
-        <span style="color: #c586c0; font-weight: bold;">return</span> self.<span style="color: #dcdcaa;">balance</span>;  <span style="color: #6a9955;">// privateメンバーを公開メソッド経由で提供</span>
-    }
-}
-
-<span style="color: #4ec9b0;">void</span> main() {
-    <span style="color: #4ec9b0;">BankAccount</span> account(<span style="color: #ce9178;">"Alice"</span>, <span style="color: #b5cea8;">1000</span>);
-    
-    account.deposit(<span style="color: #b5cea8;">500</span>);                    <span style="color: #6a9955;">// OK: public メソッド</span>
-    <span style="color: #4ec9b0;">int</span> balance = account.get_balance();  <span style="color: #6a9955;">// OK: public メソッド</span>
-    
-    <span style="color: #6a9955;">// account.balance = 9999;  // エラー: privateメンバーに直接アクセス不可</span>
-}
-                    </code></pre>
-    <p class="fragment" style="font-size: 0.65em; margin-top: 0.3em">
-      <strong class="success">利点</strong>
-      : データの隠蔽により、安全なAPI設計とカプセル化を実現
-    </p>
-  </div>
-</section>
-
-<section class="left-align">
-  <h2>モジュールシステム - import文</h2>
-  <div style="width: 95%; margin: 0.3em auto 0">
-    <pre style="font-size: 0.48em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape>
-<span style="color: #6a9955;">// 標準ライブラリのインポート</span>
-<span style="color: #c586c0; font-weight: bold;">import</span> stdlib.std.vector;
-<span style="color: #c586c0; font-weight: bold;">import</span> stdlib.std.queue;
-<span style="color: #c586c0; font-weight: bold;">import</span> stdlib.std.map;
-
-<span style="color: #6a9955;">// ユーザー定義モジュールのインポート</span>
-<span style="color: #c586c0; font-weight: bold;">import</span> utils.math;
-<span style="color: #c586c0; font-weight: bold;">import</span> models.user;
-
-<span style="color: #4ec9b0;">void</span> main() {
-    <span style="color: #6a9955;">// インポートした型を使用</span>
-    <span style="color: #4ec9b0;">Vector</span>&lt;<span style="color: #4ec9b0;">int</span>&gt; numbers;
-    numbers.<span style="color: #dcdcaa;">push_back</span>(<span style="color: #b5cea8;">10</span>);
-    numbers.<span style="color: #dcdcaa;">push_back</span>(<span style="color: #b5cea8;">20</span>);
-    numbers.<span style="color: #dcdcaa;">push_back</span>(<span style="color: #b5cea8;">30</span>);
-    
-    <span style="color: #4ec9b0;">Queue</span>&lt;<span style="color: #4ec9b0;">string</span>&gt; tasks;
-    tasks.<span style="color: #dcdcaa;">push</span>(<span style="color: #ce9178;">"Task 1"</span>);
-    tasks.<span style="color: #dcdcaa;">push</span>(<span style="color: #ce9178;">"Task 2"</span>);
-    
-    <span style="color: #6a9955;">// ユーザーモジュールの関数を呼び出し</span>
-    <span style="color: #4ec9b0;">int</span> result = calculate_sum(numbers);
-    println(<span style="color: #ce9178;">"Sum: {result}"</span>);
-}
-
-<span style="color: #6a9955;">// stdlib/std/vector.cbの内容例:</span>
-<span style="color: #c586c0; font-weight: bold;">export</span> <span style="color: #c586c0; font-weight: bold;">struct</span> <span style="color: #4ec9b0;">Vector</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
-    <span style="color: #4ec9b0;">void</span>* front;
-    <span style="color: #4ec9b0;">void</span>* back;
-    <span style="color: #4ec9b0;">long</span> length;
-};
-
-<span style="color: #c586c0; font-weight: bold;">export</span> <span style="color: #c586c0; font-weight: bold;">interface</span> <span style="color: #4ec9b0;">VectorOps</span>&lt;<span style="color: #4ec9b0;">T</span>&gt; {
-    <span style="color: #4ec9b0;">void</span> push_back(<span style="color: #4ec9b0;">T</span> value);
-    <span style="color: #4ec9b0;">T</span> at(<span style="color: #4ec9b0;">long</span> index);
-    <span style="color: #4ec9b0;">void</span> pop_back();
-};
-                    </code></pre>
-    <p class="fragment" style="font-size: 0.65em; margin-top: 0.3em">
-      <strong class="highlight">モジュール</strong>
-      : exportキーワードで公開、importで再利用可能なコードを実現
     </p>
   </div>
 </section>
@@ -2270,40 +2284,6 @@ $ ./main --debug-ja test.cb
 </section>
 
 <section class="left-align">
-  <h2>型安全な非同期処理 - async/await（v0.13.0）</h2>
-  <div style="width: 95%; margin: 0.3em auto 0">
-    <pre style="font-size: 0.42em; margin: 0.3em 0">
-  <code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// ✅ v0.13.0: async/await + Result&lt;T,E&gt;完全統合</span>
-<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt; divide_async(<span style="color: #4ec9b0;">int</span> a, <span style="color: #4ec9b0;">int</span> b) {
-    <span style="color: #c586c0; font-weight: bold;">await</span> sleep(<span style="color: #b5cea8;">100</span>);  <span style="color: #6a9955;">// 非同期待機</span>
-    <span style="color: #c586c0; font-weight: bold;">if</span> (b == <span style="color: #b5cea8;">0</span>) {
-        <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Err</span>(<span style="color: #ce9178;">"Division by zero"</span>);
-    }
-    <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Ok</span>(a / b);
-}
-<span style="color: #c586c0; font-weight: bold;">void</span> main() {
-    <span style="color: #6a9955;">// 複数の非同期タスクを並行実行（暗黙的にFutureになる）</span>
-    <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt; r1 = <span style="color: #c586c0; font-weight: bold;">await</span> divide_async(<span style="color: #b5cea8;">10</span>, <span style="color: #b5cea8;">2</span>);
-    <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt; r2 = <span style="color: #c586c0; font-weight: bold;">await</span> divide_async(<span style="color: #b5cea8;">20</span>, <span style="color: #b5cea8;">0</span>);  <span style="color: #6a9955;">// エラーケース</span>
-    <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt; r3 = <span style="color: #c586c0; font-weight: bold;">await</span> divide_async(<span style="color: #b5cea8;">30</span>, <span style="color: #b5cea8;">5</span>);
-    <span style="color: #6a9955;">// awaitでenum情報を完全保持 → パターンマッチング可能</span>
-    <span style="color: #c586c0; font-weight: bold;">match</span> (r1) {
-        <span style="color: #4ec9b0;">Ok</span>(value) => println(<span style="color: #ce9178;">"Task1 Success: {value}"</span>),  <span style="color: #6a9955;">// 5</span>
-        <span style="color: #4ec9b0;">Err</span>(msg) => println(<span style="color: #ce9178;">"Task1 Error: {msg}"</span>)
-    }
-    <span style="color: #c586c0; font-weight: bold;">match</span> (r2) {
-        <span style="color: #4ec9b0;">Ok</span>(value) => println(<span style="color: #ce9178;">"Task2 Success: {value}"</span>),
-        <span style="color: #4ec9b0;">Err</span>(msg) => println(<span style="color: #ce9178;">"Task2 Error: {msg}"</span>)        <span style="color: #6a9955;">// Division by zero</span>
-    }
-}</code></pre>
-    <p class="fragment" style="font-size: 0.65em; margin-top: 0.3em">
-      <strong class="highlight">v0.13.0の革新</strong>
-      : async/awaitとResult型の完全統合により、型安全な非同期エラーハンドリングを実現
-    </p>
-  </div>
-</section>
-
-<section class="left-align">
   <h2>Event Loop - 協調的スケジューリング</h2>
   <div style="display: flex; gap: 1.5em; width: 95%; margin: 0.3em auto 0">
     <div style="flex: 1">
@@ -2403,6 +2383,109 @@ process_pipeline() {
 }
                         </code></pre>
     </div>
+  </div>
+</section>
+
+<section class="left-align">
+  <h2>async/awaitパターン 1: タスク待機</h2>
+  <div style="width: 95%; margin: 0.5em auto 0">
+    <pre style="font-size: 0.45em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// awaitでタスクの完了を待つ（順次実行）</span>
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">int</span> fetch_user(<span style="color: #4ec9b0;">int</span> id) {
+    <span style="color: #c586c0; font-weight: bold;">await</span> sleep(<span style="color: #b5cea8;">1000</span>);  <span style="color: #6a9955;">// 1秒待機（他のタスクはブロックしない）</span>
+    println(<span style="color: #ce9178;">"User {id} fetched"</span>);
+    <span style="color: #c586c0; font-weight: bold;">return</span> id * <span style="color: #b5cea8;">10</span>;
+}
+
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">void</span> process_users() {
+    <span style="color: #6a9955;">// 順次実行: task1完了 → task2開始 → task3開始</span>
+    <span style="color: #4ec9b0;">int</span> user1 = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_user(<span style="color: #b5cea8;">1</span>);  <span style="color: #6a9955;">// 1秒待機</span>
+    println(<span style="color: #ce9178;">"Got user1: {user1}"</span>);
+    
+    <span style="color: #4ec9b0;">int</span> user2 = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_user(<span style="color: #b5cea8;">2</span>);  <span style="color: #6a9955;">// さらに1秒待機</span>
+    println(<span style="color: #ce9178;">"Got user2: {user2}"</span>);
+    
+    <span style="color: #4ec9b0;">int</span> user3 = <span style="color: #c586c0; font-weight: bold;">await</span> fetch_user(<span style="color: #b5cea8;">3</span>);  <span style="color: #6a9955;">// さらに1秒待機</span>
+    println(<span style="color: #ce9178;">"Got user3: {user3}"</span>);
+}
+
+<span style="color: #4ec9b0;">void</span> main() {
+    process_users();  <span style="color: #6a9955;">// 合計約3秒かかる</span>
+}</code></pre>
+    <p style="font-size: 0.65em; margin-top: 0.5em">
+      <strong class="highlight">特徴</strong>
+      : awaitで各タスクの完了を待つため、順次実行される
+    </p>
+  </div>
+</section>
+
+<section class="left-align">
+  <h2>async/awaitパターン 2: 同時実行</h2>
+  <div style="width: 95%; margin: 0.5em auto 0">
+    <pre style="font-size: 0.45em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// awaitしないと同時実行される（コンカレント）</span>
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">int</span> fetch_data(<span style="color: #4ec9b0;">int</span> id) {
+    <span style="color: #c586c0; font-weight: bold;">await</span> sleep(<span style="color: #b5cea8;">1000</span>);
+    println(<span style="color: #ce9178;">"Data {id} fetched"</span>);
+    <span style="color: #c586c0; font-weight: bold;">return</span> id;
+}
+
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">void</span> fetch_all_concurrent() {
+    <span style="color: #6a9955;">// 3つのタスクを同時に開始（awaitしない）</span>
+    <span style="color: #4ec9b0;">int</span> data1 = fetch_data(<span style="color: #b5cea8;">1</span>);  <span style="color: #6a9955;">// すぐ次へ</span>
+    <span style="color: #4ec9b0;">int</span> data2 = fetch_data(<span style="color: #b5cea8;">2</span>);  <span style="color: #6a9955;">// すぐ次へ</span>
+    <span style="color: #4ec9b0;">int</span> data3 = fetch_data(<span style="color: #b5cea8;">3</span>);  <span style="color: #6a9955;">// すぐ次へ</span>
+    
+    <span style="color: #6a9955;">// 全タスクの完了を待つ</span>
+    <span style="color: #c586c0; font-weight: bold;">await</span> sleep(<span style="color: #b5cea8;">1500</span>);  <span style="color: #6a9955;">// 全タスクが完了するまで待機</span>
+    
+    println(<span style="color: #ce9178;">"All tasks completed!"</span>);
+    println(<span style="color: #ce9178;">"Data: {data1}, {data2}, {data3}"</span>);
+}
+
+<span style="color: #4ec9b0;">void</span> main() {
+    fetch_all_concurrent();  <span style="color: #6a9955;">// 合計約1.5秒（並行実行のため）</span>
+}</code></pre>
+    <p style="font-size: 0.65em; margin-top: 0.5em">
+      <strong class="success">効率化</strong>
+      : 複数のタスクを同時に実行し、待ち時間を短縮
+    </p>
+  </div>
+</section>
+
+<section class="left-align">
+  <h2>async/awaitパターン 3: エラーハンドリング</h2>
+  <div style="width: 95%; margin: 0.5em auto 0">
+    <pre style="font-size: 0.42em; margin: 0.3em 0"><code class="language-cpp" data-trim data-noescape><span style="color: #6a9955;">// Result型で型安全なエラーハンドリング</span>
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt; divide_async(<span style="color: #4ec9b0;">int</span> a, <span style="color: #4ec9b0;">int</span> b) {
+    <span style="color: #c586c0; font-weight: bold;">await</span> sleep(<span style="color: #b5cea8;">100</span>);
+    <span style="color: #c586c0; font-weight: bold;">if</span> (b == <span style="color: #b5cea8;">0</span>) {
+        <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Err</span>(<span style="color: #ce9178;">"Division by zero"</span>);
+    }
+    <span style="color: #c586c0; font-weight: bold;">return</span> <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt;::<span style="color: #4ec9b0;">Ok</span>(a / b);
+}
+
+<span style="color: #c586c0; font-weight: bold;">async</span> <span style="color: #4ec9b0;">void</span> calculate_all() {
+    <span style="color: #6a9955;">// 成功ケース</span>
+    <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt; r1 = <span style="color: #c586c0; font-weight: bold;">await</span> divide_async(<span style="color: #b5cea8;">10</span>, <span style="color: #b5cea8;">2</span>);
+    <span style="color: #c586c0; font-weight: bold;">match</span> (r1) {
+        <span style="color: #4ec9b0;">Ok</span>(value) => println(<span style="color: #ce9178;">"Result 1: {value}"</span>),  <span style="color: #6a9955;">// 5</span>
+        <span style="color: #4ec9b0;">Err</span>(msg) => println(<span style="color: #ce9178;">"Error 1: {msg}"</span>)
+    }
+    
+    <span style="color: #6a9955;">// エラーケース</span>
+    <span style="color: #4ec9b0;">Result</span>&lt;<span style="color: #4ec9b0;">int</span>, <span style="color: #4ec9b0;">string</span>&gt; r2 = <span style="color: #c586c0; font-weight: bold;">await</span> divide_async(<span style="color: #b5cea8;">20</span>, <span style="color: #b5cea8;">0</span>);
+    <span style="color: #c586c0; font-weight: bold;">match</span> (r2) {
+        <span style="color: #4ec9b0;">Ok</span>(value) => println(<span style="color: #ce9178;">"Result 2: {value}"</span>),
+        <span style="color: #4ec9b0;">Err</span>(msg) => println(<span style="color: #ce9178;">"Error 2: {msg}"</span>)  <span style="color: #6a9955;">// Division by zero</span>
+    }
+}
+
+<span style="color: #4ec9b0;">void</span> main() {
+    calculate_all();
+}</code></pre>
+    <p style="font-size: 0.65em; margin-top: 0.5em">
+      <strong class="highlight">v0.13.0の革新</strong>
+      : async/awaitとResult型の統合で型安全な非同期エラーハンドリング
+    </p>
   </div>
 </section>
 
