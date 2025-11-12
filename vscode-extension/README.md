@@ -1,58 +1,87 @@
 # Cb Language Support for Visual Studio Code
 
-This extension provides syntax highlighting and language support for the Cb programming language.
+Cb プログラミング言語の Visual Studio Code 拡張機能です。シンタックスハイライトと言語サポートを提供します。
 
-## Features
+## 機能
 
-- **Syntax Highlighting**: Full syntax highlighting support for Cb language constructs
-- **Auto-completion**: Bracket, quote, and parenthesis auto-closing
-- **Code Folding**: Support for region-based code folding
-- **Comment Support**: Line (`//`) and block (`/* */`) comment toggling
+- **シンタックスハイライト**: Cb言語の構文を完全にサポート
+- **自動補完**: 括弧、引用符、丸括弧の自動閉じ
+- **コード折りたたみ**: リージョンベースのコード折りたたみをサポート
+- **コメントサポート**: 行コメント (`//`) とブロックコメント (`/* */`) の切り替え
+- **ファイルアイコン**: `.cb` ファイル専用のカスタムアイコン
 
-## Supported Language Features
+## サポートされている言語機能
 
-### Keywords and Control Flow
-- Control structures: `if`, `else`, `for`, `while`, `break`, `continue`, `return`
-- Pattern matching: `match`, `case`, `switch`, `default`
-- Advanced control: `defer`, `yield`, `async`, `await`
-- Error handling: `try`, `checked`, `panic`, `unwrap`
+### キーワードと制御フロー
+- 制御構造: `if`, `else`, `for`, `while`, `break`, `continue`, `return`
+- パターンマッチング: `match`, `case`, `switch`, `default`
+- 高度な制御: `defer`, `yield`, `async`, `await`
+- エラー処理: `try`, `checked`, `panic`, `unwrap`
+- モジュールシステム: `import`, `export`, `private`
 
-### Data Types
-- Primitive types: `tiny`, `short`, `int`, `long`, `float`, `double`, `char`, `string`, `bool`, `void`
-- Type definitions: `struct`, `enum`, `interface`, `typedef`, `union`
-- Type modifiers: `const`, `static`, `private`, `unsigned`
+### データ型
+- プリミティブ型: `tiny`, `short`, `int`, `long`, `float`, `double`, `char`, `string`, `bool`, `void`
+- 型定義: `struct`, `enum`, `interface`, `typedef`, `union`, `impl`
+- 型修飾子: `const`, `static`, `private`, `unsigned`
 
-### Advanced Features
-- Generics support
-- Async/await syntax
-- String interpolation with `{variable}`
-- Pointers and references
-- Function pointers
+### 高度な機能
+- ジェネリクスサポート
+- Async/await構文
+- 文字列補間 `{変数}`
+- ポインタと参照
+- 関数ポインタ
+- `impl`によるメソッド実装
 
-## Installation
+## インストール方法
 
-### From VSIX
-1. Download the `.vsix` file from the releases page
-2. Open VS Code
-3. Go to Extensions view (Ctrl+Shift+X / Cmd+Shift+X)
-4. Click the "..." menu and select "Install from VSIX..."
-5. Select the downloaded `.vsix` file
+### 方法1: VSIXファイルからインストール（推奨）
 
-### Manual Installation
-1. Copy the extension folder to your VS Code extensions directory:
-   - **Windows**: `%USERPROFILE%\.vscode\extensions`
-   - **macOS/Linux**: `~/.vscode/extensions`
-2. Restart VS Code
+1. [リリースページ](https://github.com/shadowlink0122/Cb/releases)から最新の `.vsix` ファイルをダウンロード
+2. Visual Studio Code を起動
+3. 拡張機能ビューを開く（Windows/Linuxは `Ctrl+Shift+X`、macOSは `Cmd+Shift+X`）
+4. 右上の "**...**" メニューをクリック
+5. "**Install from VSIX...**"（VSIXからのインストール）を選択
+6. ダウンロードした `cb-language-x.x.x.vsix` ファイルを選択
+7. プロンプトが表示されたらVS Codeをリロード
 
-## Usage
+### 方法2: コマンドラインからインストール
 
-Once installed, the extension will automatically activate when you open a `.cb` file.
+```bash
+code --install-extension cb-language-0.13.0.vsix
+```
 
-## Example Code
+### 方法3: 手動インストール
+
+1. 拡張機能フォルダをVS Codeの拡張機能ディレクトリにコピー:
+   - **Windows**: `%USERPROFILE%\.vscode\extensions\cb-language-0.13.0`
+   - **macOS/Linux**: `~/.vscode/extensions/cb-language-0.13.0`
+2. VS Codeを再起動
+
+## ソースからビルド
+
+拡張機能を自分でビルドする場合:
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/shadowlink0122/Cb.git
+cd Cb
+
+# 拡張機能をビルド
+make build-extension
+
+# vscode-extension/ に .vsix ファイルが作成されます
+# 上記のいずれかの方法でインストールしてください
+```
+
+## 使用方法
+
+インストール後、`.cb` ファイルを開くと自動的に拡張機能が有効になります。
+
+## サンプルコード
 
 ```cb
-// Cb language example
-import "std/io";
+// Cb言語のサンプル
+import stdlib.std.time;
 
 struct Point {
     int x;
@@ -81,23 +110,25 @@ void main() {
 }
 ```
 
-## Language Version
+## 対応言語バージョン
 
-This extension supports Cb language **v0.13.0**.
+この拡張機能はCb言語 **v0.13.0** をサポートしています。
 
-## Contributing
+## 貢献
 
-Contributions are welcome! Please feel free to submit issues and pull requests to the [GitHub repository](https://github.com/shadowlink0122/Cb).
+貢献を歓迎します！[GitHubリポジトリ](https://github.com/shadowlink0122/Cb)にissueやプルリクエストをお気軽に送ってください。
 
-## License
+## ライセンス
 
 MIT
 
-## Release Notes
+## リリースノート
 
-### 0.13.0 (Initial Release)
-- Initial release with full syntax highlighting support
-- Support for all Cb language keywords and constructs
-- Auto-closing pairs for brackets, quotes, and parentheses
-- Code folding support
-- Comment toggling support
+### 0.13.0 (初回リリース)
+- 完全なシンタックスハイライトサポートを含む初回リリース
+- すべてのCb言語キーワードと構文のサポート
+- 括弧、引用符、丸括弧の自動閉じ
+- コード折りたたみサポート
+- コメント切り替えサポート
+- `.cb` ファイル用のカスタムアイコン
+- import文のハイライト
