@@ -35,6 +35,7 @@
 #include "dynamic_array_error/test_dynamic_array_error.hpp"
 #include "enum/test_enum.hpp"
 #include "error_handling/test_error_handling.hpp"
+#include "error_propagation/test_error_propagation.hpp"
 #include "float_double_unsigned/test_float_double_unsigned.hpp"
 #include "floating_point/test_floating_point.hpp"
 #include "func/test_func.hpp"
@@ -400,6 +401,9 @@ int main() {
     CategoryTimingStats::set_current_category("Error Handling");
     run_test_with_continue(test_integration_error_handling,
                            "Error Handling Tests", failed_tests);
+    run_test_with_continue(test_integration_error_propagation,
+                           "Error Propagation (? operator) Tests",
+                           failed_tests);
     run_test_with_continue(InterfaceErrorTests::run_all_interface_error_tests,
                            "Interface Error Tests", failed_tests);
     run_test_with_continue(test_integration_dynamic_array_error,

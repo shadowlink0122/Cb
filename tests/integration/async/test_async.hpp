@@ -563,5 +563,66 @@ void test_integration_async() {
         }, execution_time);
     integration_test_passed_with_time("v0.13.0 direct return enum variants", "test_direct_return_enum.cb", execution_time);
     
-    std::cout << "[integration-test] Async/await tests completed (33 tests)" << std::endl;
+    // Test 33: v0.12.1 - Timeout basic functionality (partial implementation)
+    // Note: timeout() is implemented but Result integration is incomplete
+    run_cb_test_with_output_and_time("../cases/async/test_timeout_compile.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_timeout_compile.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "Testing timeout compilation...", "Should start timeout test");
+            INTEGRATION_ASSERT_CONTAINS(output, "Task result: 42", "Should display task result");
+            INTEGRATION_ASSERT_CONTAINS(output, "Timeout compilation test passed!", "Should pass compilation test");
+        }, execution_time);
+    integration_test_passed_with_time("v0.12.1 timeout compilation", "test_timeout_compile.cb", execution_time);
+    
+    // Test: Timeout comprehensive
+    run_cb_test_with_output_and_time("../cases/async/test_timeout_comprehensive.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_timeout_comprehensive.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "All timeout tests passed!", "Should pass all comprehensive timeout tests");
+        }, execution_time);
+    integration_test_passed_with_time("v0.12.1 timeout comprehensive", "test_timeout_comprehensive.cb", execution_time);
+    
+    // Test: Timeout with different types
+    run_cb_test_with_output_and_time("../cases/async/test_timeout_types.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_timeout_types.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "All timeout type tests passed!", "Should pass all type timeout tests");
+        }, execution_time);
+    integration_test_passed_with_time("v0.12.1 timeout with types", "test_timeout_types.cb", execution_time);
+    
+    // Test: Timeout concurrent operations
+    run_cb_test_with_output_and_time("../cases/async/test_timeout_concurrent.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_timeout_concurrent.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "All concurrent timeout tests passed!", "Should pass all concurrent timeout tests");
+        }, execution_time);
+    integration_test_passed_with_time("v0.12.1 timeout concurrent", "test_timeout_concurrent.cb", execution_time);
+    
+    // Test: Timeout sequential chaining
+    run_cb_test_with_output_and_time("../cases/async/test_timeout_sequential.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_timeout_sequential.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "All sequential timeout tests passed!", "Should pass all sequential timeout tests");
+        }, execution_time);
+    integration_test_passed_with_time("v0.12.1 timeout sequential", "test_timeout_sequential.cb", execution_time);
+    
+    // Test: Timeout chained operations
+    run_cb_test_with_output_and_time("../cases/async/test_timeout_chained.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_timeout_chained.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "All timeout chained tests passed!", "Should pass all chained timeout tests");
+        }, execution_time);
+    integration_test_passed_with_time("v0.12.1 timeout chained", "test_timeout_chained.cb", execution_time);
+    
+    // Test: ? operator with async functions
+    run_cb_test_with_output_and_time("../cases/async/test_async_question_operator.cb", 
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_async_question_operator.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "Async ? operator success:  10", "Should propagate success case");
+            INTEGRATION_ASSERT_CONTAINS(output, "Async ? operator error: division by zero", "Should propagate error case");
+            INTEGRATION_ASSERT_CONTAINS(output, "Async ? operator test passed", "Should complete test");
+        }, execution_time);
+    integration_test_passed_with_time("v0.12.1 async ? operator", "test_async_question_operator.cb", execution_time);
+    
+    std::cout << "[integration-test] Async/await tests completed (40 tests)" << std::endl;
 }
