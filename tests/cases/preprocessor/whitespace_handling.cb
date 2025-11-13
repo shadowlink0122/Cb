@@ -1,0 +1,9 @@
+// Test: Whitespace handling in macros
+// Expected output: 42
+
+#define   SPACE_BEFORE   42
+
+void main() {
+    int x = SPACE_BEFORE;
+    println(x);
+}

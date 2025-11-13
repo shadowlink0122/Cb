@@ -1,0 +1,10 @@
+// Test: Macro should not match partial words
+// Expected output: 100
+
+#define MAX 999
+
+void main() {
+    // MAXIMUM should not be affected
+    int MAXIMUM = 100;
+    println(MAXIMUM);
+}

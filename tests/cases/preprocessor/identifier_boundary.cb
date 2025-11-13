@@ -1,0 +1,10 @@
+// Test: Macro should not replace partial identifiers
+// Expected output: 42
+
+#define MAX 100
+
+void main() {
+    // MAXVALUE should not be affected by MAX macro
+    int MAXVALUE = 42;
+    println(MAXVALUE);
+}

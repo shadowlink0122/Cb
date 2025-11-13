@@ -1,0 +1,17 @@
+// Test: Nested #ifdef with #else
+// Expected output: Inner defined
+
+#define OUTER
+#define INNER
+
+void main() {
+    #ifdef OUTER
+        #ifdef INNER
+            println("Inner defined");
+        #else
+            println("Inner not defined");
+        #endif
+    #else
+        println("Outer not defined");
+    #endif
+}

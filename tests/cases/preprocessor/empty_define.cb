@@ -1,0 +1,10 @@
+// Test: Empty macro definition (flag macro)
+// Expected output: Flag is defined
+
+#define FLAG
+
+void main() {
+    #ifdef FLAG
+        println("Flag is defined");
+    #endif
+}

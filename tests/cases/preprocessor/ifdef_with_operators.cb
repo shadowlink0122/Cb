@@ -1,0 +1,11 @@
+// Test: Macro with operators (arithmetic)
+// Expected output: 35
+
+#define BASE 5
+#define MULTIPLIER 2
+#define CONSTANT 25
+
+void main() {
+    int result = BASE * MULTIPLIER + CONSTANT;
+    println(result);
+}

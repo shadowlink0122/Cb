@@ -1,0 +1,10 @@
+// Test: Macro in complex expression
+// Expected output: 30
+
+#define PI 3.14159
+#define RADIUS 5
+
+void main() {
+    int area_int = (int)(PI * RADIUS * RADIUS);
+    println(area_int);
+}

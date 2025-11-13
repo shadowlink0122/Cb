@@ -1,0 +1,13 @@
+// Test: Macros with different numeric types
+// Expected output: 3.14159 100 true
+
+#define PI 3.14159
+#define MAX 100
+#define ENABLED true
+
+void main() {
+    double pi = PI;
+    int max = MAX;
+    bool enabled = ENABLED;
+    println(pi, max, enabled);
+}

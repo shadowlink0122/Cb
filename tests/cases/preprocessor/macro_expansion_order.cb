@@ -1,0 +1,10 @@
+// Test: Macro expansion order
+// Expected output: 15
+
+#define A 5
+#define B A + 10
+
+void main() {
+    int x = B;
+    println(x);
+}

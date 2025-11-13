@@ -1,0 +1,10 @@
+// Test: Basic #define functionality
+// Expected output: 78.53975
+
+#define PI 3.14159
+#define RADIUS 5.0
+
+void main() {
+    double area = PI * RADIUS * RADIUS;
+    println(area);
+}
