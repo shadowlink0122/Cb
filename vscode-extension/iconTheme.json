@@ -1,7 +1,7 @@
 {
   "iconDefinitions": {
     "cb-file": {
-      "iconPath": "./images/icon-b.svg"
+      "iconPath": "./images/icon.svg"
     }
   },
   "fileExtensions": {
