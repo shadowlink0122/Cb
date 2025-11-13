@@ -32,6 +32,16 @@ Cb プログラミング言語の Visual Studio Code 拡張機能です。シン
 - 関数ポインタ
 - `impl`によるメソッド実装
 
+### プリプロセッササポート (v0.13.1+)
+- **ディレクティブ**: `#define`, `#undef`, `#ifdef`, `#ifndef`, `#if`, `#elif`, `#elseif`, `#else`, `#endif`, `#error`, `#warning`, `#include`（ピンク色）
+- **組み込みマクロ**: `__FILE__`, `__LINE__`, `__DATE__`, `__TIME__`, `__VERSION__`（定数色）
+
+### シンタックスハイライト (v0.13.2+)
+- **ストレージ修飾子**: `static`, `const`, `unsigned`（青色 - C++と同様）
+- **プリミティブ型**: `int`, `long`, `float`, `double` など（青色）
+- **定数**: 全て大文字の識別子 (例: `MAX_SIZE`, `PI_VALUE`) は定数として強調表示
+- **数値リテラル**: 10進数、16進数、2進数、8進数、浮動小数点数（定数色）
+
 ## インストール方法
 
 ### 方法1: VSIXファイルからインストール（推奨）
@@ -72,6 +82,27 @@ make build-extension
 # vscode-extension/ に .vsix ファイルが作成されます
 # 上記のいずれかの方法でインストールしてください
 ```
+
+## バージョン管理
+
+この拡張機能のバージョンは、リポジトリルートの`.cbversion`ファイルと自動的に同期されます。
+
+### 開発者向け
+
+バージョンを更新する場合：
+
+```bash
+# 1. ルートの.cbversionファイルを更新
+echo "0.14.0" > ../.cbversion
+
+# 2. 拡張機能のバージョンを自動同期
+npm run update-version
+
+# 3. バージョンの一致を確認
+npm run verify-version
+```
+
+詳細は [VERSION_MANAGEMENT.md](./VERSION_MANAGEMENT.md) を参照してください。
 
 ## 使用方法
 

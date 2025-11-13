@@ -2,6 +2,25 @@
 
 All notable changes to the "cb-language" extension will be documented in this file.
 
+## [0.13.2] - 2025-11-13
+
+### Changed
+- `static`, `const`, `unsigned` keywords are now highlighted in blue (like C++)
+- Primitive types (`int`, `long`, `float`, `double`, etc.) are now highlighted in blue
+- Constants (all uppercase with underscores, e.g., `MAX_VALUE`) are now highlighted as constants
+- Number literals are consistently highlighted as constants
+- Improved variable pattern to exclude uppercase constants
+
+## [0.13.1] - 2025-11-13
+
+### Added
+- Preprocessor directive syntax highlighting (#define, #undef, #ifdef, #ifndef, #if, #elif, #elseif, #else, #endif, #error, #warning, #include)
+- Built-in macro highlighting (__FILE__, __LINE__, __DATE__, __TIME__, __VERSION__)
+- Preprocessor directives are now highlighted in pink (like C/C++)
+
+### Changed
+- Preprocessor patterns are now processed before comments for proper highlighting
+
 ## [0.13.0] - 2025-11-12
 
 ### Added

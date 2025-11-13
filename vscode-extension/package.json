@@ -1,7 +1,7 @@
 {
   "name": "cb-language",
   "displayName": "Cb Language Support",
-  "description": "Syntax highlighting and language support for the Cb programming language",
+  "description": "Syntax highlighting and language support for the Cb programming language with preprocessor support",
   "version": "0.13.0",
   "publisher": "cb-lang",
   "engines": {
@@ -21,6 +21,12 @@
   },
   "license": "MIT",
   "icon": "images/icon.png",
+  "scripts": {
+    "update-version": "node scripts/update-version.js",
+    "verify-version": "node scripts/verify-version.js",
+    "prepackage": "npm run verify-version",
+    "package": "vsce package"
+  },
   "contributes": {
     "languages": [
       {

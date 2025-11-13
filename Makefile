@@ -55,7 +55,8 @@ PARSER_OBJS=$(FRONTEND_DIR)/recursive_parser/parsers/expression_parser.o \
             $(FRONTEND_DIR)/recursive_parser/parsers/interface_parser.o \
             $(FRONTEND_DIR)/recursive_parser/parsers/union_parser.o \
             $(FRONTEND_DIR)/recursive_parser/parsers/type_utility_parser.o
-FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(PARSER_OBJS)
+PREPROCESSOR_OBJS=$(FRONTEND_DIR)/preprocessor/preprocessor.o
+FRONTEND_OBJS=$(FRONTEND_DIR)/main.o $(FRONTEND_DIR)/help_messages.o $(FRONTEND_DIR)/recursive_parser/recursive_lexer.o $(FRONTEND_DIR)/recursive_parser/recursive_parser.o $(PARSER_OBJS) $(PREPROCESSOR_OBJS)
 # Interpreterオブジェクトファイル（グループ化）
 INTERPRETER_CORE_OBJS = \
 	$(INTERPRETER_CORE)/interpreter.o \
@@ -157,7 +158,7 @@ COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/
 MAIN_TARGET=main
 CGEN_TARGET=cgen_main
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension
+.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version
 
 all: setup-dirs $(MAIN_TARGET)
 
@@ -500,6 +501,9 @@ build-extension:
 		echo "Install it with: npm install -g @vscode/vsce"; \
 		exit 1; \
 	fi
+	@echo "Verifying version consistency..."
+	@cd vscode-extension && node scripts/verify-version.js
+	@echo "Packaging extension..."
 	@cd vscode-extension && vsce package
 	@echo "✅ Extension packaged successfully!"
 	@echo ""
@@ -507,6 +511,14 @@ build-extension:
 	@echo "  code --install-extension vscode-extension/cb-language-*.vsix"
 	@echo "Or:"
 	@echo "  VSCode → Extensions → ... → Install from VSIX..."
+
+update-extension-version:
+	@echo "Updating VSCode extension version from VERSION file..."
+	@cd vscode-extension && node scripts/update-version.js
+
+verify-extension-version:
+	@echo "Verifying VSCode extension version..."
+	@cd vscode-extension && node scripts/verify-version.js
 
 # VSCode拡張機能のクリーンアップ
 clean-extension:
@@ -540,6 +552,8 @@ help:
 	@echo "  build-extension        - Build VSCode extension (.vsix file)"
 	@echo "  install-vscode-extension - Install Cb syntax highlighting for VSCode"
 	@echo "  clean-extension        - Remove .vsix files"
+	@echo "  update-extension-version - Update extension version from VERSION file"
+	@echo "  verify-extension-version - Verify extension version matches VERSION file"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean                  - Remove generated files"
