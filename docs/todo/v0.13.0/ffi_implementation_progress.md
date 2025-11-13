@@ -193,9 +193,9 @@ $ ./main -DDEBUG -DVERSION=13 program.cb
 ### 目標コード
 
 ```cb
-use lib "libmath.so" {
-    add: (int, int) -> int;
-    sqrt: (double) -> double;
+use foreign.m {
+    int add(int a, int b);
+    double sqrt(double x);
 }
 
 void main() {
@@ -268,7 +268,7 @@ void main() {
    - `lib` キーワードの追加
 
 2. **パーサー拡張**
-   - `use lib "path" { ... }` 構文のパース
+   - `use foreign.module { ... }` 構文のパース
    - 関数シグネチャのパース
 
 3. **FFIマネージャー実装**

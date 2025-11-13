@@ -672,7 +672,7 @@ public:
 
 **出力例（MIR）**:
 ```
-fn main() -> int {
+int  main() {
     let mut _0: int;    // return value
     let mut _1: int;    // x
     let mut _2: int;    // y
@@ -725,7 +725,7 @@ digraph CFG {
 // tests/unit/ir/test_hir_generation.cpp
 TEST(HIRGeneration, SimpleFunctionLowering) {
     // ASTノードを構築
-    auto ast = parse("fn add(x: int, y: int) -> int { return x + y; }");
+    auto ast = parse("int  add(x: int, y: int) { return x + y; }");
 
     // HIR生成
     HIRGenerator generator;

@@ -715,15 +715,11 @@ void main() {
 
 ```cb
 // useで外部ライブラリをインポート
-use foreign "libmath.so" {
-    fn add(int a, int b) -> int;
-    fn sqrt(double x) -> double;
-    fn malloc(int size) -> void*;
+use foreign.math {
+    int add(int a, int b);
+    double sqrt(double x);
+    void* malloc(int size);
 }
-
-// または個別にインポート
-use foreign "libmath.so"::add;
-use foreign "libmath.so"::sqrt;
 
 void main() {
     int result = add(10, 20);
@@ -761,11 +757,10 @@ void main() {
 
 ```cb
 // 型情報付きで外部ライブラリを宣言
-lib "libmath.so" {
-    // 型安全な宣言
-    add: (int, int) -> int;
-    sqrt: (double) -> double;
-    malloc: (int) -> void*;
+use foreign.math {
+    int add(int a, int b);
+    double sqrt(double x);
+    void* malloc(int size);
 }
 
 void main() {
@@ -817,11 +812,11 @@ int64_t call_external_function(const std::string& lib_path,
 
 **最終推奨構文**:
 ```cb
-// v0.13.0推奨：useとlibを組み合わせる
-use lib "libmath.so" {
-    add: (int, int) -> int;
-    sqrt: (double) -> double;
-    malloc: (int) -> void*;
+// v0.13.0推奨：use foreignでモジュールを宣言
+use foreign.m {
+    int add(int a, int b);
+    double sqrt(double x);
+    void* malloc(int size);
 }
 
 void main() {
@@ -830,11 +825,16 @@ void main() {
 }
 ```
 
-または、より簡潔に：
+または、個別に宣言：
 ```cb
 // 関数シグネチャを明示
-use "libmath.so"::add(int, int) -> int;
-use "libmath.so"::sqrt(double) -> double;
+use foreign.m {
+    int add(int a, int b);
+}
+
+use foreign.m {
+    double sqrt(double x);
+}
 
 void main() {
     int result = add(10, 20);

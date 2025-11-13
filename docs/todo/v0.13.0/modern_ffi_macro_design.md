@@ -19,24 +19,28 @@ v0.13.0では、以下の3つの機能を統合的に設計します：
 ### 1. 型安全性 (Type Safety)
 
 ```cb
-// ❌ 悪い例：型情報がない
-use "libmath.so"::add;
-int result = add(10, 20);  // 戻り値の型は？引数の型は？
+// ❌ 悪い例：型情報がない（この構文はサポートしない）
+// use foreign.math::add;
+// int result = add(10, 20);  // 戻り値の型は？引数の型は？
 
 // ✅ 良い例：完全な型情報
-use "libmath.so"::add(int, int) -> int;
+use foreign.math {
+    int add(int a, int b);
+}
 int result = add(10, 20);  // 型チェック済み
 ```
 
 ### 2. 明示的 > 暗黙的 (Explicit over Implicit)
 
 ```cb
-// ❌ 悪い例：暗黙的な変換
-use "libmath.so"::sqrt;
-int x = sqrt(16);  // double → int の暗黙的変換
+// ❌ 悪い例：暗黙的な変換（この構文はサポートしない）
+// use foreign.math::sqrt;
+// int x = sqrt(16);  // double → int の暗黙的変換
 
 // ✅ 良い例：明示的な型
-use "libmath.so"::sqrt(double) -> double;
+use foreign.math {
+    double sqrt(double x);
+}
 double result = sqrt(16.0);
 int x = (int)result;  // 明示的なキャスト
 ```
@@ -45,7 +49,9 @@ int x = (int)result;  // 明示的なキャスト
 
 ```cb
 // ✅ 直感的：既存のuse構文と統一
-use "libmath.so"::add(int, int) -> int;
+use foreign.math {
+    int add(int a, int b);
+}
 
 // ✅ 直感的：既存のマクロと統一
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -54,16 +60,15 @@ use "libmath.so"::add(int, int) -> int;
 ### 4. DRY (Don't Repeat Yourself)
 
 ```cb
-// ❌ 悪い例：同じライブラリを何度も指定
-use "libmath.so"::add(int, int) -> int;
-use "libmath.so"::sub(int, int) -> int;
-use "libmath.so"::mul(int, int) -> int;
+// ❌ 悪い例：型情報が不明確（この構文はサポートしない）
+// use "libmath.so"::add;
+// use "libmath.so"::sub;
 
-// ✅ 良い例：ブロックでまとめる
-use lib "libmath.so" {
-    add: (int, int) -> int;
-    sub: (int, int) -> int;
-    mul: (int, int) -> int;
+// ✅ 良い例：ブロックでまとめて型を明示
+use foreign.math {
+    int add(int a, int b);
+    int sub(int a, int b);
+    int mul(int a, int b);
 }
 ```
 
@@ -544,14 +549,14 @@ void main() {
 #endif
 
 // FFIライブラリの読み込み
-use lib MATH_LIB {
-    add: (int, int) -> int;
-    sqrt: (double) -> double;
+use foreign.math {
+    int add(int a, int b);
+    double sqrt(double x);
 }
 
-use lib C_LIB {
-    malloc: (int) -> void*;
-    free: (void*) -> void;
+use foreign.c {
+    void* malloc(int size);
+    void free(void* ptr);
 }
 
 void main() {
@@ -588,8 +593,8 @@ void main() {
     #define ASSERT(cond, msg)  // リリースビルドではアサート無効
 #endif
 
-use lib "libmath.so" {
-    divide: (int, int) -> int;
+use foreign.math {
+    int divide(int a, int b);
 }
 
 void main() {
@@ -614,24 +619,24 @@ void main() {
 // #define FEATURE_GPU  // 無効
 
 #ifdef FEATURE_NETWORKING
-    use lib "libcurl.so" {
-        http_get: (string) -> string;
-        http_post: (string, string) -> string;
+    use foreign.curl {
+        string http_get(string url);
+        string http_post(string url, string data);
     }
 #endif
 
 #ifdef FEATURE_DATABASE
-    use lib "libsqlite3.so" {
-        db_open: (string) -> void*;
-        db_query: (void*, string) -> string;
-        db_close: (void*) -> void;
+    use foreign.sqlite3 {
+        void* db_open(string path);
+        string db_query(void* db, string query);
+        void db_close(void* db);
     }
 #endif
 
 #ifdef FEATURE_GPU
-    use lib "libcuda.so" {
-        gpu_malloc: (int) -> void*;
-        gpu_compute: (void*, int) -> void;
+    use foreign.cuda {
+        void* gpu_malloc(int size);
+        void gpu_compute(void* data, int size);
     }
 #endif
 
@@ -696,9 +701,9 @@ void main() {
 
 **成果物**:
 ```cb
-use lib "libmath.so" {
-    add: (int, int) -> int;
-    sqrt: (double) -> double;
+use foreign.m {
+    int add(int a, int b);
+    double sqrt(double x);
 }
 
 void main() {
@@ -721,9 +726,9 @@ void main() {
 ```cb
 struct Point { int x; int y; }
 
-use lib "libgraphics.so" {
-    draw_point: (Point) -> void;
-    printf: (string, ...) -> int;
+use foreign.graphics {
+    void draw_point(Point p);
+    int printf(string format, ...);
 }
 ```
 
@@ -847,8 +852,8 @@ bool is_safe_library_path(const std::string& path) {
 ```cb
 // 安全なFFI呼び出し（将来の機能）
 @sandbox
-use lib "untrusted.so" {
-    potentially_dangerous: (int) -> int;
+use foreign.untrusted {
+    int potentially_dangerous(int x);
 }
 
 // サンドボックス内で実行され、システムリソースへのアクセスが制限される
@@ -857,8 +862,8 @@ use lib "untrusted.so" {
 ### 3. 型安全性の強制
 
 ```cb
-use lib "libmath.so" {
-    add: (int, int) -> int;
+use foreign.math {
+    int add(int a, int b);
 }
 
 void main() {
@@ -879,18 +884,18 @@ void main() {
 
 ```cb
 // 推奨：関連する関数をまとめる
-use lib "libmath.so" {
+use foreign.math {
     // 算術演算
-    add: (int, int) -> int;
-    sub: (int, int) -> int;
-    mul: (int, int) -> int;
-    div: (int, int) -> int;
+    int add(int a, int b);
+    int sub(int a, int b);
+    int mul(int a, int b);
+    int div(int a, int b);
 
     // 数学関数
-    sqrt: (double) -> double;
-    pow: (double, double) -> double;
-    sin: (double) -> double;
-    cos: (double) -> double;
+    double sqrt(double x);
+    double pow(double x, double y);
+    double sin(double x);
+    double cos(double x);
 }
 ```
 
@@ -917,7 +922,7 @@ use lib "libmath.so" {
 ```cb
 // ✅ 良い例：機能フラグで条件分岐
 #ifdef FEATURE_NETWORKING
-    use lib "libcurl.so" { ... }
+    use foreign.curl { ... }
 #endif
 
 // ✅ 良い例：プラットフォーム別の実装
