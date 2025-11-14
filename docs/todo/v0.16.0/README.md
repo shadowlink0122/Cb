@@ -1,577 +1,638 @@
-# v0.16.0 - IR（中間表現）実装と複数バックエンド対応
+# v0.18.0 エコシステムとパッケージ管理
 
-**バージョン**: v0.16.0
-**目標**: コンパイラの中間表現（IR）を設計・実装し、複数のターゲットをサポート
-**期間**: 3-4ヶ月
-**ステータス**: 計画中
+**バージョン**: v0.18.0
+**目標**: パッケージマネージャーとエコシステムの構築
+**期間**: 2-3ヶ月
+**作成日**: 2025-11-14
 
 ---
 
 ## 概要
 
-v0.16.0は、Cb言語のネイティブコンパイラ実装における最初の大きなマイルストーンです。このバージョンでは、コンパイラの中間表現（IR）を3層構造（HIR/MIR/LIR）で設計・実装し、**複数のバックエンド（Native/WASM/TypeScript）と低レイヤアプリケーション開発、Webフロントエンド開発をサポート**します。
+v0.18.0では、Cb言語のエコシステムを確立し、パッケージ管理システムを実装します。これにより、開発者がライブラリを簡単に共有・利用できるようになります。
 
-**このバージョンは大規模リファクタリングを含むため、マイナーバージョンとして設定されています。**
+### 主要な目標
 
-### サポートするユースケース
-
-v0.16.0は以下の全てのユースケースをサポートします：
-
-1. **OS開発・組み込みシステム**: ベアメタル実行、インラインアセンブラ、メモリマップドIO
-2. **高性能アプリケーション**: ネイティブバイナリ（Linux/macOS/Windows）
-3. **Webフロントエンド開発**: HTML/CSS生成、コンポーネントシステム、状態管理
-4. **クロスプラットフォーム**: WASM対応、TypeScript変換
+1. **パッケージマネージャー** (`cbpkg`) の実装
+2. **依存関係管理**システムの構築
+3. **バージョン管理**とセマンティックバージョニング
+4. **パッケージレジストリ**の構築
+5. **ビルドシステム**の統合
 
 ---
 
-## 主要な成果物
+## v0.18.0の主要な変更点
 
-### 1. IR（中間表現）層
+### 1. パッケージマネージャー（cbpkg）
 
-#### HIR (High-level IR) - 高レベル中間表現
-- ASTに型情報とスコープ情報を付加
-- 制御フロー構造を保持（if/while/for等）
-- ジェネリクスの単相化（Monomorphization）
+Cb言語のパッケージマネージャー。Rust の Cargo や JavaScript の npm に相当します。
 
-#### MIR (Mid-level IR) - 中レベル中間表現
-- SSA形式（Static Single Assignment）
-- 制御フローグラフ（CFG）
-- 基本ブロック（Basic Blocks）
-- データフロー解析
+```bash
+# プロジェクトの作成
+cbpkg new my-project
+cbpkg init
 
-#### LIR (Low-level IR) - 低レベル中間表現
-- 3アドレスコード形式
-- ターゲット非依存の低レベル命令
-- 仮想レジスタの管理
-- アセンブリ生成への準備
+# 依存関係の追加
+cbpkg add http-client
+cbpkg add json-parser@1.2.3
 
-### 2. 複数バックエンド対応
+# ビルドと実行
+cbpkg build
+cbpkg run
 
-#### Interpreter（既存）
-- AST直接実行
-- 即座実行、デバッグ用
+# テストの実行
+cbpkg test
 
-#### Native Backend（新規）
-- x86-64 / ARM64 ネイティブコード生成
-- ELF/Mach-O/PE形式サポート
-- ベアメタル実行サポート
-- **インラインアセンブラ対応**
-- **メモリマップドIO対応**
+# パッケージの公開
+cbpkg publish
+```
 
-#### WASM Backend（新規）
-- WebAssembly バイナリ生成
-- ブラウザ/Node.js実行
-- JavaScript/TypeScript統合
+### 2. プロジェクト設定ファイル（cb.toml）
 
-#### TypeScript Backend（新規）
-- TypeScript コード生成
-- **HTML/CSS生成機能**
-- **コンポーネントシステム**
-- **リアクティブな状態管理**
+```toml
+[package]
+name = "my-project"
+version = "0.1.0"
+authors = ["Your Name <you@example.com>"]
+edition = "2025"
+license = "MIT"
+description = "A sample Cb project"
 
-### 3. 低レイヤアプリケーション開発機能
+[dependencies]
+http-client = "1.0.0"
+json-parser = "1.2.3"
 
-- ✓ ベアメタル実行環境
-- ✓ インラインアセンブラ（`asm` 構文）
-- ✓ Volatile メモリアクセス
-- ✓ メモリマップドIO
-- ✓ 割り込みハンドラ属性
-- ✓ カスタムリンカースクリプト生成
-- ✓ OS開発用組み込み関数
+[dev-dependencies]
+test-framework = "0.5.0"
 
-### 4. Webフロントエンド開発機能
+[build]
+target = "x86_64-unknown-linux-gnu"
+backend = "native"
 
-- ✓ HTML生成（テンプレート構文）
-- ✓ CSS生成（型安全なスタイリング）
-- ✓ JSX/TSX風のコンポーネント構文
-- ✓ DOMバインディング
-- ✓ イベントハンドリング
-- ✓ Redux風の状態管理
+[features]
+default = ["std"]
+std = []
+no_std = []
+```
 
-### 5. データフロー解析基盤
-- 生存変数解析（Liveness Analysis）
-- 到達定義解析（Reaching Definitions）
-- 使用-定義チェーン（Use-Def Chain）
-- 支配木（Dominator Tree）
+### 3. 依存関係解決
 
-### 6. IRビューワーとデバッグツール
-- HIR/MIR/LIRのテキストダンプ
-- GraphVizによるCFG可視化
-- 支配木の可視化
-- IR検証ツール
+```
+my-project (0.1.0)
+├── http-client (1.0.0)
+│   ├── tcp-socket (2.3.1)
+│   └── tls (1.5.0)
+│       └── crypto (3.2.0)
+└── json-parser (1.2.3)
+    └── string-utils (0.8.0)
+```
+
+### 4. パッケージレジストリ
+
+中央パッケージレジストリ（https://registry.cb-lang.org）：
+
+- パッケージの検索
+- バージョン履歴
+- ドキュメント
+- ダウンロード統計
+
+### 5. ビルドシステム統合
+
+```bash
+# 複数バックエンド対応
+cbpkg build --backend=native
+cbpkg build --backend=wasm
+cbpkg build --backend=typescript
+
+# クロスコンパイル
+cbpkg build --target=arm-none-eabi
+cbpkg build --target=wasm32-unknown-unknown
+```
 
 ---
 
-## ドキュメント
+## アーキテクチャ
 
-### 技術選定と設計
-- **[ir_implementation_plan.md](./ir_implementation_plan.md)**: 詳細な技術選定とIR設計
-  - IR設計アプローチ
-  - SSA形式の実装方法
-  - データ構造とメモリ管理
-  - CFGの表現
-  - HIR/MIR/LIRの詳細設計
-  - テストフレームワーク
+### パッケージマネージャーの構成
 
-### 実装計画
-- **[implementation_roadmap.md](./implementation_roadmap.md)**: 実装タスクとスケジュール
-  - やらなければならないことの詳細リスト
-  - 実装フェーズと週次スケジュール
-  - チェックリスト
-  - 完了条件
+```
+cbpkg/
+├── src/
+│   ├── main.cpp              # エントリーポイント
+│   ├── commands/             # コマンド実装
+│   │   ├── new.cpp
+│   │   ├── add.cpp
+│   │   ├── build.cpp
+│   │   ├── run.cpp
+│   │   └── publish.cpp
+│   ├── resolver/             # 依存関係解決
+│   │   ├── version.cpp
+│   │   ├── dependency.cpp
+│   │   └── graph.cpp
+│   ├── registry/             # レジストリクライアント
+│   │   ├── client.cpp
+│   │   └── cache.cpp
+│   ├── manifest/             # cb.toml解析
+│   │   ├── parser.cpp
+│   │   └── validator.cpp
+│   └── build/                # ビルドシステム
+│       ├── builder.cpp
+│       └── cache.cpp
+└── tests/
+```
 
-- **[detailed_design.md](./detailed_design.md)**: 各タスクの詳細設計
-  - HIR/MIR/LIRノード構造の完全な定義
-  - C++実装コード付き
-  - データフロー解析の詳細
+---
 
-- **[refactoring_plan.md](./refactoring_plan.md)**: リファクタリング計画
-  - 変更が必要な全ファイルのリスト
-  - 既存コードへの影響範囲
-  - 後方互換性の保証
+## 機能詳細
 
-### バックエンド設計
-- **[multi_backend_architecture.md](./multi_backend_architecture.md)**: 複数バックエンド対応
-  - 統一バックエンドインターフェース
-  - バックエンドファクトリパターン
-  - ターゲット情報管理
+### 1. プロジェクト管理
 
-- **[wasm_backend_design.md](./wasm_backend_design.md)**: WASM対応
-  - WASMバイナリフォーマット
-  - LIRからWASM命令へのマッピング
-  - JavaScript/TypeScript統合
+#### プロジェクトの作成
 
-- **[typescript_backend_design.md](./typescript_backend_design.md)**: TypeScript対応
-  - LIRからTypeScriptへの変換
-  - ポインタのエミュレーション
-  - ランタイムライブラリ
+```bash
+$ cbpkg new my-app
+     Created binary (application) `my-app` package
 
-### 低レイヤ・Webフロントエンド対応
-- **[low_level_support.md](./low_level_support.md)**: 低レイヤアプリケーション対応
-  - ベアメタル実行サポート
-  - インラインアセンブラ
-  - メモリマップドIO
-  - 割り込みハンドラ
-  - OS開発用機能
+$ tree my-app/
+my-app/
+├── cb.toml
+├── src/
+│   └── main.cb
+└── tests/
+    └── test_main.cb
+```
 
-- **[web_frontend_support.md](./web_frontend_support.md)**: Webフロントエンド開発
-  - HTML生成機能
-  - CSS生成機能
-  - コンポーネントシステム
-  - 状態管理
+生成される `cb.toml`:
+
+```toml
+[package]
+name = "my-app"
+version = "0.1.0"
+authors = [""]
+edition = "2025"
+
+[dependencies]
+```
+
+生成される `src/main.cb`:
+
+```cb
+fn main() {
+    println("Hello, World!");
+}
+```
+
+#### ライブラリプロジェクトの作成
+
+```bash
+$ cbpkg new my-lib --lib
+     Created library `my-lib` package
+
+$ tree my-lib/
+my-lib/
+├── cb.toml
+├── src/
+│   └── lib.cb
+└── tests/
+    └── test_lib.cb
+```
+
+### 2. 依存関係管理
+
+#### 依存関係の追加
+
+```bash
+$ cbpkg add http-client
+    Updating registry
+   Adding http-client v1.0.0 to dependencies
+```
+
+`cb.toml` に追加される：
+
+```toml
+[dependencies]
+http-client = "1.0.0"
+```
+
+#### バージョン指定
+
+```bash
+# 特定のバージョン
+cbpkg add json@1.2.3
+
+# バージョン範囲
+cbpkg add "crypto@^2.0.0"    # 2.0.0 <= version < 3.0.0
+cbpkg add "utils@~1.2.0"     # 1.2.0 <= version < 1.3.0
+cbpkg add "logger@>=0.5.0"   # 0.5.0以上
+```
+
+#### Gitリポジトリから追加
+
+```bash
+cbpkg add my-lib --git https://github.com/user/my-lib
+cbpkg add my-lib --git https://github.com/user/my-lib --branch develop
+cbpkg add my-lib --git https://github.com/user/my-lib --tag v1.0.0
+```
+
+`cb.toml`:
+
+```toml
+[dependencies]
+my-lib = { git = "https://github.com/user/my-lib", branch = "develop" }
+```
+
+#### ローカルパスから追加
+
+```bash
+cbpkg add my-local-lib --path ../my-local-lib
+```
+
+```toml
+[dependencies]
+my-local-lib = { path = "../my-local-lib" }
+```
+
+### 3. ビルドシステム
+
+#### ビルド
+
+```bash
+$ cbpkg build
+   Compiling json-parser v1.2.3
+   Compiling http-client v1.0.0
+   Compiling my-app v0.1.0
+    Finished release [optimized] target in 2.34s
+```
+
+#### デバッグビルド
+
+```bash
+$ cbpkg build --debug
+    Finished debug [unoptimized + debuginfo] target in 0.82s
+```
+
+#### リリースビルド
+
+```bash
+$ cbpkg build --release
+    Finished release [optimized] target in 3.15s
+```
+
+#### クロスコンパイル
+
+```bash
+$ cbpkg build --target=arm-none-eabi
+   Compiling for arm-none-eabi
+    Finished release target in 2.89s
+```
+
+#### 複数バックエンド
+
+```bash
+$ cbpkg build --backend=wasm
+   Compiling to WebAssembly
+    Finished wasm32 target in 1.45s
+```
+
+### 4. テストシステム
+
+#### テストの実行
+
+```bash
+$ cbpkg test
+   Compiling test dependencies
+   Compiling my-app v0.1.0 (tests)
+     Running 5 tests
+test test_add ... ok
+test test_subtract ... ok
+test test_multiply ... ok
+test test_divide ... ok
+test test_edge_cases ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored
+```
+
+#### 特定のテストのみ実行
+
+```bash
+$ cbpkg test test_add
+     Running 1 test
+test test_add ... ok
+```
+
+### 5. パッケージの公開
+
+#### ログイン
+
+```bash
+$ cbpkg login
+Please visit https://registry.cb-lang.org/login
+Enter your token: **********************
+     Logged in successfully
+```
+
+#### 公開
+
+```bash
+$ cbpkg publish
+   Packaging my-lib v0.1.0
+   Verifying my-lib v0.1.0
+   Uploading my-lib v0.1.0
+  Published my-lib v0.1.0 to registry
+```
+
+#### バージョンの更新
+
+```bash
+$ cbpkg version patch   # 0.1.0 -> 0.1.1
+$ cbpkg version minor   # 0.1.1 -> 0.2.0
+$ cbpkg version major   # 0.2.0 -> 1.0.0
+```
+
+---
+
+## セマンティックバージョニング
+
+### バージョン形式
+
+```
+major.minor.patch[-prerelease][+buildmetadata]
+```
+
+例：
+- `1.0.0` - 安定版
+- `1.2.3` - マイナーアップデート
+- `2.0.0-alpha.1` - プレリリース
+- `1.0.0+20250114` - ビルドメタデータ付き
+
+### バージョン範囲指定
+
+```toml
+[dependencies]
+# 完全一致
+exact = "1.2.3"
+
+# キャレット（互換性のある更新）
+caret = "^1.2.3"    # 1.2.3 <= version < 2.0.0
+
+# チルダ（パッチレベルの更新）
+tilde = "~1.2.3"    # 1.2.3 <= version < 1.3.0
+
+# 比較演算子
+greater = ">=1.2.0"
+less = "<2.0.0"
+range = ">=1.2.0, <2.0.0"
+
+# ワイルドカード
+wildcard = "1.2.*"  # 1.2.x
+any = "*"           # 任意のバージョン
+```
+
+---
+
+## 依存関係解決アルゴリズム
+
+### 1. 依存関係グラフの構築
+
+```
+A (1.0.0)
+├─ B (^2.0.0)
+│  ├─ C (^1.5.0)
+│  └─ D (^3.0.0)
+└─ C (^1.0.0)
+```
+
+### 2. バージョン解決
+
+利用可能なバージョン:
+- B: [2.0.0, 2.1.0, 2.2.0]
+- C: [1.0.0, 1.5.0, 1.6.0, 2.0.0]
+- D: [3.0.0, 3.1.0]
+
+解決結果:
+- B: 2.2.0 (最新)
+- C: 1.6.0 (1.5.0 <= version < 2.0.0 の最新)
+- D: 3.1.0 (最新)
+
+### 3. 競合解決
+
+競合が発生した場合:
+
+```
+A requires B ^1.0.0
+C requires B ^2.0.0
+```
+
+エラーメッセージ:
+```
+error: failed to select a version for `B`
+    required by package `A v1.0.0`
+    required by package `C v1.0.0`
+versions that meet the requirements `^1.0.0` are: 1.0.0, 1.1.0, 1.2.0
+versions that meet the requirements `^2.0.0` are: 2.0.0, 2.1.0
+```
+
+---
+
+## パッケージレジストリ
+
+### アーキテクチャ
+
+```
+Registry Server
+├── API Server (REST API)
+│   ├── /api/v1/packages
+│   ├── /api/v1/packages/{name}
+│   ├── /api/v1/packages/{name}/versions
+│   └── /api/v1/search
+├── Storage
+│   ├── Package Metadata (Database)
+│   └── Package Archives (S3/Object Storage)
+└── Web UI
+    ├── Package Search
+    ├── Package Details
+    └── Documentation
+```
+
+### API エンドポイント
+
+```
+GET  /api/v1/packages                    # パッケージ一覧
+GET  /api/v1/packages/{name}             # パッケージ詳細
+GET  /api/v1/packages/{name}/versions    # バージョン一覧
+GET  /api/v1/packages/{name}/{version}   # 特定バージョン詳細
+POST /api/v1/packages                    # パッケージ公開
+GET  /api/v1/search?q={query}           # パッケージ検索
+```
+
+### パッケージ形式
+
+```
+my-lib-1.0.0.cbpkg (tar.gz)
+├── cb.toml
+├── src/
+│   └── lib.cb
+├── README.md
+└── LICENSE
+```
+
+---
+
+## キャッシュシステム
+
+### ローカルキャッシュ
+
+```
+~/.cbpkg/
+├── registry/
+│   └── index/                # レジストリインデックス
+│       └── packages.json
+├── cache/                    # ダウンロードキャッシュ
+│   └── packages/
+│       ├── http-client-1.0.0.cbpkg
+│       └── json-parser-1.2.3.cbpkg
+└── config.toml               # 設定ファイル
+```
+
+### キャッシュクリア
+
+```bash
+$ cbpkg cache clean
+   Removing cached packages
+     Cleaned 145 MB from cache
+```
+
+---
+
+## ワークスペース
+
+複数のパッケージを1つのリポジトリで管理：
+
+### ディレクトリ構造
+
+```
+workspace/
+├── cb.toml
+├── packages/
+│   ├── app/
+│   │   ├── cb.toml
+│   │   └── src/main.cb
+│   ├── lib-core/
+│   │   ├── cb.toml
+│   │   └── src/lib.cb
+│   └── lib-utils/
+│       ├── cb.toml
+│       └── src/lib.cb
+```
+
+### ルートcb.toml
+
+```toml
+[workspace]
+members = [
+    "packages/app",
+    "packages/lib-core",
+    "packages/lib-utils"
+]
+
+[workspace.dependencies]
+# 共通の依存関係
+log = "1.0.0"
+```
+
+### ワークスペースコマンド
+
+```bash
+$ cbpkg build --workspace       # 全てをビルド
+$ cbpkg test --workspace        # 全てテスト
+$ cbpkg publish --workspace     # 全て公開
+```
 
 ---
 
 ## 実装スケジュール
 
-### Month 1: HIR実装
-**Week 1-2**: HIR基本構造
-- HIRノード定義
-- ASTからHIRへの変換
-- 型情報の統合
+### Month 1: コアシステム
 
-**Week 3**: HIR高度な機能
-- 制御フロー変換
-- 関数・構造体の変換
+**Week 1-2: パッケージマネージャー基礎**
+- cbpkgコマンドラインツール
+- cb.toml解析
+- プロジェクト管理（new, init）
 
-**Week 4**: HIRジェネリクスとテスト
-- ジェネリクス単相化
-- HIRダンプ機能
-- ユニットテスト（30テスト）
+**Week 3: 依存関係解決**
+- バージョン解析
+- 依存関係グラフ構築
+- 競合検出
 
-### Month 2: MIR実装
-**Week 1**: MIR基本構造とCFG
-- MIRノード定義
-- CFG構築
+**Week 4: ビルドシステム統合**
+- cbpkg buildコマンド
+- キャッシュシステム
+- インクリメンタルビルド
 
-**Week 2**: SSA形式
-- 支配木構築
-- PHIノード挿入
-- 変数リネーミング
+### Month 2: レジストリとエコシステム
 
-**Week 3**: データフロー解析
-- 生存変数解析
-- 到達定義解析
-- 使用-定義チェーン
+**Week 1-2: レジストリサーバー**
+- REST API実装
+- データベース設計
+- ストレージシステム
 
-**Week 4**: MIR完成とテスト
-- GraphViz可視化
-- ユニットテスト（40テスト）
+**Week 3: クライアント実装**
+- パッケージ公開機能
+- 検索機能
+- 認証システム
 
-### Month 3: LIR実装とツール
-**Week 1-2**: LIR実装
-- LIRノード定義
-- MIRからLIRへの変換
-- ユニットテスト（30テスト）
+**Week 4: Web UI**
+- パッケージ検索UI
+- ドキュメントビューワー
+- ユーザーアカウント管理
 
-**Week 3**: IRビューワーとツール
-- ダンプ機能
-- 可視化ツール
-- IR検証ツール
+### Month 3: テストと最適化
 
-**Week 4**: 統合とドキュメント
-- 統合テスト（20テスト）
-- ドキュメント完成
-- リリース準備
+**Week 1-2: テストとベンチマーク**
+- 統合テスト
+- パフォーマンステスト
+- セキュリティ監査
 
----
+**Week 3: ドキュメント**
+- ユーザーガイド
+- API ドキュメント
+- チュートリアル
 
-## 技術スタック
-
-### 実装言語とツール
-- **言語**: C++17/20
-- **ビルドシステム**: Make
-- **テストフレームワーク**: Google Test
-- **可視化**: GraphViz
-- **メモリ管理**: std::unique_ptr, std::shared_ptr, アリーナアロケータ
-- **多態性**: std::variant（仮想関数の代替）
-
-### アルゴリズム
-- **SSA構築**: Cytron et al.のアルゴリズム
-- **支配木**: Lengauer-Tarjanアルゴリズム
-- **データフロー解析**: 反復データフロー解析
-
----
-
-## プロジェクト構造
-
-```
-src/backend/ir/
-├── hir/
-│   ├── hir_node.h/cpp         # HIRノード定義
-│   ├── hir_generator.h/cpp    # ASTからHIRへの変換
-│   ├── hir_visitor.h          # HIRビジター
-│   └── hir_dumper.h/cpp       # HIRダンプ機能
-├── mir/
-│   ├── mir_node.h/cpp         # MIRノード定義
-│   ├── mir_generator.h/cpp    # HIRからMIRへの変換
-│   ├── cfg.h/cpp              # 制御フローグラフ
-│   ├── ssa_builder.h/cpp      # SSA形式構築
-│   ├── dominator_tree.h/cpp   # 支配木
-│   ├── mir_dumper.h/cpp       # MIRダンプ機能
-│   └── graphviz_gen.h/cpp     # GraphViz可視化
-├── lir/
-│   ├── lir_node.h/cpp         # LIRノード定義
-│   ├── lir_generator.h/cpp    # MIRからLIRへの変換
-│   └── lir_dumper.h/cpp       # LIRダンプ機能
-└── analysis/
-    ├── liveness.h/cpp         # 生存変数解析
-    ├── reaching_defs.h/cpp    # 到達定義解析
-    └── use_def_chain.h/cpp    # 使用-定義チェーン
-
-tests/
-├── unit/ir/                   # ユニットテスト
-│   ├── test_hir_generation.cpp
-│   ├── test_mir_generation.cpp
-│   ├── test_lir_generation.cpp
-│   ├── test_cfg_construction.cpp
-│   ├── test_ssa_construction.cpp
-│   └── test_dataflow_analysis.cpp
-├── integration/ir/            # 統合テスト
-│   ├── test_ir_roundtrip.cpp
-│   └── test_ir_dump.cpp
-└── cases/ir/                  # テストケース
-    ├── simple_function.cb
-    ├── control_flow.cb
-    ├── nested_loops.cb
-    └── generics.cb
-```
-
----
-
-## コマンドラインインターフェース
-
-### 基本的な使用方法
-
-```bash
-# インタプリタで実行（デフォルト）
-./main example.cb
-
-# ネイティブバイナリにコンパイル
-./main example.cb --backend=native --output=example
-
-# WASMにコンパイル
-./main example.cb --backend=wasm --output=example.wasm
-
-# TypeScriptに変換
-./main example.cb --backend=typescript --output=example.ts
-```
-
-### 低レイヤアプリケーション開発
-
-```bash
-# ベアメタル用ARM Cortex-Mコンパイル
-./main firmware.cb \
-    --backend=native \
-    --target=arm-none-eabi \
-    --environment=freestanding \
-    --ram-start=0x20000000 \
-    --ram-size=128K \
-    --output=firmware.elf
-
-# リンカースクリプト生成
-./main firmware.cb \
-    --backend=native \
-    --emit-linker-script=firmware.ld
-```
-
-### Webフロントエンド開発
-
-```bash
-# Webアプリ用にビルド（WASM + HTML + CSS）
-./main app.cb \
-    --backend=wasm \
-    --output=dist/app.wasm \
-    --emit-html \
-    --emit-css
-
-# TypeScript + HTML + CSS生成
-./main app.cb \
-    --backend=typescript \
-    --output=dist/app.ts \
-    --emit-html \
-    --emit-css
-
-# 開発サーバー起動
-./main app.cb --serve --watch
-```
-
-### デバッグオプション
-
-```bash
-# HIRダンプ
-./main example.cb --dump-hir
-
-# MIRダンプ（CFG付き）
-./main example.cb --dump-mir --dump-cfg
-
-# LIRダンプ
-./main example.cb --dump-lir
-
-# GraphViz可視化
-./main example.cb --emit-cfg-dot > output.dot
-dot -Tpng output.dot -o output.png
-
-# 全てのIRレベルをダンプ
-./main example.cb --dump-all-ir
-
-# IRレベルまで実行して停止
-./main example.cb --stop-at=hir
-./main example.cb --stop-at=mir
-./main example.cb --stop-at=lir
-```
-
----
-
-## コード例
-
-### 例1: シンプルな関数
-
-#### ソースコード
-```cb
-int  add(x: int, y: int) {
-    return x + y;
-}
-```
-
-#### HIRダンプ
-```
-int  add(x: int, y: int) {
-    return BinaryOp(+, Var(x: int), Var(y: int));
-}
-```
-
-#### MIRダンプ
-```
-int  add(_0: int, _1: int) {
-    let mut _2: int;  // return value
-    let mut _3: int;  // temp
-
-    bb0: {
-        _3 = Add(_0, _1);
-        _2 = _3;
-        return _2;
-    }
-}
-```
-
-#### LIRダンプ
-```
-add:
-    ; %0 = x (parameter)
-    ; %1 = y (parameter)
-    %2 = Add %0, %1
-    Return %2
-```
-
-### 例2: インラインアセンブラ（OS開発）
-
-```cb
-// x86-64: CR0レジスタ読み取り
-ulong  read_cr0() {
-    long result;
-    asm volatile (
-        "mov %cr0, %rax"
-        : "=r"(result)
-        :
-        : "rax"
-    );
-    return result;
-}
-
-// ARM: 割り込み有効化
-#[interrupt]
-fn timer_handler() {
-    asm volatile ("cpsie i");
-    // 割り込み処理...
-}
-```
-
-### 例3: Webフロントエンド（Todoアプリ）
-
-```cb
-// コンポーネント定義
-struct TodoApp {
-    todos: Vec<Todo>;
-
-    Html  render(self) {
-        return div(class="app") {
-            h1 { "Cb Todo App" }
-            input(
-                type="text",
-                placeholder="Add todo...",
-                onkeypress=self.handle_input
-            )
-            ul {
-                for todo in self.todos {
-                    li(key=todo.id) {
-                        input(
-                            type="checkbox",
-                            checked=todo.completed,
-                            onchange=|_| self.toggle(todo.id)
-                        )
-                        span { todo.text }
-                    }
-                }
-            }
-        };
-    }
-}
-
-// スタイル定義
-StyleSheet  styles() {
-    return css {
-        ".app" {
-            max_width: px(600);
-            margin: "0 auto";
-            padding: px(20);
-        }
-        ".app h1" {
-            color: rgb(0, 122, 255);
-        }
-    };
-}
-```
-
----
-
-## テスト
-
-### ユニットテスト
-- **HIR**: 30テスト
-- **MIR**: 40テスト
-- **LIR**: 30テスト
-- **合計**: 100+テスト
-
-### 統合テスト
-- **IRラウンドトリップ**: 20テスト
-- **IRダンプ検証**: 含まれる
-
-### ベンチマーク
-- HIR生成のベンチマーク
-- MIR生成のベンチマーク
-- LIR生成のベンチマーク
-- メモリ使用量のベンチマーク
-
----
-
-## パフォーマンス目標
-
-- **HIR生成**: 1000行のコードを100ms以内で処理
-- **MIR生成**: HIRから50ms以内で変換
-- **LIR生成**: MIRから30ms以内で変換
-- **メモリ使用量**: 1000行のコードで50MB以内
+**Week 4: リリース準備**
+- バグ修正
+- 最適化
+- ベータテスト
 
 ---
 
 ## 完了条件
 
-v0.16.0は以下の条件を満たしたときに完了：
+v0.18.0は以下の条件を満たしたときに完了とします：
 
 1. **機能完全性**
-   - HIR/MIR/LIRの全実装完了
-   - ASTからLIRまでの完全な変換パイプライン
-   - SSA形式の正しい実装
+   - [ ] cbpkg コマンドが全て動作
+   - [ ] 依存関係解決が正しく動作
+   - [ ] パッケージレジストリが稼働
+   - [ ] ビルドシステムが統合されている
 
-2. **品質保証**
-   - 全てのユニットテストがパス（100+テスト）
-   - コードカバレッジ > 85%
-   - メモリリークゼロ
+2. **エコシステム**
+   - [ ] 10個以上のパッケージが公開されている
+   - [ ] ドキュメントが完備
+   - [ ] サンプルプロジェクトが動作
 
-3. **パフォーマンス**
-   - パフォーマンス目標を達成
-
-4. **ツール**
-   - IRダンプ機能が動作
-   - GraphViz可視化が動作
-
-5. **ドキュメント**
-   - 全ての仕様書が完成
-   - APIドキュメントが完成
+3. **品質**
+   - [ ] 全てのテストがパス
+   - [ ] パフォーマンスが許容範囲
+   - [ ] セキュリティ監査完了
 
 ---
 
-## 次のバージョン（v0.17.0）
+## 次のバージョン（v0.19.0以降）
 
-v0.16.0完了後、v0.17.0では以下の最適化機能を実装します：
+将来のバージョンで実装予定：
 
-1. 定数畳み込み（Constant Folding）
-2. 定数伝播（Constant Propagation）
-3. デッドコード除去（Dead Code Elimination）
-4. 共通部分式除去（Common Subexpression Elimination）
-5. 強度削減（Strength Reduction）
-6. ループ不変式の移動（Loop-Invariant Code Motion）
-
----
-
-## 参考資料
-
-### コンパイラ設計
-- [Rust Compiler Development Guide](https://rustc-dev-guide.rust-lang.org/)
-- [LLVM Documentation](https://llvm.org/docs/)
-- Modern Compiler Implementation (Tiger Book)
-- Engineering a Compiler (2nd Edition)
-
-### SSA形式
-- Cytron et al., "Efficiently Computing Static Single Assignment Form and the Control Dependence Graph" (1991)
-- Braun et al., "Simple and Efficient Construction of Static Single Assignment Form" (2013)
-
-### データフロー解析
-- Aho et al., "Compilers: Principles, Techniques, and Tools" (Dragon Book)
-- Muchnick, "Advanced Compiler Design and Implementation"
-
----
-
-## まとめ
-
-v0.16.0では、Cb言語のネイティブコンパイラ実装の基盤となる3層IR構造（HIR/MIR/LIR）を設計・実装します。これにより：
-
-1. **型情報の完全な解決**（HIR）
-2. **最適化に適した表現**（MIR with SSA）
-3. **コード生成への準備**（LIR）
-
-が実現され、v0.17.0以降の最適化とコード生成の実装が可能になります。
-
-**実装期間**: 3-4ヶ月
-**主要成果物**: HIR/MIR/LIR実装、IRビューワー、データフロー解析基盤
-**目標**: v0.17.0での最適化実装への準備完了
+- プライベートレジストリ
+- ミラーサーバー
+- CI/CD統合
+- IDE統合（Language Server Protocol）
+- コード補完とリファクタリング
