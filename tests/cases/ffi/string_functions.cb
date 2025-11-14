@@ -1,0 +1,23 @@
+// FFI String Functions Test
+// Tests string handling with FFI (simplified version)
+
+use foreign.c {
+    int strlen(char* str);
+}
+
+void main() {
+    println("=== FFI String Functions Test ===");
+    
+    // Test 1: strlen with literal string
+    // Note: char* parameter handling in Cb may need improvements
+    // For now, we test with what's currently supported
+    
+    println("Test 1: strlen test - SKIPPED (char* parameter needs char array support)");
+    
+    // Future: When char arrays and better string-to-char* conversion is supported:
+    // char[20] buffer;
+    // strcpy(buffer, "Hello");
+    // int len = c.strlen(buffer);
+    
+    println("=== String Tests Completed (Limited Support) ===");
+}

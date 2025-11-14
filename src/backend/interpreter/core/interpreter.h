@@ -14,6 +14,7 @@
 namespace cb {
 class EventLoop;
 class SimpleEventLoop; // v0.12.1 Phase 2.0
+class FFIManager;      // v0.13.0: FFI Manager
 } // namespace cb
 
 // 前方宣言
@@ -797,6 +798,9 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<StatementListExecutor>
         statement_list_executor_; // 文リスト・複合文実行
     std::unique_ptr<ReturnHandler> return_handler_; // return文処理
+
+    // v0.13.0: FFI Manager
+    std::unique_ptr<cb::FFIManager> ffi_manager_;
     std::unique_ptr<AssertionHandler> assertion_handler_; // アサーション文処理
     std::unique_ptr<BreakContinueHandler>
         break_continue_handler_; // break/continue文処理
@@ -1135,6 +1139,9 @@ class Interpreter : public EvaluatorInterface {
 
     // v0.13.1: デストラクタ実行中かチェック
     bool is_calling_destructor() const { return is_calling_destructor_; }
+
+    // v0.13.0: FFIManagerへのアクセス
+    cb::FFIManager *get_ffi_manager() { return ffi_manager_.get(); }
 
     // エラー表示ヘルパー関数
     void throw_runtime_error_with_location(const std::string &message,

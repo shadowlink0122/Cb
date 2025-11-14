@@ -2,6 +2,7 @@
 #include "../../../common/ast.h"
 #include "../../../common/debug.h"
 #include "../../../frontend/recursive_parser/recursive_parser.h"
+#include "../ffi_manager.h" // v0.13.0: FFI Manager
 #include "evaluator/core/evaluator.h"
 #include "event_loop/event_loop.h"
 #include "event_loop/simple_event_loop.h" // v0.13.0 Phase 2.0
@@ -128,6 +129,9 @@ Interpreter::Interpreter(bool debug)
 
     // v0.12.0: Event Loop を初期化
     event_loop_ = std::make_unique<cb::EventLoop>();
+
+    // v0.13.0: FFI Manager を初期化
+    ffi_manager_ = std::make_unique<cb::FFIManager>();
 
     // v0.13.0 Phase 2.0: SimpleEventLoop を初期化
     simple_event_loop_ = std::make_unique<cb::SimpleEventLoop>(*this);

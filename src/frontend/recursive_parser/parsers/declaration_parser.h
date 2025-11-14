@@ -29,6 +29,10 @@ class DeclarationParser {
     ASTNode *parseTypedefDeclaration();
     ASTNode *parseFunctionPointerTypedefDeclaration();
 
+    // v0.13.0: FFI (Foreign Function Interface)
+    ASTNode *parseForeignModuleDecl();
+    ForeignFunctionDecl parseForeignFunctionDecl();
+
   private:
     RecursiveParser *parser_;
     std::unique_ptr<VariableDeclarationParser> variable_declaration_parser_;

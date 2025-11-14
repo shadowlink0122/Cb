@@ -1,0 +1,41 @@
+// Test: FFI double return value propagation
+// Purpose: Verify that double values are correctly returned from FFI calls
+
+use foreign.m {
+    double sqrt(double x);
+    double pow(double base, double exp);
+}
+
+void main() {
+    // Test 1: sqrt(2.0) - should preserve precision
+    double result1 = m.sqrt(2.0);
+    if (result1 > 1.414 && result1 < 1.415) {
+        println("Test 1: sqrt(2.0) precision - PASSED");
+    } else {
+        println("Test 1: FAILED - got", result1);
+    }
+    
+    // Test 2: sqrt(9.0) - should be exactly 3.0
+    double result2 = m.sqrt(9.0);
+    if (result2 > 2.99 && result2 < 3.01) {
+        println("Test 2: sqrt(9.0) exact - PASSED");
+    } else {
+        println("Test 2: FAILED - got", result2);
+    }
+    
+    // Test 3: pow(2.5, 2.0) - should be 6.25
+    double result3 = m.pow(2.5, 2.0);
+    if (result3 > 6.24 && result3 < 6.26) {
+        println("Test 3: pow(2.5, 2.0) - PASSED");
+    } else {
+        println("Test 3: FAILED - got", result3);
+    }
+    
+    // Test 4: Nested calls
+    double result4 = m.sqrt(m.pow(4.0, 2.0));
+    if (result4 > 3.99 && result4 < 4.01) {
+        println("Test 4: Nested calls - PASSED");
+    } else {
+        println("Test 4: FAILED - got", result4);
+    }
+}

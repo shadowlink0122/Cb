@@ -1,0 +1,27 @@
+// Test: FFI module namespace
+// Purpose: Test module.function() syntax
+
+use foreign.m {
+    double sqrt(double x);
+    double pow(double base, double exp);
+}
+
+void main() {
+    // Test 1: Module prefix required
+    double result1 = m.sqrt(4.0);
+    if (result1 > 1.99 && result1 < 2.01) {
+        println("Test 1: Module prefix - PASSED");
+    }
+    
+    // Test 2: Multiple functions from same module
+    double result2 = m.pow(2.0, 2.0);
+    if (result2 > 3.99 && result2 < 4.01) {
+        println("Test 2: Multiple functions same module - PASSED");
+    }
+    
+    // Test 3: Variable assignment
+    double x = m.sqrt(9.0);
+    if (x > 2.99 && x < 3.01) {
+        println("Test 3: Variable assignment - PASSED");
+    }
+}

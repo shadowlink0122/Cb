@@ -1,0 +1,13 @@
+// Test: FFI declaration parsing
+// Purpose: Verify FFI declarations are parsed without errors
+
+use foreign.math {
+    double sqrt(double x);
+    double pow(double base, double exp);
+    double sin(double x);
+    double cos(double x);
+}
+
+void main() {
+    println("FFI parser test - declarations parsed successfully");
+}

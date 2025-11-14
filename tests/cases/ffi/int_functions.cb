@@ -1,0 +1,36 @@
+// FFI Integer Functions Test
+// Tests integer parameter and return value handling
+
+use foreign.c {
+    int abs(int x);
+}
+
+void main() {
+    println("=== FFI Integer Functions Test ===");
+    
+    // Test 1: abs with positive number
+    int result1 = c.abs(42);
+    println("abs(42) =", result1);
+    assert(result1 == 42);
+    println("Test 1: abs positive - PASSED");
+    
+    // Test 2: abs with negative number
+    int result2 = c.abs(-42);
+    println("abs(-42) =", result2);
+    assert(result2 == 42);
+    println("Test 2: abs negative - PASSED");
+    
+    // Test 3: abs with zero
+    int result3 = c.abs(0);
+    println("abs(0) =", result3);
+    assert(result3 == 0);
+    println("Test 3: abs zero - PASSED");
+    
+    // Test 4: abs with large negative number
+    int result4 = c.abs(-999999);
+    println("abs(-999999) =", result4);
+    assert(result4 == 999999);
+    println("Test 4: abs large - PASSED");
+    
+    println("=== All Integer Tests Passed ===");
+}

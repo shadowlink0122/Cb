@@ -36,6 +36,7 @@
 #include "enum/test_enum.hpp"
 #include "error_handling/test_error_handling.hpp"
 #include "error_propagation/test_error_propagation.hpp"
+#include "ffi/test_ffi.hpp"
 #include "float_double_unsigned/test_float_double_unsigned.hpp"
 #include "floating_point/test_floating_point.hpp"
 #include "func/test_func.hpp"
@@ -230,6 +231,9 @@ int main() {
                            "Import/Export Tests", failed_tests);
     run_test_with_continue(test_integration_module_functions,
                            "Module Function Tests", failed_tests);
+    run_test_with_continue(test_integration_ffi,
+                           "FFI (Foreign Function Interface) Tests",
+                           failed_tests);
     CategoryTimingStats::print_category_summary("Functions");
 
     // 変数・定数テスト群

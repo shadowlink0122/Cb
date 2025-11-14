@@ -1,0 +1,8 @@
+// Test: Basic #define with numeric values
+#define PI 3.14159
+#define RADIUS 5.0
+
+void main() {
+    double area = PI * RADIUS * RADIUS;
+    println(area);
+}

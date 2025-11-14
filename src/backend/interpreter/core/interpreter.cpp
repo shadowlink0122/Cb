@@ -5,6 +5,7 @@
 #include "../../../common/type_helpers.h"
 #include "../../../common/utf8_utils.h"
 #include "../../../frontend/recursive_parser/recursive_parser.h"
+#include "../ffi_manager.h" // v0.13.0: FFI Manager
 #include "core/error_handler.h"
 #include "core/pointer_metadata.h"
 #include "core/type_inference.h"
@@ -196,11 +197,15 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
 
     switch (node->node_type) {
     case ASTNodeType::AST_STMT_LIST:
-        // まずimport文を処理（他の宣言よりも先に実行）
+        // まずimport文とforeign module宣言を処理（他の宣言よりも先に実行）
         for (const auto &stmt : node->statements) {
             if (stmt->node_type == ASTNodeType::AST_IMPORT_STMT) {
                 // v0.11.1: import文は実行が必要（関数定義を登録するため）
                 handle_import_statement(stmt.get());
+            } else if (stmt->node_type ==
+                       ASTNodeType::AST_FOREIGN_MODULE_DECL) {
+                // v0.13.0: foreign module宣言を処理
+                ffi_manager_->processForeignModule(stmt.get());
             }
         }
         // 2パス変数宣言処理: 先にconst変数、次に配列
@@ -276,7 +281,10 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
                 stmt->node_type != ASTNodeType::AST_IMPL_DECL &&
                 stmt->node_type != ASTNodeType::AST_CONSTRUCTOR_DECL &&
                 stmt->node_type != ASTNodeType::AST_DESTRUCTOR_DECL &&
-                stmt->node_type != ASTNodeType::AST_IMPORT_STMT) {
+                stmt->node_type != ASTNodeType::AST_IMPORT_STMT &&
+                stmt->node_type !=
+                    ASTNodeType::AST_FOREIGN_MODULE_DECL) { // v0.13.0:
+                                                            // 既に処理済み
                 register_global_declarations(stmt.get());
             }
         }
@@ -516,6 +524,11 @@ void Interpreter::register_global_declarations(const ASTNode *node) {
     case ASTNodeType::AST_IMPORT_STMT:
         // import文を処理
         handle_import_statement(node);
+        break;
+
+    case ASTNodeType::AST_FOREIGN_MODULE_DECL:
+        // v0.13.0: foreign module宣言を処理
+        ffi_manager_->processForeignModule(node);
         break;
 
     case ASTNodeType::AST_TYPEDEF_DECL:
@@ -1092,6 +1105,14 @@ void Interpreter::execute_statement(const ASTNode *node) {
     // ========================================================================
     case ASTNodeType::AST_IMPORT_STMT:
         handle_import_statement(node);
+        break;
+
+    // ========================================================================
+    // v0.13.0: Foreign Module宣言（FOREIGN_MODULE_DECL）
+    // FFIライブラリをロードして外部関数を登録
+    // ========================================================================
+    case ASTNodeType::AST_FOREIGN_MODULE_DECL:
+        ffi_manager_->processForeignModule(node);
         break;
 
     // ========================================================================

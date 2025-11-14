@@ -51,6 +51,9 @@ class StatementParser {
     // Import/Export
     ASTNode *parseImportStatement();
 
+    // v0.13.0: FFI (Foreign Function Interface)
+    ASTNode *parseUseStatement();
+
   private:
     RecursiveParser *parser_;
 

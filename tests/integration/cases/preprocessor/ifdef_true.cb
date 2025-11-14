@@ -1,0 +1,8 @@
+// Test: #ifdef when macro is defined
+#define DEBUG
+
+void main() {
+    #ifdef DEBUG
+        println("Debug enabled");
+    #endif
+}

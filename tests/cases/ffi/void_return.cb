@@ -1,0 +1,21 @@
+// FFI Void Return Test
+// Tests functions that return void
+
+use foreign.c {
+    void* memset(void* ptr, int value, long num);
+}
+
+void main() {
+    println("=== FFI Void Return Test ===");
+    
+    // Test: memset doesn't crash and returns
+    int[10] buffer;
+    
+    // This should work without crashing
+    println("Calling memset...");
+    c.memset(&buffer[0], 0, 40);
+    println("memset completed successfully");
+    
+    println("Test: void return - PASSED");
+    println("=== All Void Return Tests Passed ===");
+}

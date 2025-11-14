@@ -1,0 +1,53 @@
+// FFI Trigonometric Functions Test
+// Tests more math functions from libm
+
+use foreign.m {
+    double sin(double x);
+    double cos(double x);
+    double tan(double x);
+    double asin(double x);
+    double acos(double x);
+    double atan(double x);
+}
+
+void main() {
+    println("=== FFI Trigonometric Functions Test ===");
+    
+    // Test 1: sin(0) = 0
+    double result1 = m.sin(0.0);
+    println("sin(0.0) =", result1);
+    assert(result1 >= -0.0001 && result1 <= 0.0001);
+    println("Test 1: sin(0) - PASSED");
+    
+    // Test 2: cos(0) = 1
+    double result2 = m.cos(0.0);
+    println("cos(0.0) =", result2);
+    assert(result2 >= 0.9999 && result2 <= 1.0001);
+    println("Test 2: cos(0) - PASSED");
+    
+    // Test 3: tan(0) = 0
+    double result3 = m.tan(0.0);
+    println("tan(0.0) =", result3);
+    assert(result3 >= -0.0001 && result3 <= 0.0001);
+    println("Test 3: tan(0) - PASSED");
+    
+    // Test 4: asin(0) = 0
+    double result4 = m.asin(0.0);
+    println("asin(0.0) =", result4);
+    assert(result4 >= -0.0001 && result4 <= 0.0001);
+    println("Test 4: asin(0) - PASSED");
+    
+    // Test 5: acos(1) = 0
+    double result5 = m.acos(1.0);
+    println("acos(1.0) =", result5);
+    assert(result5 >= -0.0001 && result5 <= 0.0001);
+    println("Test 5: acos(1) - PASSED");
+    
+    // Test 6: atan(0) = 0
+    double result6 = m.atan(0.0);
+    println("atan(0.0) =", result6);
+    assert(result6 >= -0.0001 && result6 <= 0.0001);
+    println("Test 6: atan(0) - PASSED");
+    
+    println("=== All Trigonometric Tests Passed ===");
+}

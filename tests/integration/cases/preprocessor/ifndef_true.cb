@@ -1,0 +1,7 @@
+// Test: #ifndef when macro is not defined
+
+void main() {
+    #ifndef DEBUG
+        println("Release mode");
+    #endif
+}

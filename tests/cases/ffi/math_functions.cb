@@ -1,0 +1,39 @@
+// FFI Math Functions Test
+// Tests calling math library functions through FFI
+
+use foreign.m {
+    double sqrt(double x);
+    double pow(double x, double y);
+    double sin(double x);
+    double cos(double x);
+}
+
+void main() {
+    println("=== Math Functions FFI Test ===");
+    
+    // Test 1: sqrt
+    double result1 = m.sqrt(16.0);
+    println("sqrt(16.0) =", result1);
+    assert(result1 == 4.0);
+    println("Test 1: sqrt - PASSED");
+    
+    // Test 2: pow
+    double result2 = m.pow(2.0, 3.0);
+    println("pow(2.0, 3.0) =", result2);
+    assert(result2 == 8.0);
+    println("Test 2: pow - PASSED");
+    
+    // Test 3: sin(0) should be 0
+    double result3 = m.sin(0.0);
+    println("sin(0.0) =", result3);
+    assert(result3 >= -0.0001 && result3 <= 0.0001);  // Close to 0
+    println("Test 3: sin(0) - PASSED");
+    
+    // Test 4: cos(0) should be 1
+    double result4 = m.cos(0.0);
+    println("cos(0.0) =", result4);
+    assert(result4 >= 0.9999 && result4 <= 1.0001);  // Close to 1
+    println("Test 4: cos(0) - PASSED");
+    
+    println("=== All Tests Passed ===");
+}

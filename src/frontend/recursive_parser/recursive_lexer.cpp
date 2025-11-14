@@ -495,7 +495,9 @@ TokenType RecursiveLexer::getKeywordType(const std::string &text) {
         {"try", TokenType::TOK_TRY},         // v0.14.0: try keyword
         {"checked", TokenType::TOK_CHECKED}, // v0.14.0: checked keyword
         {"panic", TokenType::TOK_PANIC},     // v0.14.0: panic keyword
-        {"unwrap", TokenType::TOK_UNWRAP}};  // v0.14.0: unwrap keyword
+        {"unwrap", TokenType::TOK_UNWRAP},   // v0.14.0: unwrap keyword
+        {"foreign", TokenType::TOK_FOREIGN}, // v0.13.0: foreign keyword (FFI)
+        {"use", TokenType::TOK_USE}};        // v0.13.0: use keyword
 
     auto it = keywords.find(text);
     if (it != keywords.end()) {

@@ -1,0 +1,9 @@
+// Test: Comment protection - macros in comments should not expand
+#define VALUE 42
+
+void main() {
+    // This comment mentions VALUE but should not expand it
+    /* Another comment with VALUE */
+    int x = VALUE;
+    println(x);
+}

@@ -13,6 +13,7 @@
 #include "declaration_parser.h"
 #include "../recursive_parser.h"
 #include "src/common/debug.h"
+#include "type_parser.h" // v0.13.0: FFI用
 #include "variable_declaration_parser.h"
 #include <algorithm>
 
@@ -1073,4 +1074,149 @@ ASTNode *DeclarationParser::parseFunctionPointerTypedefDeclaration() {
     parser_->setLocation(node, parser_->current_token_);
 
     return node;
+}
+
+// ============================================================================
+// v0.13.0: FFI (Foreign Function Interface) パーサー
+// ============================================================================
+
+// 外部モジュール宣言のパース
+// use foreign.module { ... }
+ASTNode *DeclarationParser::parseForeignModuleDecl() {
+    // "use" トークンは既に消費済み（parseUseStatementで確認）
+
+    // "foreign" キーワードを期待
+    if (!parser_->check(TokenType::TOK_FOREIGN)) {
+        parser_->error("Expected 'foreign' after 'use'");
+        return nullptr;
+    }
+    parser_->advance(); // "foreign" を消費
+
+    // "." を期待
+    if (!parser_->check(TokenType::TOK_DOT)) {
+        parser_->error("Expected '.' after 'foreign'");
+        return nullptr;
+    }
+    parser_->advance(); // "." を消費
+
+    // モジュール名（識別子）
+    if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+        parser_->error("Expected module name after 'foreign.'");
+        return nullptr;
+    }
+    std::string module_name = parser_->current_token_.value;
+    int line = parser_->current_token_.line;
+    parser_->advance(); // モジュール名を消費
+
+    // "{" を期待
+    if (!parser_->check(TokenType::TOK_LBRACE)) {
+        parser_->error("Expected '{' to start foreign function declarations");
+        return nullptr;
+    }
+    parser_->advance(); // "{" を消費
+
+    // 関数宣言リストをパース
+    std::vector<ForeignFunctionDecl> functions;
+    while (!parser_->check(TokenType::TOK_RBRACE) &&
+           !parser_->check(TokenType::TOK_EOF)) {
+        ForeignFunctionDecl func_decl = parseForeignFunctionDecl();
+        func_decl.module_name = module_name;
+        functions.push_back(func_decl);
+
+        // セミコロンを期待
+        if (!parser_->check(TokenType::TOK_SEMICOLON)) {
+            parser_->error("Expected ';' after function declaration");
+            return nullptr;
+        }
+        parser_->advance(); // ";" を消費
+    }
+
+    // "}" を期待
+    if (!parser_->check(TokenType::TOK_RBRACE)) {
+        parser_->error("Expected '}' to end foreign function declarations");
+        return nullptr;
+    }
+    parser_->advance(); // "}" を消費
+
+    // ASTノードを作成
+    ASTNode *node = new ASTNode(ASTNodeType::AST_FOREIGN_MODULE_DECL);
+    node->foreign_module_decl = std::make_shared<ForeignModuleDecl>();
+    node->foreign_module_decl->module_name = module_name;
+    node->foreign_module_decl->functions = functions;
+    node->foreign_module_decl->line = line;
+
+    parser_->setLocation(node, parser_->current_token_);
+
+    return node;
+}
+
+// 外部関数宣言のパース
+// 戻り値型 関数名(パラメータ...)
+ForeignFunctionDecl DeclarationParser::parseForeignFunctionDecl() {
+    ForeignFunctionDecl decl;
+    decl.line = parser_->current_token_.line;
+
+    // 戻り値の型をパース
+    ParsedTypeInfo type_info = parser_->type_parser_->parseType();
+    decl.return_type = type_info.base_type_info;
+    decl.return_type_name = type_info.base_type;
+    decl.return_is_unsigned = type_info.is_unsigned;
+
+    // 関数名
+    if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+        parser_->error(
+            "Expected function name in foreign function declaration");
+        return decl;
+    }
+    decl.function_name = parser_->current_token_.value;
+    parser_->advance(); // 関数名を消費
+
+    // "(" を期待
+    if (!parser_->check(TokenType::TOK_LPAREN)) {
+        parser_->error("Expected '(' after function name");
+        return decl;
+    }
+    parser_->advance(); // "(" を消費
+
+    // パラメータリストをパース
+    while (!parser_->check(TokenType::TOK_RPAREN) &&
+           !parser_->check(TokenType::TOK_EOF)) {
+        // パラメータの型
+        ParsedTypeInfo param_type = parser_->type_parser_->parseType();
+
+        // パラメータ名
+        if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+            parser_->error("Expected parameter name");
+            return decl;
+        }
+        std::string param_name = parser_->current_token_.value;
+        parser_->advance(); // パラメータ名を消費
+
+        // ForeignParameterを作成
+        ForeignParameter param;
+        param.name = param_name;
+        param.type = param_type.base_type_info;
+        param.type_name = param_type.base_type;
+        param.is_unsigned = param_type.is_unsigned;
+        param.is_pointer = param_type.is_pointer;
+
+        decl.parameters.push_back(param);
+
+        // カンマがあれば次のパラメータへ
+        if (parser_->check(TokenType::TOK_COMMA)) {
+            parser_->advance(); // "," を消費
+        } else if (!parser_->check(TokenType::TOK_RPAREN)) {
+            parser_->error("Expected ',' or ')' in parameter list");
+            return decl;
+        }
+    }
+
+    // ")" を期待
+    if (!parser_->check(TokenType::TOK_RPAREN)) {
+        parser_->error("Expected ')' after parameters");
+        return decl;
+    }
+    parser_->advance(); // ")" を消費
+
+    return decl;
 }

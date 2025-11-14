@@ -1,0 +1,9 @@
+// Test: Undefine and redefine
+#define VALUE 10
+#undef VALUE
+#define VALUE 20
+
+void main() {
+    int x = VALUE;
+    println(x);
+}

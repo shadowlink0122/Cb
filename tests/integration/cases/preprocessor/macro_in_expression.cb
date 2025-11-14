@@ -1,0 +1,8 @@
+// Test: Macro in complex expression
+#define BASE 10
+#define MULTIPLIER 5
+
+void main() {
+    int result = BASE * MULTIPLIER + BASE / 2;
+    println(result);
+}

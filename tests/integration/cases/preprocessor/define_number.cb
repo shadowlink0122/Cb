@@ -1,0 +1,7 @@
+// Test: Simple numeric #define
+#define ANSWER 42
+
+void main() {
+    int x = ANSWER;
+    println(x);
+}

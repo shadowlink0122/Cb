@@ -919,6 +919,43 @@ struct MatchArm {
     MatchArm &operator=(MatchArm &&) noexcept = default;
 };
 
+// v0.13.0: FFI (Foreign Function Interface) 構造体
+
+// 外部関数のパラメータ
+struct ForeignParameter {
+    std::string name;         // パラメータ名
+    TypeInfo type;            // 型情報
+    std::string type_name;    // 型名（"int", "double"など）
+    bool is_unsigned = false; // unsigned修飾子
+    bool is_pointer = false;  // ポインタ型か
+
+    ForeignParameter() : type(TYPE_UNKNOWN) {}
+    ForeignParameter(const std::string &n, TypeInfo t, const std::string &tn)
+        : name(n), type(t), type_name(tn) {}
+};
+
+// 外部関数宣言
+struct ForeignFunctionDecl {
+    std::string module_name;      // モジュール名（"m", "math"など）
+    std::string function_name;    // 関数名
+    TypeInfo return_type;         // 戻り値の型
+    std::string return_type_name; // 戻り値の型名
+    bool return_is_unsigned = false;
+    std::vector<ForeignParameter> parameters; // パラメータリスト
+    int line;                                 // 宣言の行番号
+
+    ForeignFunctionDecl() : return_type(TYPE_UNKNOWN), line(0) {}
+};
+
+// 外部モジュール宣言
+struct ForeignModuleDecl {
+    std::string module_name; // モジュール名（"m", "math"など）
+    std::vector<ForeignFunctionDecl> functions; // 関数のリスト
+    int line;                                   // 宣言の行番号
+
+    ForeignModuleDecl() : line(0) {}
+};
+
 // 型名を文字列に変換する関数
 const char *type_info_to_string(TypeInfo type);
 const char *type_info_to_string_basic(TypeInfo type);
@@ -1045,7 +1082,12 @@ enum class ASTNodeType {
     AST_TRY_EXPR,     // try式 (try expression)
     AST_CHECKED_EXPR, // checked式 (checked expression)
     AST_PANIC_EXPR,   // panic式 (panic!(...))
-    AST_UNWRAP_EXPR   // unwrap式 (expr.unwrap())
+    AST_UNWRAP_EXPR,  // unwrap式 (expr.unwrap())
+
+    // v0.13.0 FFI (Foreign Function Interface)
+    AST_FOREIGN_MODULE_DECL, // 外部モジュール宣言 (use foreign.m { ... })
+    AST_FOREIGN_FUNCTION_DECL, // 外部関数宣言
+    AST_USE_STMT               // use文（import文の代替）
 };
 
 // 位置情報構造体
@@ -1267,6 +1309,11 @@ struct ASTNode {
     bool is_interpolation_text = false; // セグメントがテキスト部分か
     bool is_interpolation_expr = false; // セグメントが式部分か
     std::string interpolation_format; // フォーマット指定子 (":x", ":.2"等)
+
+    // v0.13.0: FFI関連
+    std::shared_ptr<ForeignModuleDecl>
+        foreign_module_decl; // 外部モジュール宣言
+    std::shared_ptr<ForeignFunctionDecl> foreign_function_decl; // 外部関数宣言
 
     // 型キャスト関連（v0.11.0 Week 2新機能）
     std::string cast_target_type; // キャスト先の型名 ("int*", "char*"等)

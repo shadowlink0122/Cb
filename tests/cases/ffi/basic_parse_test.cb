@@ -1,0 +1,23 @@
+// Basic FFI Parse Test
+// Tests that FFI declarations are parsed correctly
+// This test only verifies parsing, not execution
+
+use foreign.m {
+    double sqrt(double x);
+    double pow(double x, double y);
+    double sin(double x);
+    double cos(double x);
+    double abs(double x);
+}
+
+use foreign.c {
+    int abs(int x);
+}
+
+void main() {
+    println("=== FFI Parse Test ===");
+    println("Test 1: Multiple foreign modules - PASSED");
+    println("Test 2: Multiple function declarations - PASSED");
+    println("Test 3: Different parameter types - PASSED");
+    println("=== All Tests Passed ===");
+}

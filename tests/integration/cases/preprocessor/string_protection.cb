@@ -1,0 +1,8 @@
+// Test: String protection - macros should not expand inside strings
+#define PI 3.14159
+
+void main() {
+    println("The value of PI is 3.14159");
+    double x = PI;
+    println(x);
+}
