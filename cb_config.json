@@ -1,6 +1,6 @@
 {
   "language": "Cb",
-  "version": "0.9.1",
+  "version": ".cbversion",
   "description": "Cb programming language configuration",
   "features": {
     "char_type": true,

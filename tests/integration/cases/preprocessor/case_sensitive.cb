@@ -1,0 +1,10 @@
+// Test: Case sensitivity in macros
+#define value 10
+#define VALUE 20
+
+void main() {
+    int x = value;
+    int y = VALUE;
+    println(x);
+    println(y);
+}

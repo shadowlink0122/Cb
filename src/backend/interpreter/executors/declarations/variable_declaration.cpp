@@ -1,6 +1,7 @@
 #include "variable_declaration.h"
 #include "../../../../common/debug.h"
 #include "../../../../common/type_helpers.h"
+#include "../../ffi_manager.h" // v0.13.0: FFI support
 #include "../statement_executor.h"
 #include "core/error_handler.h"
 #include "core/interpreter.h"
@@ -1046,8 +1047,6 @@ void execute_variable_declaration(StatementExecutor *executor,
         } else {
             // 通常の初期化 - TypedValue を使用して float/double を保持
             if (init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
-                std::cerr << "DEBUG: init_node is AST_FUNC_CALL for "
-                          << node->name << std::endl;
                 try {
                     TypedValue typed_value =
                         interpreter.evaluate_typed(init_node);
@@ -1159,14 +1158,6 @@ void execute_variable_declaration(StatementExecutor *executor,
                 // float/double リテラルを含む全ての初期化式で TypedValue を使用
                 TypedValue typed_value = interpreter.evaluate_typed(init_node);
 
-                std::cerr << "DEBUG var_decl: " << node->name
-                          << " var.type=" << static_cast<int>(var.type)
-                          << " (TYPE_STRING=" << static_cast<int>(TYPE_STRING)
-                          << ")"
-                          << " typed_value.value=" << (void *)typed_value.value
-                          << " str='" << typed_value.string_value << "'"
-                          << std::endl;
-
                 if (TypeHelpers::isString(var.type)) {
                     // assign_variableに任せる（ポインタ値の処理を含む）
                     debug_msg(DebugMsgId::VAR_DECL_ASSIGN_STRING,
@@ -1233,6 +1224,26 @@ void execute_variable_declaration(StatementExecutor *executor,
                     interpreter.assign_variable(node->name, typed_value,
                                                 node->type_info, false);
                 }
+
+                // v0.13.0: FFI関数呼び出しの結果の場合、double_valueを設定
+                if (init_node &&
+                    init_node->node_type == ASTNodeType::AST_FUNC_CALL) {
+                    cb::FFIManager *ffi_mgr = interpreter.get_ffi_manager();
+                    if (ffi_mgr &&
+                        ffi_mgr->isForeignFunction(init_node->name)) {
+                        const Variable &ffi_result = ffi_mgr->getLastResult();
+                        if (ffi_result.type == TYPE_DOUBLE ||
+                            ffi_result.type == TYPE_FLOAT) {
+                            Variable *target_var =
+                                interpreter.find_variable(node->name);
+                            if (target_var) {
+                                target_var->double_value =
+                                    ffi_result.double_value;
+                            }
+                        }
+                    }
+                }
+
                 interpreter.current_scope().variables[node->name].is_assigned =
                     true;
             }

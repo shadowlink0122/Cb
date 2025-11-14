@@ -17,6 +17,7 @@
 #include "../../core/interpreter.h"
 #include "../../event_loop/event_loop.h"        // v0.12.0: EventLoop
 #include "../../event_loop/simple_event_loop.h" // v0.13.0: SimpleEventLoop
+#include "../../ffi_manager.h"                  // v0.13.0: FFI Manager
 #include "../../managers/types/manager.h"
 #include "evaluator/access/receiver_resolution.h"
 #include "evaluator/core/evaluator.h"
@@ -368,6 +369,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     // 修飾呼び出しのチェック: module.function()
     // node->leftがAST_VARIABLEで、変数として存在せず、モジュールとして存在する場合
     bool is_qualified_call = false;
+    bool is_foreign_call = false;
     std::string qualified_module_name;
     if (node->left && node->left->node_type == ASTNodeType::AST_VARIABLE) {
         std::string potential_module = node->left->name;
@@ -376,15 +378,24 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
             (interpreter_.find_variable(potential_module) != nullptr);
         // モジュールとして存在するかチェック
         bool is_module = interpreter_.is_module_imported(potential_module);
+        // FFI モジュールとして存在するかチェック
+        bool is_ffi_module = false;
+        auto *ffi_mgr = interpreter_.get_ffi_manager();
+        if (ffi_mgr) {
+            is_ffi_module = ffi_mgr->isForeignModuleLoaded(potential_module);
+        }
 
-        if (!is_variable && is_module) {
+        if (!is_variable && (is_module || is_ffi_module)) {
             is_qualified_call = true;
+            is_foreign_call = is_ffi_module;
             qualified_module_name = potential_module;
 
             if (interpreter_.is_debug_mode()) {
                 std::cerr << "[QUALIFIED_CALL] Module: "
                           << qualified_module_name
-                          << ", Function: " << node->name << std::endl;
+                          << ", Function: " << node->name
+                          << ", FFI: " << (is_foreign_call ? "yes" : "no")
+                          << std::endl;
             }
         }
     }
@@ -910,6 +921,79 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
 
         // 修飾呼び出しの場合: module.function()
         if (is_qualified_call) {
+            // v0.13.0: FFI module call
+            if (is_foreign_call) {
+                auto *ffi_mgr = interpreter_.get_ffi_manager();
+                if (ffi_mgr) {
+                    // 引数を評価
+                    std::vector<Variable> args;
+                    for (const auto &arg_node : node->arguments) {
+                        // 引数を型付きで評価して正確な型情報を取得
+                        TypedValue typed_val =
+                            interpreter_.evaluate_typed(arg_node.get());
+
+                        Variable arg_var;
+                        arg_var.type = typed_val.type.type_info;
+
+                        // 型情報と値を設定
+                        if (typed_val.is_float_result ||
+                            arg_var.type == TYPE_DOUBLE ||
+                            arg_var.type == TYPE_FLOAT) {
+                            // float/doubleの場合はdouble_valueを使用
+                            arg_var.double_value = typed_val.double_value;
+                            arg_var.value =
+                                static_cast<int64_t>(typed_val.double_value);
+                            if (arg_var.type == TYPE_UNKNOWN) {
+                                arg_var.type =
+                                    TYPE_DOUBLE; // デフォルトでdouble
+                            }
+                        } else if (typed_val.is_string()) {
+                            // 文字列の場合
+                            arg_var.str_value = typed_val.string_value;
+                            arg_var.value = typed_val.value;
+                        } else {
+                            // 整数の場合
+                            arg_var.value = typed_val.value;
+                        }
+
+                        args.push_back(arg_var);
+                    }
+
+                    // FFI 関数を呼び出し
+                    Variable result = ffi_mgr->callFunction(
+                        qualified_module_name, node->name, args);
+
+                    if (result.type == TYPE_UNKNOWN) {
+                        std::cerr << "Error: FFI call failed: "
+                                  << ffi_mgr->getLastError() << std::endl;
+                        std::exit(1);
+                    }
+
+                    // 結果を設定
+                    if (result.type == TYPE_DOUBLE ||
+                        result.type == TYPE_FLOAT) {
+                        TypedValue typed_result(result.double_value,
+                                                InferredType(result.type, ""));
+                        set_last_typed_result(typed_result);
+                        capture_numeric_return(
+                            typed_result); // キャプチャして typed evaluation
+                                           // で利用可能にする
+                        // double値はvalueフィールドにビットパターンとして返す（evaluator内部で適切に処理される）
+                        return *reinterpret_cast<int64_t *>(
+                            &result.double_value);
+                    } else if (result.type == TYPE_STRING) {
+                        TypedValue typed_result(
+                            result.str_value,
+                            InferredType(TYPE_STRING, "string"));
+                        set_last_typed_result(typed_result);
+                        return 0;
+                    } else {
+                        return result.value;
+                    }
+                }
+            }
+
+            // 通常のモジュール呼び出し
             // モジュール名をプレフィックスとして関数を検索
             std::string qualified_name =
                 qualified_module_name + "." + node->name;
@@ -3120,30 +3204,37 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
         }
 
         if (!is_builtin) {
-            if (is_method_call) {
-                std::string debug_type_name;
+            // v0.13.0: FFI関数もチェック
+            if (interpreter_.get_ffi_manager()->isForeignFunction(node->name)) {
+                // FFI関数の場合は is_builtin として扱う
+                is_builtin = true;
+            } else {
                 if (is_method_call) {
-                    if (!receiver_name.empty()) {
-                        Variable *debug_receiver =
-                            interpreter_.find_variable(receiver_name);
-                        if (!debug_receiver &&
-                            receiver_resolution.variable_ptr) {
-                            debug_receiver = receiver_resolution.variable_ptr;
-                        }
-                        if (debug_receiver) {
-                            if (!debug_receiver->struct_type_name.empty()) {
-                                debug_type_name =
-                                    debug_receiver->struct_type_name;
-                            } else {
-                                debug_type_name =
-                                    std::string(::type_info_to_string(
-                                        debug_receiver->type));
+                    std::string debug_type_name;
+                    if (is_method_call) {
+                        if (!receiver_name.empty()) {
+                            Variable *debug_receiver =
+                                interpreter_.find_variable(receiver_name);
+                            if (!debug_receiver &&
+                                receiver_resolution.variable_ptr) {
+                                debug_receiver =
+                                    receiver_resolution.variable_ptr;
+                            }
+                            if (debug_receiver) {
+                                if (!debug_receiver->struct_type_name.empty()) {
+                                    debug_type_name =
+                                        debug_receiver->struct_type_name;
+                                } else {
+                                    debug_type_name =
+                                        std::string(::type_info_to_string(
+                                            debug_receiver->type));
+                                }
                             }
                         }
                     }
                 }
+                throw std::runtime_error("Undefined function: " + node->name);
             }
-            throw std::runtime_error("Undefined function: " + node->name);
         }
 
         // 組み込み関数の場合は、後続の処理（malloc, free などのチェック）に進む
@@ -3204,6 +3295,65 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
     }
 
     if (!func && !is_method_call) {
+        // v0.13.0: FFI関数をチェック
+        if (interpreter_.get_ffi_manager()->isForeignFunction(node->name)) {
+            // 引数を評価してVariableに変換（型付き評価で正確な型情報を取得）
+            std::vector<Variable> args;
+            for (const auto &arg_node : node->arguments) {
+                // 引数を型付きで評価して正確な型情報を取得
+                TypedValue typed_val =
+                    interpreter_.evaluate_typed(arg_node.get());
+
+                Variable arg_var;
+                arg_var.type = typed_val.type.type_info;
+
+                // 型情報と値を設定
+                if (typed_val.is_float_result || arg_var.type == TYPE_DOUBLE ||
+                    arg_var.type == TYPE_FLOAT) {
+                    // float/doubleの場合はdouble_valueを使用
+                    arg_var.double_value = typed_val.double_value;
+                    arg_var.value =
+                        static_cast<int64_t>(typed_val.double_value);
+                    if (arg_var.type == TYPE_UNKNOWN) {
+                        arg_var.type = TYPE_DOUBLE; // デフォルトでdouble
+                    }
+                } else if (typed_val.is_string()) {
+                    // 文字列の場合
+                    arg_var.str_value = typed_val.string_value;
+                    arg_var.value = typed_val.value;
+                } else {
+                    // 整数の場合
+                    arg_var.value = typed_val.value;
+                }
+
+                args.push_back(arg_var);
+            }
+
+            // FFI関数を呼び出し
+            Variable result =
+                interpreter_.get_ffi_manager()->callForeignFunction(node->name,
+                                                                    args);
+
+            // 結果を設定
+            if (result.type == TYPE_DOUBLE || result.type == TYPE_FLOAT) {
+                TypedValue typed_result(result.double_value,
+                                        InferredType(result.type, ""));
+                set_last_typed_result(typed_result);
+                capture_numeric_return(
+                    typed_result); // キャプチャして typed evaluation
+                                   // で利用可能にする
+                // double値はvalueフィールドにビットパターンとして返す
+                return *reinterpret_cast<int64_t *>(&result.double_value);
+            } else if (result.type == TYPE_STRING) {
+                TypedValue typed_result(result.str_value,
+                                        InferredType(TYPE_STRING, "string"));
+                set_last_typed_result(typed_result);
+                return 0;
+            } else {
+                return result.value;
+            }
+        }
+
         if (interpreter_.is_debug_mode()) {
             {
                 char dbg_buf[512];

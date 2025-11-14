@@ -36,6 +36,7 @@
 #include "enum/test_enum.hpp"
 #include "error_handling/test_error_handling.hpp"
 #include "error_propagation/test_error_propagation.hpp"
+#include "ffi/test_ffi.hpp"
 #include "float_double_unsigned/test_float_double_unsigned.hpp"
 #include "floating_point/test_floating_point.hpp"
 #include "func/test_func.hpp"
@@ -82,6 +83,8 @@
 #include "sample_scenarios/test_sample_scenarios.hpp"
 #include "switch/test_switch.hpp"
 // #include "samples/test_actual_samples.hpp"
+#include "comments/test_comments.hpp"
+#include "preprocessor/test_preprocessor.hpp"
 #include "self_assign/test_self_assign.hpp"
 #include "sizeof_array/test_sizeof_array.hpp"
 #include "static_variables/test_static_variables.hpp"
@@ -160,6 +163,10 @@ int main() {
     std::cout << "[integration-test] === Core Language Tests ===" << std::endl;
     CategoryTimingStats::set_current_category("Core Language");
     run_test_with_continue(test_integration_basic, "Basic Tests", failed_tests);
+    run_test_with_continue(CommentTests::runCommentTests, "Comment Tests",
+                           failed_tests);
+    run_test_with_continue(test_integration_preprocessor,
+                           "Preprocessor Tests (v0.13.0)", failed_tests);
     run_test_with_continue(test_integration_arithmetic, "Arithmetic Tests",
                            failed_tests);
     run_test_with_continue(test_integration_floating_point,
@@ -224,6 +231,9 @@ int main() {
                            "Import/Export Tests", failed_tests);
     run_test_with_continue(test_integration_module_functions,
                            "Module Function Tests", failed_tests);
+    run_test_with_continue(test_integration_ffi,
+                           "FFI (Foreign Function Interface) Tests",
+                           failed_tests);
     CategoryTimingStats::print_category_summary("Functions");
 
     // 変数・定数テスト群

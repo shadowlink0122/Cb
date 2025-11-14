@@ -1,0 +1,11 @@
+// Test: Undefine and redefine macro
+// Expected output: 20
+
+#define VALUE 10
+#undef VALUE
+#define VALUE 20
+
+void main() {
+    int x = VALUE;
+    println(x);
+}

@@ -1,0 +1,10 @@
+// Test: Different numeric types in macros
+#define PI_DOUBLE 3.14159
+#define MAX_INT 100
+
+void main() {
+    double pi = PI_DOUBLE;
+    int max = MAX_INT;
+    println(pi);
+    println(max);
+}

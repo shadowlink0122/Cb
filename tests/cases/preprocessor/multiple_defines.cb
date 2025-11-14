@@ -1,0 +1,10 @@
+// Test: Multiple #define in expressions
+// Expected output: 15
+
+#define A 5
+#define B 10
+
+void main() {
+    int sum = A + B;
+    println(sum);
+}

@@ -1,0 +1,6 @@
+// Test: Built-in __VERSION__ macro
+// Expected output: 0.13.0
+
+void main() {
+    println(__VERSION__);
+}

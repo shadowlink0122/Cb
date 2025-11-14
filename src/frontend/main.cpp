@@ -6,6 +6,9 @@
 // Recursive parser only
 #include "recursive_parser/recursive_parser.h"
 
+// Preprocessor (v0.13.0)
+#include "preprocessor/preprocessor.h"
+
 #include <cstdarg>
 #include <cstdlib>
 #include <fstream>
@@ -31,6 +34,8 @@ int main(int argc, char **argv) {
     std::string filename;
     debug_mode = false;
     debug_language = DebugLanguage::ENGLISH;
+    bool enable_preprocessor = true;
+    PreprocessorNS::Preprocessor preprocessor;
 
     for (int i = 1; i < argc; ++i) {
         if (std::string(argv[i]) == "--debug" || std::string(argv[i]) == "-d") {
@@ -39,6 +44,19 @@ int main(int argc, char **argv) {
         } else if (std::string(argv[i]) == "--debug-ja") {
             debug_mode = true;
             debug_language = DebugLanguage::JAPANESE;
+        } else if (std::string(argv[i]) == "--no-preprocess") {
+            enable_preprocessor = false;
+        } else if (std::string(argv[i]).substr(0, 2) == "-D") {
+            // -Dマクロ定義（例: -DDEBUG, -DVERSION=123）
+            std::string define_str = std::string(argv[i]).substr(2);
+            size_t eq_pos = define_str.find('=');
+            if (eq_pos != std::string::npos) {
+                std::string name = define_str.substr(0, eq_pos);
+                std::string value = define_str.substr(eq_pos + 1);
+                preprocessor.define(name, value);
+            } else {
+                preprocessor.define(define_str, "1");
+            }
         } else {
             filename = argv[i];
         }
@@ -72,6 +90,22 @@ int main(int argc, char **argv) {
         std::string source((std::istreambuf_iterator<char>(input)),
                            std::istreambuf_iterator<char>());
         input.close();
+
+        // プリプロセッサ処理 (v0.13.0)
+        if (enable_preprocessor) {
+            source = preprocessor.process(source, filename);
+
+            // プリプロセッサエラー/警告の表示
+            for (const auto &warning : preprocessor.getWarnings()) {
+                std::cerr << warning << std::endl;
+            }
+            for (const auto &error : preprocessor.getErrors()) {
+                std::cerr << error << std::endl;
+            }
+            if (!preprocessor.getErrors().empty()) {
+                return 1;
+            }
+        }
 
         debug_msg(DebugMsgId::PARSE_USING_RECURSIVE_PARSER);
 

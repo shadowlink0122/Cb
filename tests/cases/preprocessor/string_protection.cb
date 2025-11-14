@@ -1,0 +1,9 @@
+// Test: Macros should not expand inside strings
+// Expected output: The value of PI is 3.14159
+
+#define PI 3.14159
+
+void main() {
+    // PI in the string should NOT be replaced
+    println("The value of PI is 3.14159");
+}

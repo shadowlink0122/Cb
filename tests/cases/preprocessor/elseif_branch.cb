@@ -1,0 +1,14 @@
+// Test: #elseif branch
+// Expected output: Production mode
+
+#define PRODUCTION
+
+void main() {
+    #ifdef DEBUG
+        println("Debug mode");
+    #elseif PRODUCTION
+        println("Production mode");
+    #else
+        println("Unknown mode");
+    #endif
+}

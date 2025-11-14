@@ -1,0 +1,10 @@
+// Test: Macros in comments should not affect output
+// Expected output: 42
+
+#define VALUE 999
+
+void main() {
+    // This comment mentions VALUE but shouldn't affect code
+    int x = 42;
+    println(x);
+}

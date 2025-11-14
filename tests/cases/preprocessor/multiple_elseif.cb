@@ -1,0 +1,16 @@
+// Test: Multiple #elseif branches
+// Expected output: Option 2
+
+#define OPTION2
+
+void main() {
+    #ifdef OPTION1
+        println("Option 1");
+    #elseif OPTION2
+        println("Option 2");
+    #elseif OPTION3
+        println("Option 3");
+    #else
+        println("No option");
+    #endif
+}

@@ -1,0 +1,8 @@
+// Test: Empty macro definition (flag)
+#define FLAG
+
+void main() {
+    #ifdef FLAG
+        println("Flag is defined");
+    #endif
+}

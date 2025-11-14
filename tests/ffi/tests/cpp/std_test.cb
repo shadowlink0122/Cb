@@ -1,0 +1,17 @@
+// C++ FFI STL Test
+
+use foreign.cpplib {
+    double euclidean_distance(double x1, double y1, double x2, double y2);
+}
+
+void main() {
+    println("=== C++ FFI STL Test ===");
+    
+    double dist = cpplib.euclidean_distance(0.0, 0.0, 3.0, 4.0);
+    println("euclidean_distance((0,0), (3,4)) =", dist);
+    
+    double dist2 = cpplib.euclidean_distance(1.0, 1.0, 4.0, 5.0);
+    println("euclidean_distance((1,1), (4,5)) =", dist2);
+    
+    println("✓ All C++ STL tests completed!");
+}

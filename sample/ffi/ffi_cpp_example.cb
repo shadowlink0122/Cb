@@ -1,0 +1,67 @@
+// Cb FFI Example: Calling C++ functions
+// Compile C++ library first:
+//   macOS:  clang++ -shared -fPIC ffi_cpp_example.cpp -o libcppexample.dylib
+//   Linux:  g++ -shared -fPIC ffi_cpp_example.cpp -o libcppexample.so
+
+use foreign.cppexample {
+    // Basic arithmetic
+    int cpp_add(int a, int b);
+    int cpp_multiply(int a, int b);
+    
+    // Math operations
+    double cpp_distance(double x1, double y1, double x2, double y2);
+    double cpp_circle_area(double radius);
+    
+    // Factorial and Fibonacci
+    long cpp_factorial(int n);
+    long cpp_fibonacci(int n);
+    
+    // Print functions
+    void cpp_hello();
+    void cpp_print_number(int n);
+}
+
+void main() {
+    println("=== FFI C++ Example ===");
+    println();
+    
+    // Test basic arithmetic
+    println("Basic Arithmetic:");
+    int sum = cppexample.cpp_add(10, 20);
+    int product = cppexample.cpp_multiply(7, 8);
+    println("  10 + 20 =", sum);
+    println("  7 * 8 =", product);
+    println();
+    
+    // Test math operations
+    println("Math Operations:");
+    double dist = cppexample.cpp_distance(0.0, 0.0, 3.0, 4.0);
+    double area = cppexample.cpp_circle_area(5.0);
+    println("  Distance from (0,0) to (3,4) =", dist);
+    println("  Area of circle with radius 5 =", area);
+    println();
+    
+    // Test factorial
+    println("Factorial:");
+    for (int i = 1; i <= 10; i++) {
+        long fact = cppexample.cpp_factorial(i);
+        println("  ", i, "! =", fact);
+    }
+    println();
+    
+    // Test Fibonacci
+    println("Fibonacci:");
+    for (int i = 0; i <= 10; i++) {
+        long fib = cppexample.cpp_fibonacci(i);
+        println("  fib(", i, ") =", fib);
+    }
+    println();
+    
+    // Test void functions
+    println("Void Functions:");
+    cppexample.cpp_hello();
+    cppexample.cpp_print_number(42);
+    
+    println();
+    println("=== All tests completed! ===");
+}

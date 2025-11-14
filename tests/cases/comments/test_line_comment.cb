@@ -1,0 +1,20 @@
+// 行コメントのテスト
+
+void main() {
+    // 変数宣言前のコメント
+    int x = 10;
+    println("x = {x}"); // 行末のコメント
+
+    // 複数の連続したコメント
+    // これは2行目
+    // これは3行目
+    int y = 20;
+    println("y = {y}");
+
+    // コメントアウトされたコード
+    // int z = 30;
+    // println("z = {z}");
+
+    int result = x + y; // 計算
+    println("result = {result}");
+}

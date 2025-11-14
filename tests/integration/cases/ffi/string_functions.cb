@@ -1,0 +1,12 @@
+// Test: FFI string functions (limited support)
+// Purpose: Test basic string function calls
+
+use foreign.c {
+    int strlen(string s);
+}
+
+void main() {
+    // Note: String support is limited in v0.13.0
+    // This test verifies the parser accepts string parameters
+    println("String Tests Completed");
+}

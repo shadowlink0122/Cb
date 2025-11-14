@@ -1,0 +1,10 @@
+// Test: Underscore should be treated as part of identifier
+// Expected output: 42
+
+#define VALUE 999
+
+void main() {
+    // VALUE_MAX should not be affected by VALUE
+    int VALUE_MAX = 42;
+    println(VALUE_MAX);
+}

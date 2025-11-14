@@ -1,6 +1,7 @@
 #include "statement_parser.h"
 #include "../recursive_lexer.h"
 #include "../recursive_parser.h"
+#include "declaration_parser.h" // v0.13.0: FFI用
 #include <cstdio>
 #include <memory>
 #include <stdexcept>
@@ -137,6 +138,11 @@ ASTNode *StatementParser::parseDeclarationStatement(bool isStatic, bool isConst,
     // import文
     if (parser_->check(TokenType::TOK_IMPORT)) {
         return parseImportStatement();
+    }
+
+    // v0.13.0: use文（FFI用）
+    if (parser_->check(TokenType::TOK_USE)) {
+        return parseUseStatement();
     }
 
     // main関数
@@ -2322,4 +2328,29 @@ MatchArm StatementParser::parseMatchArm() {
     }
 
     return arm;
+}
+
+// ============================================================================
+// v0.13.0: FFI (Foreign Function Interface) パーサー
+// ============================================================================
+
+// use文のパース
+// use foreign.module { ... }
+ASTNode *StatementParser::parseUseStatement() {
+    // "use" トークンを消費
+    parser_->advance();
+
+    // "foreign" かどうかチェック
+    if (parser_->check(TokenType::TOK_FOREIGN)) {
+        // FFI: use foreign.module { ... }
+        // DeclarationParserに委譲
+        return parser_->declaration_parser_->parseForeignModuleDecl();
+    }
+
+    // 将来的に他のuse構文をサポートする可能性がある
+    // 例: use module_name (通常のモジュールインポート)
+
+    parser_->error(
+        "Invalid use statement. Expected 'use foreign.module { ... }'");
+    return nullptr;
 }

@@ -1,7 +1,7 @@
 # Cb言語 BNF文法定義
 
-**バージョン**: v0.12.1  
-**最終更新**: 2025年11月11日
+**バージョン**: v0.13.0  
+**最終更新**: 2025年11月14日
 
 ## 概要
 
@@ -643,8 +643,15 @@ println("Use {{}} for braces");  // "Use {} for braces"
 
 ```
 <import_statement> ::= 'import' <module_path> ';'  // v0.11.0で文字列リテラル構文を廃止
+                     | 'use' 'foreign' '.' <module_name> '{' <foreign_function_list> '}'  // v0.13.0 FFI
 
 <module_path> ::= <identifier> { '.' <identifier> }
+
+<module_name> ::= <identifier>
+
+<foreign_function_list> ::= <foreign_function_decl> { <foreign_function_decl> }
+
+<foreign_function_decl> ::= <type_specifier> <identifier> '(' [ <parameter_list> ] ')' ';'
 
 <export_statement> ::= 'export' <function_declaration>
                      | 'export' <variable_declaration>
@@ -659,12 +666,20 @@ println("Use {{}} for braces");  // "Use {} for braces"
 import "path/to/module.cb";  // ❌ 廃止
 ```
 
-**新構文**:
+**新構文（v0.11.0以降）**:
 ```cb
 import module.path.name;  // ✅ v0.11.0以降
 import stdlib.std.vector;
 import stdlib.std.queue;
 import stdlib.std.map;
+```
+
+**FFI構文（v0.13.0以降）**:
+```cb
+use foreign.math {
+    int add(int a, int b);
+    double sqrt(double x);
+}
 ```
 
 ---

@@ -1,0 +1,11 @@
+// Test: Macro names are case-sensitive
+// Expected output: 10 20
+
+#define value 10
+#define VALUE 20
+
+void main() {
+    int x = value;
+    int y = VALUE;
+    println(x, y);
+}

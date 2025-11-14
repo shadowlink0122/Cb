@@ -1,0 +1,10 @@
+// Test: #else branch
+// Expected output: Not in debug mode
+
+void main() {
+    #ifdef DEBUG
+        println("In debug mode");
+    #else
+        println("Not in debug mode");
+    #endif
+}

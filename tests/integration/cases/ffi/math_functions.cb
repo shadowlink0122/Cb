@@ -1,0 +1,35 @@
+// Test: FFI math library functions
+// Purpose: Test various math library functions
+
+use foreign.m {
+    double sqrt(double x);
+    double pow(double base, double exp);
+    double sin(double x);
+    double cos(double x);
+}
+
+void main() {
+    // Test 1: sqrt
+    double sq = m.sqrt(16.0);
+    if (sq > 3.99 && sq < 4.01) {
+        println("Test 1: sqrt - PASSED");
+    }
+    
+    // Test 2: pow
+    double pw = m.pow(2.0, 3.0);
+    if (pw > 7.99 && pw < 8.01) {
+        println("Test 2: pow - PASSED");
+    }
+    
+    // Test 3: sin(0) should be ~0
+    double s = m.sin(0.0);
+    if (s > -0.01 && s < 0.01) {
+        println("Test 3: sin(0) - PASSED");
+    }
+    
+    // Test 4: cos(0) should be ~1
+    double c = m.cos(0.0);
+    if (c > 0.99 && c < 1.01) {
+        println("Test 4: cos(0) - PASSED");
+    }
+}

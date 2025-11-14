@@ -1,0 +1,25 @@
+// C FFI Math Test
+
+use foreign.clib {
+    long factorial(int n);
+    double power(double base, double exp);
+    double square_root(double x);
+}
+
+void main() {
+    println("=== C FFI Math Test ===");
+    
+    long fact5 = clib.factorial(5);
+    println("factorial(5) =", fact5);
+    
+    long fact10 = clib.factorial(10);
+    println("factorial(10) =", fact10);
+    
+    double pow2_10 = clib.power(2.0, 10.0);
+    println("power(2.0, 10.0) =", pow2_10);
+    
+    double sqrt16 = clib.square_root(16.0);
+    println("square_root(16.0) =", sqrt16);
+    
+    println("✓ All C math tests completed!");
+}

@@ -1,0 +1,7 @@
+// Test: Built-in __DATE__ and __TIME__ macros
+// Expected: Should print date and time strings
+
+void main() {
+    println(__DATE__);
+    println(__TIME__);
+}

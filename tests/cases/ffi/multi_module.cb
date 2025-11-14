@@ -1,0 +1,36 @@
+// FFI Multiple Modules Test
+// Tests using functions from multiple foreign modules
+
+use foreign.m {
+    double sqrt(double x);
+    double pow(double x, double y);
+}
+
+use foreign.c {
+    int abs(int x);
+}
+
+void main() {
+    println("=== FFI Multiple Modules Test ===");
+    
+    // Test 1: Use math library
+    double math_result = m.sqrt(16.0);
+    println("m.sqrt(16.0) =", math_result);
+    assert(math_result == 4.0);
+    println("Test 1: math module - PASSED");
+    
+    // Test 2: Use C library
+    int c_result = c.abs(-100);
+    println("c.abs(-100) =", c_result);
+    assert(c_result == 100);
+    println("Test 2: C module - PASSED");
+    
+    // Test 3: Use both in same expression
+    double combined = m.pow(2.0, 3.0);
+    int final_result = c.abs(-8);
+    println("pow(2, 3) =", combined, ", abs(-8) =", final_result);
+    assert(combined == 8.0 && final_result == 8);
+    println("Test 3: combined modules - PASSED");
+    
+    println("=== All Multiple Module Tests Passed ===");
+}

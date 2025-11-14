@@ -1,0 +1,14 @@
+// Test: Nested #ifdef
+// Expected output: Feature A enabled
+
+#define FEATURE_A
+#define FEATURE_B
+
+void main() {
+    #ifdef FEATURE_A
+        println("Feature A enabled");
+        #ifdef FEATURE_B
+            println("Feature B enabled");
+        #endif
+    #endif
+}

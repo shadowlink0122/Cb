@@ -128,6 +128,8 @@ enum class TokenType {
     TOK_CHECKED,    // checked (v0.14.0: checked operations)
     TOK_PANIC,      // panic (v0.14.0: panic macro)
     TOK_UNWRAP,     // unwrap (v0.14.0: unwrap method)
+    TOK_FOREIGN,    // foreign (v0.13.0: FFI support)
+    TOK_USE,        // use (v0.13.0: use statements, replaces import context)
 
     // Special
     TOK_EOF,
@@ -164,6 +166,7 @@ class RecursiveLexer {
     char advance();
     void skipWhitespace();
     void skipComment();
+    void skipBlockComment();
     Token makeToken(TokenType type, const std::string &value);
     Token makeIdentifier();
     Token makeNumber();

@@ -1,0 +1,10 @@
+// Test: Multiple defines
+#define PI 3.14159
+#define E 2.71828
+#define SQRT2 1.41421
+
+void main() {
+    println(PI);
+    println(E);
+    println(SQRT2);
+}

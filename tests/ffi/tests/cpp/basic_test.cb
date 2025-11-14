@@ -1,0 +1,26 @@
+// C++ FFI Basic Test
+
+use foreign.cpplib {
+    int cpp_add(int a, int b);
+    int cpp_multiply(int a, int b);
+    double circle_area(double radius);
+    double triangle_area(double base, double height);
+}
+
+void main() {
+    println("=== C++ FFI Basic Test ===");
+    
+    int sum = cpplib.cpp_add(20, 30);
+    println("cpp_add(20, 30) =", sum);
+    
+    int prod = cpplib.cpp_multiply(6, 7);
+    println("cpp_multiply(6, 7) =", prod);
+    
+    double circle = cpplib.circle_area(5.0);
+    println("circle_area(5.0) =", circle);
+    
+    double triangle = cpplib.triangle_area(10.0, 6.0);
+    println("triangle_area(10.0, 6.0) =", triangle);
+    
+    println("✓ All C++ basic tests completed!");
+}

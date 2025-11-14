@@ -1,0 +1,69 @@
+// Syntax Highlighting Test
+// This file tests all syntax highlighting features
+
+// Preprocessor directives (should be pink/magenta)
+#define MAX_SIZE 1024
+#define PI 3.14159
+#ifdef DEBUG
+    #define LOG_LEVEL 3
+#endif
+
+// Storage modifiers and primitive types (should be blue)
+const int CONSTANT_VALUE = 100;
+static double global_pi = 3.14159;
+unsigned int counter = 0;
+
+// Primitive types (should be blue)
+void test_types() {
+    tiny t = 1;
+    short s = 100;
+    int i = 1000;
+    long l = 100000;
+    float f = 3.14;
+    double d = 3.14159;
+    char c = 'A';
+    string str = "Hello";
+    bool b = true;
+}
+
+// Constants (all uppercase, should be constant color like numbers)
+const int MAX_BUFFER_SIZE = 1024;
+const int MIN_VALUE = 0;
+const double PI_VALUE = 3.14159;
+
+void process(int MAX_COUNT) {
+    int LOCAL_MAX = MAX_COUNT;
+}
+
+// Numbers (should be constant color)
+void test_numbers() {
+    int decimal = 42;
+    int hex = 0xFF;
+    int binary = 0b1010;
+    int octal = 0o77;
+    double floating = 3.14159;
+    double scientific = 1.23e-4;
+}
+
+// Built-in macros (should be constant color)
+void test_builtins() {
+    println(__FILE__);
+    println(__LINE__);
+    println(__DATE__);
+    println(__TIME__);
+    println(__VERSION__);
+}
+
+// Mixed case identifiers
+void mixed_case_test() {
+    int normalVariable = 10;    // lowercase start = variable
+    int CONSTANT_NAME = 20;     // all uppercase = constant
+    int ClassName = 30;         // uppercase start = type name
+}
+
+void main() {
+    test_types();
+    test_numbers();
+    test_builtins();
+    mixed_case_test();
+}

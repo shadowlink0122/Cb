@@ -1,0 +1,33 @@
+// FFI Module Namespace Test
+// Tests that module names work as namespaces
+
+use foreign.m {
+    double sqrt(double x);
+    double sin(double x);
+}
+
+void main() {
+    println("=== Module Namespace Test ===");
+    
+    // Test 1: Module prefix usage
+    double result1 = m.sqrt(25.0);
+    println("m.sqrt(25.0) =", result1);
+    assert(result1 == 5.0);
+    println("Test 1: Module prefix - PASSED");
+    
+    // Test 2: Different functions from same module
+    double result2 = m.sin(0.0);
+    println("m.sin(0.0) =", result2);
+    assert(result2 >= -0.0001 && result2 <= 0.0001);
+    println("Test 2: Multiple functions same module - PASSED");
+    
+    // Test 3: Variable assignment from FFI call
+    double sqrt_result = m.sqrt(16.0);
+    double sin_result = m.sin(0.0);
+    println("sqrt_result =", sqrt_result);
+    println("sin_result =", sin_result);
+    assert(sqrt_result == 4.0);
+    println("Test 3: Variable assignment - PASSED");
+    
+    println("=== All Tests Passed ===");
+}

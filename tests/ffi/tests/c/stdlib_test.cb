@@ -1,0 +1,32 @@
+// C FFI Standard Library Test
+
+use foreign.clib {
+    double sine(double x);
+    double cosine(double x);
+    double absolute(double x);
+    double ceiling(double x);
+    double floor_value(double x);
+}
+
+void main() {
+    println("=== C FFI Standard Library Test ===");
+    
+    double sin0 = clib.sine(0.0);
+    println("sin(0) =", sin0);
+    
+    double cos0 = clib.cosine(0.0);
+    println("cos(0) =", cos0);
+    
+    double abs_pos = clib.absolute(5.5);
+    double abs_neg = clib.absolute(-5.5);
+    println("abs(5.5) =", abs_pos);
+    println("abs(-5.5) =", abs_neg);
+    
+    double ceil_val = clib.ceiling(3.2);
+    println("ceil(3.2) =", ceil_val);
+    
+    double floor_val = clib.floor_value(3.8);
+    println("floor(3.8) =", floor_val);
+    
+    println("✓ All C stdlib tests completed!");
+}

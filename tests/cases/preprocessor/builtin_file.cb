@@ -1,0 +1,6 @@
+// Test: Built-in __FILE__ macro
+// Expected output: tests/cases/preprocessor/builtin_file.cb
+
+void main() {
+    println(__FILE__);
+}

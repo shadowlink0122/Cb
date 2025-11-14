@@ -1,0 +1,40 @@
+// FFI Double Return Value Test
+// Tests that double return values are properly propagated
+
+use foreign.m {
+    double sqrt(double x);
+    double pow(double x, double y);
+}
+
+void main() {
+    println("=== Double Return Value Test ===");
+    
+    // Test 1: sqrt(2.0) should return approximately 1.41421
+    double result1 = m.sqrt(2.0);
+    println("sqrt(2.0) =", result1);
+    
+    // Check that it's in the right range (1.414 to 1.415)
+    assert(result1 > 1.414 && result1 < 1.415);
+    println("Test 1: sqrt(2.0) precision - PASSED");
+    
+    // Test 2: sqrt(9.0) should return exactly 3.0
+    double result2 = m.sqrt(9.0);
+    println("sqrt(9.0) =", result2);
+    assert(result2 == 3.0);
+    println("Test 2: sqrt(9.0) exact - PASSED");
+    
+    // Test 3: pow(2.5, 2.0) should return 6.25
+    double result3 = m.pow(2.5, 2.0);
+    println("pow(2.5, 2.0) =", result3);
+    assert(result3 == 6.25);
+    println("Test 3: pow(2.5, 2.0) - PASSED");
+    
+    // Test 4: Assignment and reuse
+    double x = m.sqrt(100.0);
+    double y = m.sqrt(x);  // sqrt of 10.0
+    println("sqrt(sqrt(100.0)) =", y);
+    assert(y > 3.16 && y < 3.17);  // sqrt(10) ≈ 3.162
+    println("Test 4: Nested calls - PASSED");
+    
+    println("=== All Tests Passed ===");
+}

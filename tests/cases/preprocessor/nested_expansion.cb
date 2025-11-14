@@ -1,0 +1,10 @@
+// Test: Nested macro expansion
+// Expected output: 100
+
+#define INNER 50
+#define OUTER (INNER * 2)
+
+void main() {
+    int x = OUTER;
+    println(x);
+}

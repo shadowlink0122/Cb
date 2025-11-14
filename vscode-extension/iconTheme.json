@@ -1,0 +1,13 @@
+{
+  "iconDefinitions": {
+    "cb-file": {
+      "iconPath": "./images/icon.svg"
+    }
+  },
+  "fileExtensions": {
+    "cb": "cb-file"
+  },
+  "languageIds": {
+    "cb": "cb-file"
+  }
+}

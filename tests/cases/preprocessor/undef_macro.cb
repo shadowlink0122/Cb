@@ -1,0 +1,11 @@
+// Test: #undef should remove macro
+// Expected output: (empty - ifdef fails)
+
+#define DEBUG
+#undef DEBUG
+
+void main() {
+    #ifdef DEBUG
+        println("This should not appear");
+    #endif
+}

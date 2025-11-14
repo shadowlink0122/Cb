@@ -1,0 +1,108 @@
+// Cb Language v0.13.0 - Syntax Highlighting Test
+// This file demonstrates all syntax highlighting features
+
+// ============================================
+// 1. Preprocessor Directives (should be PINK)
+// ============================================
+#define DEBUG
+#define PI 3.14159
+#define MAX_SIZE 1024
+
+#ifdef DEBUG
+    #define LOG_ENABLED
+#endif
+
+#ifndef RELEASE
+    #warning "Debug mode enabled"
+#endif
+
+// ============================================
+// 2. FFI Declaration (use = PINK, foreign = BLUE)
+// ============================================
+use foreign.m {
+    double sqrt(double x);
+    double pow(double base, double exp);
+    double sin(double x);
+}
+
+use foreign.c {
+    int abs(int x);
+    void exit(int status);
+}
+
+// ============================================
+// 3. Storage Keywords (should be BLUE)
+// ============================================
+struct Point {
+    int x;
+    int y;
+};
+
+const int CONSTANT_VALUE = 100;
+static int static_variable = 0;
+
+// ============================================
+// 4. Constants (UPPERCASE should highlight like numbers)
+// ============================================
+const int MAX_ITEMS = 100;
+const int MIN_ITEMS = 0;
+const double EPSILON = 0.0001;
+
+// ============================================
+// 5. Regular Functions
+// ============================================
+void test_ffi() {
+    // FFI calls with module prefix
+    double result1 = m.sqrt(16.0);
+    double result2 = m.pow(2.0, 3.0);
+    int result3 = c.abs(-42);
+    
+    println("sqrt(16) =", result1);
+    println("pow(2,3) =", result2);
+    println("abs(-42) =", result3);
+}
+
+void test_preprocessor() {
+    #ifdef DEBUG
+        println("Debug mode active");
+    #else
+        println("Release mode active");
+    #endif
+    
+    double pi = PI;
+    int max = MAX_SIZE;
+    println("PI =", pi);
+    println("MAX_SIZE =", max);
+}
+
+void test_constants() {
+    // Constants should be highlighted
+    int max = MAX_ITEMS;
+    int min = MIN_ITEMS;
+    double eps = EPSILON;
+    
+    println(max, min, eps);
+}
+
+// ============================================
+// 6. Main Function
+// ============================================
+void main() {
+    println("=== Cb v0.13.0 Syntax Test ===");
+    
+    // Test FFI
+    test_ffi();
+    
+    // Test Preprocessor
+    test_preprocessor();
+    
+    // Test Constants
+    test_constants();
+    
+    // Test built-in macros
+    println("Version:", __VERSION__);
+    println("File:", __FILE__);
+    println("Line:", __LINE__);
+    
+    println("=== All Tests Complete ===");
+}

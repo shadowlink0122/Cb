@@ -1,0 +1,23 @@
+// Test: FFI basic parsing
+// Purpose: Verify that FFI declarations are correctly parsed
+
+use foreign.math {
+    double sqrt(double x);
+    double pow(double base, double exp);
+}
+
+use foreign.c {
+    int abs(int x);
+    void exit(int status);
+}
+
+void main() {
+    // Test 1: Multiple foreign modules
+    println("Test 1: Multiple foreign modules - PASSED");
+    
+    // Test 2: Multiple function declarations per module
+    println("Test 2: Multiple function declarations - PASSED");
+    
+    // Test 3: Different parameter types
+    println("Test 3: Different parameter types - PASSED");
+}

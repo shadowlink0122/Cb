@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Text gradient definition -->
+  <defs>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5C6BC0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3F51B5;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Main text "C" -->
+  <text x="95" y="195"
+        font-family="'Segoe UI', 'San Francisco', 'Helvetica Neue', Arial, sans-serif"
+        font-size="200"
+        font-weight="700"
+        fill="url(#textGradient)"
+        text-anchor="middle"
+        filter="url(#shadow)">C</text>
+
+  <!-- Letter "b" -->
+  <text x="200" y="150"
+        font-family="'Segoe UI', 'San Francisco', 'Helvetica Neue', Arial, sans-serif"
+        font-size="140"
+        font-weight="700"
+        fill="url(#textGradient)"
+        text-anchor="middle"
+        filter="url(#shadow)">b</text>
+</svg>

@@ -1,0 +1,10 @@
+// Test: Variable name protection - don't replace parts of identifiers
+#define MAX 100
+
+void main() {
+    int MAX_VALUE = 200;
+    int myMAX = 300;
+    println(MAX);
+    println(MAX_VALUE);
+    println(myMAX);
+}

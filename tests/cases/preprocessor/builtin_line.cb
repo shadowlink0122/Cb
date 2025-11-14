@@ -1,0 +1,6 @@
+// Test: Built-in __LINE__ macro
+// Expected output: 5
+
+void main() {
+    println(__LINE__);
+}

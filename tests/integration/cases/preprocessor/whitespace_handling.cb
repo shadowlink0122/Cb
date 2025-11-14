@@ -1,0 +1,7 @@
+// Test: Whitespace handling in macros
+#define   SPACED_VALUE   42
+
+void main() {
+    int x = SPACED_VALUE;
+    println(x);
+}

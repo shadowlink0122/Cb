@@ -1,0 +1,26 @@
+/* ブロックコメントのテスト */
+
+void main() {
+    /* 単行ブロックコメント */
+    int x = 10;
+    println("x = {x}");
+
+    int y = /* 式の途中のコメント */ 20;
+    println("y = {y}");
+
+    /*
+       複数行の
+       ブロックコメント
+       テスト
+    */
+    int z = 30;
+    println("z = {z}");
+
+    /* コメントアウトされたコード
+    int a = 40;
+    println("a = {a}");
+    */
+
+    int result = x + y + z; /* 合計計算 */
+    println("result = {result}");
+}

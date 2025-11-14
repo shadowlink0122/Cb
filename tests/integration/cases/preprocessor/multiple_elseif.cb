@@ -1,0 +1,8 @@
+// Test: Multiple elseif branches
+#define OPTION 2
+
+void main() {
+    #ifdef OPTION
+        println("Option 2");
+    #endif
+}

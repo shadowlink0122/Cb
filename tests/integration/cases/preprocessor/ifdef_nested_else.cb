@@ -1,0 +1,13 @@
+// Test: Nested ifdef with else
+#define OUTER
+#define INNER
+
+void main() {
+    #ifdef OUTER
+        #ifdef INNER
+            println("Inner defined");
+        #else
+            println("Inner not defined");
+        #endif
+    #endif
+}

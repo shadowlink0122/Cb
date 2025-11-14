@@ -1,0 +1,49 @@
+// Test: FFI trigonometric functions
+// Purpose: Test various trigonometric functions
+
+use foreign.m {
+    double sin(double x);
+    double cos(double x);
+    double tan(double x);
+    double asin(double x);
+    double acos(double x);
+    double atan(double x);
+}
+
+void main() {
+    // Test 1: sin(0)
+    double s = m.sin(0.0);
+    if (s > -0.01 && s < 0.01) {
+        println("Test 1: sin(0) - PASSED");
+    }
+    
+    // Test 2: cos(0)
+    double c = m.cos(0.0);
+    if (c > 0.99 && c < 1.01) {
+        println("Test 2: cos(0) - PASSED");
+    }
+    
+    // Test 3: tan(0)
+    double t = m.tan(0.0);
+    if (t > -0.01 && t < 0.01) {
+        println("Test 3: tan(0) - PASSED");
+    }
+    
+    // Test 4: asin(0)
+    double as = m.asin(0.0);
+    if (as > -0.01 && as < 0.01) {
+        println("Test 4: asin(0) - PASSED");
+    }
+    
+    // Test 5: acos(1)
+    double ac = m.acos(1.0);
+    if (ac > -0.01 && ac < 0.01) {
+        println("Test 5: acos(1) - PASSED");
+    }
+    
+    // Test 6: atan(0)
+    double at = m.atan(0.0);
+    if (at > -0.01 && at < 0.01) {
+        println("Test 6: atan(0) - PASSED");
+    }
+}

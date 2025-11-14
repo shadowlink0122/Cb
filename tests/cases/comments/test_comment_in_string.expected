@@ -1,0 +1,5 @@
+s1 = This is // not a comment
+s2 = This is /* not a comment */
+s3 = Valid string
+s4 = Another valid string
+url = http://example.com

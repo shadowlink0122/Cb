@@ -1,0 +1,8 @@
+// Test: #ifdef when macro is not defined
+// Expected output: (empty)
+
+void main() {
+    #ifdef UNDEFINED
+        println("This should not appear");
+    #endif
+}

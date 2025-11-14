@@ -1,0 +1,26 @@
+// C FFI Basic Test
+
+use foreign.clib {
+    int add(int a, int b);
+    int subtract(int a, int b);
+    int multiply(int a, int b);
+    int divide(int a, int b);
+}
+
+void main() {
+    println("=== C FFI Basic Test ===");
+    
+    int sum = clib.add(10, 5);
+    println("add(10, 5) =", sum);
+    
+    int diff = clib.subtract(10, 5);
+    println("subtract(10, 5) =", diff);
+    
+    int prod = clib.multiply(10, 5);
+    println("multiply(10, 5) =", prod);
+    
+    int quot = clib.divide(10, 5);
+    println("divide(10, 5) =", quot);
+    
+    println("✓ All C basic tests completed!");
+}

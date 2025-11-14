@@ -1,0 +1,27 @@
+// Go FFI Concurrent Test (Go標準ライブラリの利用)
+
+use foreign.golib {
+    long go_fibonacci(int n);
+    long go_factorial(int n);
+    double go_sin(double x);
+    double go_cos(double x);
+}
+
+void main() {
+    println("=== Go FFI Concurrent Test ===");
+    
+    long fib15 = golib.go_fibonacci(15);
+    println("go_fibonacci(15) =", fib15);
+    
+    long fact7 = golib.go_factorial(7);
+    println("go_factorial(7) =", fact7);
+    
+    double sin0 = golib.go_sin(0.0);
+    println("go_sin(0.0) =", sin0);
+    
+    double cos0 = golib.go_cos(0.0);
+    println("go_cos(0.0) =", cos0);
+    
+    println("✓ All Go concurrent tests completed!");
+    println("✓ Go標準ライブラリ (math) も正常に動作!");
+}

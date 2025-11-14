@@ -1,0 +1,9 @@
+// Test: Numeric #define
+// Expected output: 42
+
+#define ANSWER 42
+
+void main() {
+    int x = ANSWER;
+    println(x);
+}

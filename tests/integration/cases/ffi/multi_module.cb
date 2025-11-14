@@ -1,0 +1,31 @@
+// Test: FFI multiple modules
+// Purpose: Test using multiple foreign modules in same file
+
+use foreign.m {
+    double sqrt(double x);
+}
+
+use foreign.c {
+    int abs(int x);
+}
+
+void main() {
+    // Test 1: Use math module
+    double result1 = m.sqrt(4.0);
+    if (result1 > 1.99 && result1 < 2.01) {
+        println("Test 1: math module - PASSED");
+    }
+    
+    // Test 2: Use C module
+    int result2 = c.abs(-5);
+    if (result2 == 5) {
+        println("Test 2: C module - PASSED");
+    }
+    
+    // Test 3: Combined usage
+    double result3 = m.sqrt(9.0);
+    int result4 = c.abs(-3);
+    if (result3 > 2.99 && result3 < 3.01 && result4 == 3) {
+        println("Test 3: combined modules - PASSED");
+    }
+}

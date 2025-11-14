@@ -1,0 +1,12 @@
+// Test: FFI void return type
+// Purpose: Test functions with void return type
+
+use foreign.c {
+    void srand(int seed);
+}
+
+void main() {
+    // Test: void return - should not crash
+    c.srand(12345);
+    println("Test: void return - PASSED");
+}

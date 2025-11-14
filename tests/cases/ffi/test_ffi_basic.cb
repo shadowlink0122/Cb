@@ -1,0 +1,33 @@
+// test_ffi_basic.cb
+// v0.13.0: FFI基本機能のテスト
+
+use foreign.test_math {
+    int add(int a, int b);
+    int multiply(int a, int b);
+    double my_sqrt(double x);
+    double my_pow(double base, double exponent);
+}
+
+fn main() {
+    // 整数の加算テスト
+    int sum = add(5, 3);
+    println("5 + 3 = ", sum);
+    assert(sum == 8);
+    
+    // 整数の乗算テスト
+    int product = multiply(4, 7);
+    println("4 * 7 = ", product);
+    assert(product == 28);
+    
+    // 平方根テスト
+    double root = my_sqrt(16.0);
+    println("sqrt(16.0) = ", root);
+    assert(root == 4.0);
+    
+    // 累乗テスト
+    double power = my_pow(2.0, 8.0);
+    println("2.0 ^ 8.0 = ", power);
+    assert(power == 256.0);
+    
+    println("All FFI basic tests passed!");
+}
