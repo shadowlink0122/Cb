@@ -2,7 +2,7 @@
   "name": "cb-language",
   "displayName": "Cb Language Support",
   "description": "Syntax highlighting and language support for the Cb programming language with preprocessor support",
-  "version": "0.13.0",
+  "version": ".cbversion",
   "publisher": "cb-lang",
   "engines": {
     "vscode": "^1.80.0"

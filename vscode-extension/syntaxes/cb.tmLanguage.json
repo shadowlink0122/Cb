@@ -8,9 +8,11 @@
     { "include": "#comments" },
     { "include": "#strings" },
     { "include": "#import-statement" },
+    { "include": "#use-statement" },
     { "include": "#keywords" },
     { "include": "#constants" },
     { "include": "#builtin-functions" },
+    { "include": "#function-declaration" },
     { "include": "#function-call" },
     { "include": "#types" },
     { "include": "#variables" },
@@ -26,7 +28,7 @@
           "begin": "^\\s*#\\s*(define|undef)\\b",
           "end": "$",
           "beginCaptures": {
-            "0": { "name": "keyword.control.directive.cb" }
+            "1": { "name": "keyword.control.directive.cb" }
           },
           "patterns": [
             {
@@ -39,7 +41,7 @@
           "name": "meta.preprocessor.conditional.cb",
           "match": "^\\s*#\\s*(ifdef|ifndef|if|elif|elseif|else|endif)\\b",
           "captures": {
-            "0": { "name": "keyword.control.directive.conditional.cb" }
+            "1": { "name": "keyword.control.directive.cb" }
           }
         },
         {
@@ -47,7 +49,7 @@
           "begin": "^\\s*#\\s*(error|warning)\\b",
           "end": "$",
           "beginCaptures": {
-            "0": { "name": "keyword.control.directive.diagnostic.cb" }
+            "1": { "name": "keyword.control.directive.cb" }
           },
           "patterns": [
             {
@@ -60,11 +62,11 @@
           "name": "meta.preprocessor.include.cb",
           "match": "^\\s*#\\s*(include)\\b",
           "captures": {
-            "0": { "name": "keyword.control.directive.include.cb" }
+            "1": { "name": "keyword.control.directive.cb" }
           }
         },
         {
-          "name": "constant.language.cb",
+          "name": "constant.language.preprocessor.cb",
           "match": "\\b__(FILE|LINE|DATE|TIME|VERSION)__\\b"
         }
       ]
@@ -101,6 +103,59 @@
                 }
               ]
             },
+            {
+              "name": "entity.name.type.module.cb",
+              "match": "[a-zA-Z_][a-zA-Z0-9_]*"
+            },
+            {
+              "name": "punctuation.accessor.cb",
+              "match": "\\."
+            }
+          ]
+        }
+      ]
+    },
+    "use-statement": {
+      "patterns": [
+        {
+          "begin": "\\b(use)\\s+(foreign)\\s*\\.\\s*",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.directive.cb" },
+            "2": { "name": "storage.type.primitive.cb" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.section.block.end.cb" }
+          },
+          "patterns": [
+            {
+              "name": "entity.name.type.module.cb",
+              "match": "[a-zA-Z_][a-zA-Z0-9_]*(?=\\s*\\{)"
+            },
+            {
+              "name": "punctuation.section.block.begin.cb",
+              "match": "\\{"
+            },
+            { "include": "#comments" },
+            {
+              "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\([^)]*\\)\\s*;)",
+              "captures": {
+                "1": { "name": "entity.name.function.cb" }
+              }
+            },
+            { "include": "#types" }
+          ]
+        },
+        {
+          "begin": "\\b(use)\\s+",
+          "end": ";",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.directive.cb" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.terminator.statement.cb" }
+          },
+          "patterns": [
             {
               "name": "entity.name.type.module.cb",
               "match": "[a-zA-Z_][a-zA-Z0-9_]*"
@@ -213,8 +268,8 @@
           "match": "\\b(typedef|struct|enum|interface|impl|union|func)\\b"
         },
         {
-          "name": "storage.type.cb",
-          "match": "\\b(unsigned|const|static)\\b"
+          "name": "storage.type.primitive.cb",
+          "match": "\\b(unsigned|const|static|foreign)\\b"
         },
         {
           "name": "keyword.operator.new.cb",
@@ -249,7 +304,7 @@
           "match": "\\b(nullptr|null)\\b"
         },
         {
-          "name": "constant.other.cb",
+          "name": "constant.numeric.cb",
           "match": "\\b[A-Z][A-Z0-9_]*\\b"
         },
         {
@@ -263,6 +318,16 @@
         {
           "name": "support.function.builtin.cb",
           "match": "\\b(print|println|printf)\\b"
+        }
+      ]
+    },
+    "function-declaration": {
+      "patterns": [
+        {
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\([^)]*\\)\\s*;)",
+          "captures": {
+            "1": { "name": "entity.name.function.cb" }
+          }
         }
       ]
     },
