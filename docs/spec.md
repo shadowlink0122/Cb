@@ -1,7 +1,7 @@
-# Cb言語 完全仕様書 v0.12.1
+# Cb言語 完全仕様書 v0.13.0
 
-**最終更新**: 2025年11月11日  
-**バージョン**: v0.12.1 - Complete Async/Await System
+**最終更新**: 2025年11月14日  
+**バージョン**: v0.13.0 - FFI & Developer Experience
 
 ## 目次
 
@@ -19,11 +19,12 @@
 12. [デストラクタとRAII](#デストラクタとraii)
 13. [文字列補間](#文字列補間)
 14. [ポインタと参照](#ポインタと参照)
-15. [Async/Await](#asyncawait) 🆕
-16. [モジュールシステム](#モジュールシステム)
-17. [入出力](#入出力)
-18. [エラーハンドリング](#エラーハンドリング)
-19. [メモリ管理](#メモリ管理)
+15. [Async/Await](#asyncawait)
+16. [FFI (Foreign Function Interface)](#ffi-foreign-function-interface) 🆕
+17. [モジュールシステム](#モジュールシステム)
+18. [入出力](#入出力)
+19. [エラーハンドリング](#エラーハンドリング)
+20. [メモリ管理](#メモリ管理)
 
 ---
 
@@ -3373,6 +3374,144 @@ void main() {
     println("Total bytes: {total}");
 }
 ```
+
+---
+
+## FFI (Foreign Function Interface)
+
+### 概要
+
+FFI（Foreign Function Interface）は、Cb言語から他言語（C/C++/Rust/Zig/Goなど）で書かれたライブラリを呼び出す機能です。
+
+**サポート対象**: C ABIを公開できる任意の言語
+
+### 基本構文
+
+```cb
+use foreign.module_name {
+    return_type function_name(param_types...);
+    // ...
+}
+```
+
+### 使用例
+
+#### C/C++ライブラリの呼び出し
+
+```cb
+use foreign.math {
+    int add(int a, int b);
+    double sqrt(double x);
+    void* malloc(int size);
+    void free(void* ptr);
+}
+
+void main() {
+    int sum = math.add(10, 20);        // 30
+    double root = math.sqrt(16.0);     // 4.0
+    println("Sum:", sum, "Root:", root);
+}
+```
+
+#### Rustライブラリの呼び出し
+
+**Rust側** (lib.rs):
+```rust
+#[no_mangle]
+pub extern "C" fn factorial(n: i32) -> i64 {
+    (1..=n as i64).product()
+}
+
+#[no_mangle]
+pub extern "C" fn is_prime(n: i32) -> bool {
+    if n < 2 { return false; }
+    for i in 2..((n as f64).sqrt() as i32 + 1) {
+        if n % i == 0 { return false; }
+    }
+    true
+}
+```
+
+**Cb側**:
+```cb
+use foreign.mylib {
+    long factorial(int n);
+    bool is_prime(int n);
+}
+
+void main() {
+    long fact = mylib.factorial(10);    // 3628800
+    bool prime = mylib.is_prime(17);    // true
+    println("10! =", fact);
+    println("17 is prime:", prime);
+}
+```
+
+### 対応言語
+
+| 言語 | 必要な設定 | ビルドコマンド例 |
+|------|-----------|---------------|
+| **C** | そのまま使える | `gcc -shared -o libmodule.so module.c` |
+| **C++** | `extern "C"` 必要 | `g++ -shared -o libmodule.so module.cpp` |
+| **Rust** | `#[no_mangle]` + `extern "C"` | `cargo build --release` |
+| **Zig** | `export fn` で自動対応 | `zig build-lib -dynamic lib.zig` |
+| **Go** | `//export` コメント | `go build -buildmode=c-shared` |
+
+### ライブラリの配置
+
+FFIライブラリは以下のディレクトリに配置します：
+
+```
+stdlib/foreign/
+├── libmath.dylib     (macOS)
+├── libmath.so        (Linux)
+└── libmath.dll       (Windows)
+```
+
+**検索パス**: `stdlib/foreign/lib{module_name}.{dylib,so,dll}`
+
+### 型マッピング
+
+| Cb型 | C型 | 説明 |
+|------|-----|------|
+| `int` | `int32_t` | 32bit整数 |
+| `long` | `int64_t` | 64bit整数 |
+| `float` | `float` | 32bit浮動小数点 |
+| `double` | `double` | 64bit浮動小数点 |
+| `bool` | `bool` / `int` | 真偽値 |
+| `void*` | `void*` | ポインタ |
+| `char*` | `char*` | 文字列ポインタ |
+
+### 制限事項
+
+1. **C ABI互換のみ**: C ABIに準拠した関数のみサポート
+2. **構造体の受け渡し**: 単純な構造体のみサポート（制限あり）
+3. **コールバック**: 現在未サポート（将来対応予定）
+4. **例外処理**: C++の例外はサポートされない
+
+### エラーハンドリング
+
+```cb
+use foreign.math {
+    int divide(int a, int b);
+}
+
+void main() {
+    // ライブラリが見つからない場合、実行時エラー
+    // Error: Failed to load foreign module 'math'
+    int result = math.divide(10, 2);
+    println(result);
+}
+```
+
+### 詳細ドキュメント
+
+FFIの詳細については、以下のドキュメントを参照してください：
+
+- `docs/archive/releases/v0.13.0/FFI_GUIDE.md` - FFI利用ガイド
+- `docs/archive/releases/v0.13.0/FFI_IMPLEMENTATION_GUIDE.md` - 実装詳細
+- `docs/archive/releases/v0.13.0/FFI_CPP_INTEGRATION.md` - C++統合
+- `docs/archive/releases/v0.13.0/FFI_MAKEFILE_INTEGRATION.md` - ビルドシステム
 
 ---
 

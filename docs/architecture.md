@@ -1,4 +1,4 @@
-# Cb言語パーサーアーキテクチャ（v0.12.1）
+# Cb言語パーサーアーキテクチャ（v0.13.0）
 
 ## 📐 全体アーキテクチャ
 
@@ -9,6 +9,7 @@
 │                                                                 │
 │  役割: パーサー全体の調整、トークン管理、状態管理                  │
 │  v0.11.0の改善: ジェネリクス、文字列補間、デストラクタ対応         │
+│  v0.13.0の追加: FFI (Foreign Function Interface) サポート       │
 │                                                                 │
 │  主要メンバー:                                                   │
 │  - RecursiveLexer lexer_;          // 字句解析（文字列補間対応） │
@@ -19,6 +20,7 @@
 │  - interface_definitions_;          // interface定義            │
 │  - generic_struct_instances_;       // Generic構造体インスタンス  │
 │  - generic_function_instances_;     // Generic関数インスタンス    │
+│  - foreign_modules_;                // FFI外部モジュール (v0.13.0)│
 │  - unique_ptr<T> parsers_[5];       // 分離パーサーインスタンス    │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐  │
