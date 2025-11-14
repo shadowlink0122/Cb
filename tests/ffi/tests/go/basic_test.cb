@@ -1,0 +1,30 @@
+// Go FFI Basic Test
+
+use foreign.golib {
+    int go_add(int a, int b);
+    int go_subtract(int a, int b);
+    int go_multiply(int a, int b);
+    double go_power(double base, double exp);
+    double go_sqrt(double x);
+}
+
+void main() {
+    println("=== Go FFI Basic Test ===");
+    
+    int sum = golib.go_add(100, 200);
+    println("go_add(100, 200) =", sum);
+    
+    int diff = golib.go_subtract(100, 30);
+    println("go_subtract(100, 30) =", diff);
+    
+    int prod = golib.go_multiply(12, 13);
+    println("go_multiply(12, 13) =", prod);
+    
+    double pow2_8 = golib.go_power(2.0, 8.0);
+    println("go_power(2.0, 8.0) =", pow2_8);
+    
+    double sqrt81 = golib.go_sqrt(81.0);
+    println("go_sqrt(81.0) =", sqrt81);
+    
+    println("✓ All Go basic tests completed!");
+}

@@ -1,8 +1,11 @@
 #include "ffi_manager.h"
 #include "../../common/type_helpers.h"
+#include <climits>
 #include <cstring>
 #include <dlfcn.h>
 #include <iostream>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #ifdef __APPLE__
 #define LIB_EXTENSION ".dylib"
@@ -57,17 +60,14 @@ std::string FFIManager::resolveLibraryPath(const std::string &module_name) {
     for (const auto &path : search_paths_) {
         std::string full_path = path + lib_name;
 
-        // ファイルが存在するかチェック（dlopenで試す）
-        void *test_handle = dlopen(full_path.c_str(), RTLD_LAZY | RTLD_NOLOAD);
-        if (test_handle) {
-            dlclose(test_handle);
-            return full_path;
-        }
-
-        // まだロードされていない場合は試しにロード
-        test_handle = dlopen(full_path.c_str(), RTLD_LAZY);
-        if (test_handle) {
-            dlclose(test_handle);
+        // ファイルが存在するかチェック（stat使用）
+        struct stat buffer;
+        if (stat(full_path.c_str(), &buffer) == 0) {
+            // 相対パスを絶対パスに変換
+            char abs_path[PATH_MAX];
+            if (realpath(full_path.c_str(), abs_path)) {
+                return std::string(abs_path);
+            }
             return full_path;
         }
     }
@@ -221,6 +221,30 @@ Variable FFIManager::callFunction(const std::string &module_name,
             result.double_value = func(arg0, arg1);
             result.value = static_cast<int64_t>(result.double_value);
             return result;
+        } else if (sig.parameters.size() == 4 &&
+                   sig.parameters[0].first == TYPE_DOUBLE &&
+                   sig.parameters[1].first == TYPE_DOUBLE &&
+                   sig.parameters[2].first == TYPE_DOUBLE &&
+                   sig.parameters[3].first == TYPE_DOUBLE) {
+            // double func(double, double, double, double)
+            typedef double (*func_type)(double, double, double, double);
+            func_type func = reinterpret_cast<func_type>(func_ptr);
+            double arg0 = args[0].double_value;
+            double arg1 = args[1].double_value;
+            double arg2 = args[2].double_value;
+            double arg3 = args[3].double_value;
+            result.double_value = func(arg0, arg1, arg2, arg3);
+            result.value = static_cast<int64_t>(result.double_value);
+            return result;
+        } else if (sig.parameters.size() == 1 &&
+                   sig.parameters[0].first == TYPE_INT) {
+            // double func(int)
+            typedef double (*func_type)(int);
+            func_type func = reinterpret_cast<func_type>(func_ptr);
+            int arg0 = static_cast<int>(args[0].value);
+            result.double_value = func(arg0);
+            result.value = static_cast<int64_t>(result.double_value);
+            return result;
         }
     } else if (sig.return_type == TYPE_INT) {
         result.type = TYPE_INT;
@@ -248,6 +272,17 @@ Variable FFIManager::callFunction(const std::string &module_name,
             int arg0 = static_cast<int>(args[0].value);
             int arg1 = static_cast<int>(args[1].value);
             result.value = func(arg0, arg1);
+            return result;
+        }
+    } else if (sig.return_type == TYPE_LONG) {
+        result.type = TYPE_LONG;
+
+        if (sig.parameters.size() == 1 && sig.parameters[0].first == TYPE_INT) {
+            // long func(int)
+            typedef long (*func_type)(int);
+            func_type func = reinterpret_cast<func_type>(func_ptr);
+            int arg0 = static_cast<int>(args[0].value);
+            result.value = func(arg0);
             return result;
         }
     } else if (sig.return_type == TYPE_VOID) {

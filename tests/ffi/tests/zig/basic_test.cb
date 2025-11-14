@@ -1,0 +1,40 @@
+// Zig FFI Basic Test
+
+use foreign.ziglib {
+    int zig_add(int a, int b);
+    int zig_subtract(int a, int b);
+    int zig_multiply(int a, int b);
+    int zig_divide(int a, int b);
+    int zig_max(int a, int b);
+    int zig_min(int a, int b);
+    int zig_abs(int n);
+}
+
+void main() {
+    println("=== Zig FFI Basic Test ===");
+    
+    int sum = ziglib.zig_add(50, 75);
+    println("zig_add(50, 75) =", sum);
+    
+    int diff = ziglib.zig_subtract(100, 35);
+    println("zig_subtract(100, 35) =", diff);
+    
+    int prod = ziglib.zig_multiply(15, 4);
+    println("zig_multiply(15, 4) =", prod);
+    
+    int quot = ziglib.zig_divide(100, 4);
+    println("zig_divide(100, 4) =", quot);
+    
+    int max_val = ziglib.zig_max(42, 17);
+    println("zig_max(42, 17) =", max_val);
+    
+    int min_val = ziglib.zig_min(42, 17);
+    println("zig_min(42, 17) =", min_val);
+    
+    int abs_pos = ziglib.zig_abs(10);
+    int abs_neg = ziglib.zig_abs(-10);
+    println("zig_abs(10) =", abs_pos);
+    println("zig_abs(-10) =", abs_neg);
+    
+    println("✓ All Zig basic tests completed!");
+}

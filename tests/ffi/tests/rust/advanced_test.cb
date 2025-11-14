@@ -1,0 +1,26 @@
+// Rust FFI Advanced Test
+
+use foreign.rustlib {
+    int rust_gcd(int a, int b);
+    int rust_lcm(int a, int b);
+    double rust_circle_area(double radius);
+    double rust_sqrt(double x);
+}
+
+void main() {
+    println("=== Rust FFI Advanced Test ===");
+    
+    int gcd48_18 = rustlib.rust_gcd(48, 18);
+    println("rust_gcd(48, 18) =", gcd48_18);
+    
+    int lcm12_18 = rustlib.rust_lcm(12, 18);
+    println("rust_lcm(12, 18) =", lcm12_18);
+    
+    double area = rustlib.rust_circle_area(10.0);
+    println("rust_circle_area(10.0) =", area);
+    
+    double sqrt144 = rustlib.rust_sqrt(144.0);
+    println("rust_sqrt(144.0) =", sqrt144);
+    
+    println("✓ All Rust advanced tests completed!");
+}

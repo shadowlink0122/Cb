@@ -1,0 +1,29 @@
+// Rust FFI Basic Test
+
+use foreign.rustlib {
+    int rust_add(int a, int b);
+    int rust_multiply(int a, int b);
+    long rust_factorial(int n);
+    long rust_fibonacci(int n);
+}
+
+void main() {
+    println("=== Rust FFI Basic Test ===");
+    
+    int sum = rustlib.rust_add(15, 25);
+    println("rust_add(15, 25) =", sum);
+    
+    int prod = rustlib.rust_multiply(8, 9);
+    println("rust_multiply(8, 9) =", prod);
+    
+    long fact6 = rustlib.rust_factorial(6);
+    println("rust_factorial(6) =", fact6);
+    
+    long fib10 = rustlib.rust_fibonacci(10);
+    println("rust_fibonacci(10) =", fib10);
+    
+    long fib20 = rustlib.rust_fibonacci(20);
+    println("rust_fibonacci(20) =", fib20);
+    
+    println("✓ All Rust basic tests completed!");
+}

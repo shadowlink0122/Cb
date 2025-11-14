@@ -13,6 +13,8 @@ NATIVE_DIR=$(PLATFORM_DIR)/native
 BAREMETAL_DIR=$(PLATFORM_DIR)/baremetal
 TESTS_DIR=tests
 CGEN_DIR=cgen
+SAMPLE_FFI_DIR=sample/ffi
+STDLIB_FOREIGN_DIR=stdlib/foreign
 
 # Interpreterサブディレクトリ
 INTERPRETER_DIR=$(BACKEND_DIR)/interpreter
@@ -162,9 +164,31 @@ COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/
 MAIN_TARGET=main
 CGEN_TARGET=cgen_main
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version
+# OSごとのライブラリ拡張子
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_S),Darwin)
+    LIB_EXT=dylib
+    FFI_CC=/usr/bin/clang++
+    # Apple Silicon (arm64) または Intel (x86_64) に対応
+    FFI_CXXFLAGS=-arch $(UNAME_M) -std=c++17
+else ifeq ($(UNAME_S),Linux)
+    LIB_EXT=so
+    FFI_CC=g++
+    FFI_CXXFLAGS=-std=c++17
+else
+    LIB_EXT=dll
+    FFI_CC=g++
+    FFI_CXXFLAGS=-std=c++17
+endif
 
-all: setup-dirs $(MAIN_TARGET)
+# FFIライブラリ設定
+FFI_LIBS=$(STDLIB_FOREIGN_DIR)/libcppexample.$(LIB_EXT) \
+         $(STDLIB_FOREIGN_DIR)/libadvanced.$(LIB_EXT)
+
+.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version ffi-libs clean-ffi test-ffi
+
+all: setup-dirs $(MAIN_TARGET) ffi-libs
 
 # ディレクトリ作成
 setup-dirs:
@@ -180,6 +204,8 @@ setup-dirs:
 	@mkdir -p $(INTERPRETER_EVENT_LOOP)
 	@mkdir -p $(INTERPRETER_TYPES)
 	@mkdir -p $(BACKEND_DIR)/ir $(BACKEND_DIR)/optimizer $(BACKEND_DIR)/codegen
+	@mkdir -p $(STDLIB_FOREIGN_DIR)
+	@mkdir -p $(SAMPLE_FFI_DIR)
 
 # デバッグ実行例（--debugオプションでデバッグ出力有効）
 debug: CFLAGS += -DYYDEBUG=1
@@ -430,8 +456,30 @@ test:
 		exit 1; \
 	fi
 
+# FFI ライブラリのビルド
+ffi-libs: $(FFI_LIBS)
+
+$(STDLIB_FOREIGN_DIR)/libcppexample.$(LIB_EXT): $(SAMPLE_FFI_DIR)/ffi_cpp_example.cpp
+	@echo "Building FFI library: libcppexample.$(LIB_EXT)"
+	$(FFI_CC) $(FFI_CXXFLAGS) -shared -fPIC -o $@ $<
+
+$(STDLIB_FOREIGN_DIR)/libadvanced.$(LIB_EXT): $(SAMPLE_FFI_DIR)/advanced_cpp_ffi.cpp
+	@echo "Building FFI library: libadvanced.$(LIB_EXT)"
+	$(FFI_CC) $(FFI_CXXFLAGS) -shared -fPIC -o $@ $<
+
+# FFI テスト実行
+test-ffi: $(MAIN_TARGET) ffi-libs
+	@echo "============================================================="
+	@echo "Running FFI Tests"
+	@echo "============================================================="
+	@echo "Testing basic FFI example..."
+	@DYLD_LIBRARY_PATH=$(STDLIB_FOREIGN_DIR):$$DYLD_LIBRARY_PATH LD_LIBRARY_PATH=$(STDLIB_FOREIGN_DIR):$$LD_LIBRARY_PATH ./$(MAIN_TARGET) $(SAMPLE_FFI_DIR)/ffi_cpp_example.cb
+	@echo ""
+	@echo "Testing advanced FFI example..."
+	@DYLD_LIBRARY_PATH=$(STDLIB_FOREIGN_DIR):$$DYLD_LIBRARY_PATH LD_LIBRARY_PATH=$(STDLIB_FOREIGN_DIR):$$LD_LIBRARY_PATH ./$(MAIN_TARGET) $(SAMPLE_FFI_DIR)/advanced_cpp_ffi.cb
+
 # クリーンアップ
-clean:
+clean: clean-ffi
 	@echo "Cleaning up build artifacts..."
 	rm -f $(MAIN_TARGET) $(CGEN_TARGET)
 	rm -f main_asan
@@ -445,6 +493,15 @@ clean:
 	rm -rf tests/unit/*.dSYM
 	rm -rf tests/stdlib/*.dSYM
 	@echo "Clean completed."
+
+# FFI ライブラリのクリーンアップ
+clean-ffi:
+	@echo "Cleaning FFI libraries..."
+	rm -f $(STDLIB_FOREIGN_DIR)/*.$(LIB_EXT)
+	rm -f $(STDLIB_FOREIGN_DIR)/*.dylib
+	rm -f $(STDLIB_FOREIGN_DIR)/*.so
+	rm -f $(STDLIB_FOREIGN_DIR)/*.dll
+	@echo "FFI libraries cleaned."
 
 # ディープクリーン（すべての生成ファイルを削除）
 deep-clean: clean
@@ -559,6 +616,11 @@ help:
 	@echo "  update-extension-version - Update extension version from VERSION file"
 	@echo "  verify-extension-version - Verify extension version matches VERSION file"
 	@echo ""
+	@echo "FFI (Foreign Function Interface):"
+	@echo "  ffi-libs               - Build all FFI example libraries"
+	@echo "  test-ffi               - Run FFI example tests"
+	@echo "  clean-ffi              - Remove compiled FFI libraries"
+	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean                  - Remove generated files"
 	@echo "  deep-clean             - Remove all generated files (thorough cleanup)"
@@ -569,3 +631,4 @@ help:
 	@echo "  2. Unit tests          - Testing of individual components"
 	@echo "  3. Stdlib C++ tests    - Testing of C++ infrastructure for stdlib"
 	@echo "  4. Stdlib Cb tests     - Testing of Cb stdlib modules"
+

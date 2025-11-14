@@ -1,0 +1,95 @@
+// Advanced FFI example demonstrating complex C++ integration
+// Compile C++ first:
+//   clang++ -shared -fPIC advanced_cpp_ffi.cpp -o libadvanced.dylib
+//   cp libadvanced.dylib ../stdlib/foreign/
+
+use foreign.advanced {
+    // Data analyzer functions
+    void analyzer_init();
+    void analyzer_add(double value);
+    void analyzer_compute();
+    double analyzer_get_stat(int stat_type);
+    void analyzer_clear();
+    void analyzer_destroy();
+    
+    // Utility functions
+    int max_int(int a, int b);
+    double max_double(double a, double b);
+    
+    // Operations
+    double add_values(double x, double y);
+    double multiply_values(double x, double y);
+    
+    // Error handling
+    int safe_divide(int a, int b);
+}
+
+void main() {
+    println("=== Advanced C++ FFI Example ===");
+    println();
+    
+    // Test 1: Data Analyzer
+    println("Test 1: Data Analyzer");
+    advanced.analyzer_init();
+    
+    // Add some data points
+    advanced.analyzer_add(10.0);
+    advanced.analyzer_add(20.0);
+    advanced.analyzer_add(15.0);
+    advanced.analyzer_add(25.0);
+    advanced.analyzer_add(30.0);
+    
+    // Compute statistics
+    advanced.analyzer_compute();
+    
+    // Get statistics (0=mean, 1=min, 2=max, 3=count, 4=stddev)
+    double mean = advanced.analyzer_get_stat(0);
+    double min_val = advanced.analyzer_get_stat(1);
+    double max_val = advanced.analyzer_get_stat(2);
+    double count = advanced.analyzer_get_stat(3);
+    double stddev = advanced.analyzer_get_stat(4);
+    
+    println("  Mean:", mean);
+    println("  Min:", min_val);
+    println("  Max:", max_val);
+    println("  Count:", count);
+    println("  StdDev:", stddev);
+    
+    advanced.analyzer_clear();
+    advanced.analyzer_destroy();
+    println();
+    
+    // Test 2: Template-based functions
+    println("Test 2: Template Functions");
+    int max_i = advanced.max_int(42, 17);
+    double max_d = advanced.max_double(3.14, 2.71);
+    println("  max_int(42, 17) =", max_i);
+    println("  max_double(3.14, 2.71) =", max_d);
+    println();
+    
+    // Test 3: Lambda-based operations
+    println("Test 3: Lambda Operations");
+    double add_result = advanced.add_values(5.0, 3.0);
+    double mul_result = advanced.multiply_values(5.0, 3.0);
+    println("  5.0 + 3.0 =", add_result);
+    println("  5.0 * 3.0 =", mul_result);
+    println();
+    
+    // Test 4: Error handling
+    println("Test 4: Error Handling");
+    int result1 = advanced.safe_divide(100, 5);
+    int result2 = advanced.safe_divide(100, 0);
+    println("  100 / 5 =", result1);
+    println("  100 / 0 =", result2, "(error code)");
+    println();
+    
+    println("=== All advanced tests completed! ===");
+    println();
+    println("This demonstrates:");
+    println("  ✓ Complex C++ classes with STL");
+    println("  ✓ Templates and generic programming");
+    println("  ✓ Lambda expressions");
+    println("  ✓ Exception handling");
+    println("  ✓ Memory management");
+    println("  ✓ Modern C++ features (C++17)");
+}

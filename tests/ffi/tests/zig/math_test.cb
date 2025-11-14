@@ -1,0 +1,35 @@
+// Zig FFI Math Test (Zig標準ライブラリの利用)
+
+use foreign.ziglib {
+    long zig_factorial(int n);
+    long zig_fibonacci(int n);
+    double zig_sqrt(double x);
+    double zig_power(double base, double exp);
+    double zig_circle_area(double radius);
+    int zig_gcd(int a, int b);
+}
+
+void main() {
+    println("=== Zig FFI Math Test ===");
+    
+    long fact8 = ziglib.zig_factorial(8);
+    println("zig_factorial(8) =", fact8);
+    
+    long fib12 = ziglib.zig_fibonacci(12);
+    println("zig_fibonacci(12) =", fib12);
+    
+    double sqrt100 = ziglib.zig_sqrt(100.0);
+    println("zig_sqrt(100.0) =", sqrt100);
+    
+    double pow3_4 = ziglib.zig_power(3.0, 4.0);
+    println("zig_power(3.0, 4.0) =", pow3_4);
+    
+    double area = ziglib.zig_circle_area(7.0);
+    println("zig_circle_area(7.0) =", area);
+    
+    int gcd56_98 = ziglib.zig_gcd(56, 98);
+    println("zig_gcd(56, 98) =", gcd56_98);
+    
+    println("✓ All Zig math tests completed!");
+    println("✓ Zig標準ライブラリ (std.math) も正常に動作!");
+}
