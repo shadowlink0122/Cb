@@ -1,12 +1,18 @@
 # Cb Language Implementation Status
 
-**最終更新**: 2025年11月12日  
-**現在のバージョン**: v0.12.1  
-**次期バージョン**: v0.13.0 (計画中), v0.13.0
+**最終更新**: 2025年11月16日  
+**現在のバージョン**: v0.13.1  
+**次期バージョン**: v0.13.2 (計画中)
 
 ---
 
 ## ✅ 実装完了機能
+
+### v0.13.1: Async Impl & Self Sync
+- ✅ Interface/Implで`async`メソッドを宣言・実装でき、`await`や`yield`を含むロジックでも`self`の状態が自動で同期される。
+- ✅ `SimpleEventLoop`がタスクスコープ内で`__self_receiver__`を追跡し、完了時にレシーバー構造体へ差分を書き戻す。
+- ✅ Interpreter APIがイベントループとFFIマネージャーへレシーバー情報を伝播し、implメソッドから`self`経由で安全に書き込みできる。
+- ✅ `test_impl_async_method*.cb`や`test_struct_async_method_basic.cb`などの新規Asyncテストが追加され、標準/ASanビルド双方で回帰テスト済み。
 
 ### v0.12.0: Async/Await基本機能
 - ✅ async/await構文
@@ -207,27 +213,28 @@ vec.push_back("Hello");  // またはat()でクラッシュ
 
 ---
 
-## 🚧 v0.13.0 計画中の機能
+## 🚧 v0.13.2 計画中の機能
 
 ### 優先度: 高
-- [ ] Integration testカバレッジ100%達成
-- [ ] 既存機能の包括的テスト追加
+- [ ] Async関数型およびasyncラムダ構文のサポート
+- [ ] impl/structジェネリックasyncメソッドの型パラメータ伝播を完全対応
+- [ ] Integration testカバレッジ100%達成（新規asyncテストをCIに組み込み）
 
 ### 優先度: 中
-- [ ] ドキュメント整備
-- [ ] 既知の制限事項の文書化
+- [ ] 仕様書/BNF/feature docsをv0.13.2仕様へ更新
+- [ ] 既知の制限事項の自動テスト化と公開
 
 ---
 
-## 🔮 v0.13.0~v0.13.0 将来の機能
+## 🔮 v0.13.2以降の機能
 
-### v0.13.0: Error Handling
+### v0.13.2: Error Handling
 - [ ] RuntimeError列挙型
 - [ ] try式
 - [ ] checked式
 - [ ] panic/unwrap
 
-### v0.13.0: Advanced Features
+### v0.13.3: Advanced Async & Generics
 - [ ] Async関数型サポート
 - [ ] Asyncラムダ式
 - [ ] 構造体内asyncメソッド（ジェネリック）
@@ -239,21 +246,22 @@ vec.push_back("Hello");  // またはat()でクラッシュ
 
 ## 📊 テストカバレッジ
 
-### v0.12.1時点
-- **総テストケース**: 750+
-- **Integration tests**: 42個
-- **成功率**: 100%
+### v0.13.1時点
+- **総テストケース**: 750+（Async impl向けテスト10件追加）
+- **Integration tests**: 50個以上（`test_impl_async_method*.cb`, `test_struct_async_method_basic.cb`を含む）
+- **成功率**: 100%（`main`/`main-asan`双方で確認済み）
 
-### v0.13.0目標
-- **Integration test coverage**: 100%（現在67%）
-- **漏れているテスト**: 19個を追加予定
-- **新規テスト**: async/generics包括テスト
+### v0.13.2目標
+- **Integration test coverage**: 100%（全Asyncテストを`make test`へ組み込む）
+- **自動化**: ASanビルドを含む回帰テストのCI実行
+- **新規テスト**: asyncラムダ/関数型・ジェネリックimplの包括テスト
 
 ---
 
 ## 📚 関連ドキュメント
 
 ### 実装済み機能
+- `release_notes/v0.13.1.md` - Async Impl & Self Sync
 - `release_notes/v0.12.0.md` - Async/Await基本機能
 - `release_notes/v0.12.1.md` - ?オペレーターとTimeout
 - `release_notes/v0.11.0.md` - Generics & Pattern Matching

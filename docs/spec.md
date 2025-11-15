@@ -1,7 +1,7 @@
-# Cb言語 完全仕様書 v0.13.0
+# Cb言語 完全仕様書 v0.13.1
 
-**最終更新**: 2025年11月14日  
-**バージョン**: v0.13.0 - FFI & Developer Experience
+**最終更新**: 2025年11月16日  
+**バージョン**: v0.13.1 - Async Impl & Self Sync
 
 ## 目次
 
@@ -2188,6 +2188,72 @@ impl Debugger for Tracer {
 };
 ```
 
+### Asyncメソッド 🆕 (v0.13.1)
+
+v0.13.1から、Interfaceで宣言したメソッドを`async`として実装できるようになりました。構文は通常のasync関数と同じで、`impl Interface for Struct`ブロック内で`async`キーワードを付けるだけです。
+
+```cb
+interface Counter {
+    async int get();
+    async void increment();
+    async void set(int value);
+};
+
+struct SimpleCounter {
+    int value;
+};
+
+impl Counter for SimpleCounter {
+    async int get() {
+        return self.value;
+    }
+
+    async void increment() {
+        self.value = self.value + 1;
+    }
+
+    async void set(int value) {
+        self.value = value;
+    }
+}
+
+void main() {
+    SimpleCounter counter;
+    counter.value = 10;
+
+    int start = await counter.get();   // Future<int>をawait
+    await counter.increment();         // Future<void>をawait
+    await counter.set(42);
+}
+```
+
+#### selfの同期とawait
+
+- `self`は常に実際のレシーバー構造体のスナップショットとして渡されます。
+- asyncメソッド内で`self`のメンバーを書き換えると、Futureが解決されたタイミング（`await`完了時）で元の構造体にも同期されます。
+- `yield`を挟む処理でも、タスク完了時に最新の`self`が反映されるため、状態が失われません。
+- Futureを`await`しなかった場合は同期されないため、状態更新が必要なメソッドは必ず`await`してください。
+
+```cb
+impl Counter for SimpleCounter {
+    async void increment() {
+        self.value = self.value + 1;
+        yield;                // 他タスクに制御を渡してもOK
+        self.value = self.value + 1;
+    }
+}
+
+void main() {
+    SimpleCounter counter;
+    counter.value = 10;
+
+    await counter.increment();
+    println(counter.value);   // 12 (selfの変更が同期される)
+}
+```
+
+内部的にはランタイムがタスクスコープごとに`self`レシーバー名を追跡し、Future完了時に構造体本体と`self.*`メンバーを一括同期します。ユーザーコード側では特別な記述は不要です。
+
 ---
 
 ## デストラクタとRAII
@@ -3183,6 +3249,38 @@ void main() {
 }
 ```
 
+### Async implメソッドの自己同期 🆕 v0.13.1
+
+- asyncメソッド内で変更した`self`は、Futureが完了して`await`された瞬間に元の構造体へ書き戻されます。
+- `yield`や追加の`await`を行っても、イベントループがタスクスコープ内の`self`と`self.*`変数をすべて同期します。
+- ランタイムは内部的にレシーバー変数名を追跡しているため、ユーザーは`self`を通常の構造体と同じように扱えます。
+- 非同期メソッドで状態を更新したい場合は、必ずFutureを`await`してください（未`await`のFutureは同期されません）。
+
+```cb
+interface Worker {
+    async void tick();
+};
+
+struct Gauge {
+    int value;
+};
+
+impl Worker for Gauge {
+    async void tick() {
+        self.value = self.value + 1;
+        yield;
+        self.value = self.value + 1;
+    }
+}
+
+void main() {
+    Gauge g;
+    g.value = 0;
+    await g.tick();
+    println(g.value); // 2: selfの変更がawait後に反映
+}
+```
+
 ### 実行モデル
 
 **EventLoop**:
@@ -3819,6 +3917,89 @@ print("Percentage: 50%%");
 ---
 
 ## エラーハンドリング
+
+Cb v0.13.1では、実行時エラーを`Result<T, RuntimeError>`で安全に扱う仕組みが正式に実装されました。v0.12.1で計画されていた`try`式・`checked`式・`?`演算子が利用可能になり、ポインタ参照や配列アクセス、算術演算の失敗をパニックではなく戻り値として伝播できます。
+
+### RuntimeError列挙型（組み込み）
+
+```cb
+enum RuntimeError {
+    NullPointerError(string),
+    IndexOutOfBoundsError(string),
+    DivisionByZeroError(string),
+    StackOverflowError(string),
+    HeapExhaustionError(string),
+    TypeCastError(string),
+    ArithmeticOverflowError(string),
+    AssertionError(string),
+    Custom(string)
+}
+```
+
+- import不要のビルトインenum。
+- ランタイムから生成されるメッセージは基本的に英語だが、アプリケーション側で独自メッセージを付与して`RuntimeError::Custom`を返すことも可能。
+
+### try式
+
+```
+Result<T, RuntimeError> value = try expression;
+```
+
+- `expression`の評価中に`ReturnException`や`RuntimeException`が発生した場合でもプロセスを即終了せず、`Err(RuntimeError::Variant)`として包む。
+- 成功時は`Ok(value)`を返し、`Result`全体は型推論される。例：`try arr[index]` → `Result<int, RuntimeError>`。
+- 例：
+
+```cb
+Result<int, RuntimeError> safe_divide(int lhs, int rhs) {
+    return try (lhs / rhs);
+}
+
+Result<int, RuntimeError> safe_deref(int* ptr) {
+    return try *ptr;
+}
+```
+
+### checked式
+
+```
+Result<T, RuntimeError> value = checked expression;
+```
+
+- 安全モードで式を評価する構文糖衣。内部的には`expression`を強制的に境界チェック・NULLチェック・算術チェック付きの演算として実行し、失敗時は適切な`RuntimeError`を生成して`Err`で返す。
+- 成功時の戻り値は`try`式と同じく`Result<T, RuntimeError>::Ok(value)`。
+- 例：
+
+```cb
+Result<int, RuntimeError> safe_access(int arr[], int size, int idx) {
+    return checked arr[idx];
+}
+
+Result<int, RuntimeError> total(int arr[], int size) {
+    Result<int, RuntimeError> lhs = checked arr[0];
+    match (lhs) {
+        Ok(value) => { return Result<int, RuntimeError>::Ok(value + 10); }
+        Err(err) => { return Result<int, RuntimeError>::Err(err); }
+    }
+}
+```
+
+### ?演算子（Result伝播）
+
+```
+T value = expression?;
+```
+
+- `expression`が`Result<T, RuntimeError>`である必要がある。
+- 値が`Ok`なら中身を取り出し、`Err`なら即座に現在の関数から`Err`を返して早期終了。
+- `try`/`checked`で生成した`Result`と組み合わせることで、次のように直列化できる。
+
+```cb
+Result<int, RuntimeError> compute(int* ptr, int arr[], int idx) {
+    int deref = (try *ptr)?;
+    int value = (checked arr[idx])?;
+    return Result<int, RuntimeError>::Ok(deref + value);
+}
+```
 
 ### コンパイル時エラー
 
