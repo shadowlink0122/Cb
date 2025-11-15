@@ -1,0 +1,20 @@
+// Simple test for string array
+
+void main() {
+    println("=== Simple String Array Test ===");
+    
+    // Test: String array declaration
+    string[3] arr;
+    println("Array declared");
+    
+    arr[0] = "Hello";
+    println("arr[0] assigned: '{arr[0]}'");
+    
+    arr[1] = "World";
+    println("arr[1] assigned: '{arr[1]}'");
+    
+    arr[2] = "";
+    println("arr[2] assigned (empty): '{arr[2]}'");
+    
+    println("✅ Test Passed");
+}

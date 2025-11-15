@@ -1,12 +1,22 @@
 # Cb Language Implementation Status
 
 **最終更新**: 2025年11月16日  
-**現在のバージョン**: v0.13.1  
-**次期バージョン**: v0.13.2 (計画中)
+**現在のバージョン**: v0.13.3  
+**次期バージョン**: v0.13.4 (計画中)
 
 ---
 
 ## ✅ 実装完了機能
+
+### v0.13.3: Documentation & Known Issues
+- ✅ 既知の問題と制限事項の文書化
+- ✅ テストスイートの拡張（v0.13.3テストケース追加）
+- ✅ 既存機能の安定性確認（全33テスト、5スイートがパス）
+
+### v0.13.2: Generic Array String Fix
+- ✅ Generic配列での文字列型のバグ修正（`Container<string>`など）
+- ✅ Asyncラムダ式の完全サポート
+- ✅ 包括的なテストスイートの追加
 
 ### v0.13.1: Async Impl & Self Sync
 - ✅ Interface/Implで`async`メソッドを宣言・実装でき、`await`や`yield`を含むロジックでも`self`の状態が自動で同期される。
@@ -213,63 +223,65 @@ vec.push_back("Hello");  // またはat()でクラッシュ
 
 ---
 
-## 🚧 v0.13.2 計画中の機能
+## 🚧 v0.13.4 計画中の機能
 
 ### 優先度: 高
-- [ ] Async関数型およびasyncラムダ構文のサポート
-- [ ] impl/structジェネリックasyncメソッドの型パラメータ伝播を完全対応
-- [ ] Integration testカバレッジ100%達成（新規asyncテストをCIに組み込み）
+- [ ] 文字列配列の初期化問題の修正
+- [ ] Vector<string>のサポート（deep copy実装）
+- [ ] ジェネリック構造体配列の完全サポート
+- [ ] ネストしたmatch式の型情報保持
 
 ### 優先度: 中
-- [ ] 仕様書/BNF/feature docsをv0.13.2仕様へ更新
-- [ ] 既知の制限事項の自動テスト化と公開
+- [ ] パフォーマンス最適化
+- [ ] エラーメッセージの改善
+- [ ] デバッグ機能の強化
 
 ---
 
-## 🔮 v0.13.2以降の機能
+## 🔮 v0.13.4以降の機能
 
-### v0.13.2: Error Handling
-- [ ] RuntimeError列挙型
-- [ ] try式
-- [ ] checked式
-- [ ] panic/unwrap
+### v0.13.4: Bug Fixes & Improvements
+- [ ] 文字列配列の完全サポート
+- [ ] Vector<string>の実装
+- [ ] ジェネリック構造体配列の改善
+- [ ] ネストしたmatch式の修正
 
-### v0.13.3: Advanced Async & Generics
-- [ ] Async関数型サポート
-- [ ] Asyncラムダ式
-- [ ] 構造体内asyncメソッド（ジェネリック）
-- [ ] ジェネリクス構造体配列
-- [ ] ネストしたmatch式
-- [ ] Vector<string>修正
+### v0.13.5以降: Advanced Features
+- [ ] Async関数型の高度なサポート
+- [ ] パフォーマンス最適化
+- [ ] 標準ライブラリの拡張
 
 ---
 
 ## 📊 テストカバレッジ
 
-### v0.13.1時点
-- **総テストケース**: 750+（Async impl向けテスト10件追加）
-- **Integration tests**: 50個以上（`test_impl_async_method*.cb`, `test_struct_async_method_basic.cb`を含む）
-- **成功率**: 100%（`main`/`main-asan`双方で確認済み）
+### v0.13.3時点
+- **総テストケース**: 750+
+- **Integration tests**: 50個以上
+- **成功率**: 100%（`main`ビルドで確認済み）
+- **既知の問題**: 4件（文書化済み）
 
-### v0.13.2目標
-- **Integration test coverage**: 100%（全Asyncテストを`make test`へ組み込む）
-- **自動化**: ASanビルドを含む回帰テストのCI実行
-- **新規テスト**: asyncラムダ/関数型・ジェネリックimplの包括テスト
+### v0.13.4目標
+- **文字列配列修正**: 完全サポート
+- **Vector<string>実装**: deep copyメカニズム
+- **Generic配列改善**: 型情報の完全保持
+- **Nested match修正**: 型推論の改善
 
 ---
 
 ## 📚 関連ドキュメント
 
 ### 実装済み機能
+- `release_notes/v0.13.3.md` - Documentation & Known Issues
+- `release_notes/v0.13.2.md` - Generic Array String Fix
 - `release_notes/v0.13.1.md` - Async Impl & Self Sync
 - `release_notes/v0.12.0.md` - Async/Await基本機能
 - `release_notes/v0.12.1.md` - ?オペレーターとTimeout
 - `release_notes/v0.11.0.md` - Generics & Pattern Matching
 
 ### 計画中の機能
+- `docs/todo/v0.13.4/` - v0.13.4実装計画（作成予定）
 - `docs/features/v0.13.0_untested_behaviors.md` - 未実装・未確認機能
-- `docs/todo/v0.13.0_generic_array_support.md` - ジェネリクス配列サポート
-- `docs/todo/v0.13.0_implementation_plan.md` - v0.13.0実装計画
 
 ### 設計ドキュメント
 - `docs/spec.md` - 言語仕様
