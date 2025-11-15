@@ -1,0 +1,91 @@
+// Edge case tests for v0.13.2
+// Tests edge cases and potential issues
+
+struct Data<T> {
+    T[10] buffer;
+};
+
+void main() {
+    println("=== v0.13.2 Edge Case Tests ===\n");
+    
+    test_empty_strings();
+    test_boundary_access();
+    test_nested_async_lambda();
+    test_generic_array_reassignment();
+    
+    println("\n=== All Edge Case Tests Passed! ✅ ===");
+}
+
+// Test 1: Empty strings in generic arrays
+void test_empty_strings() {
+    println("Test 1: Empty Strings");
+    
+    Data<string> ds;
+    ds.buffer[0] = "";
+    ds.buffer[1] = "Not empty";
+    ds.buffer[2] = "";
+    
+    assert(ds.buffer[0] == "");
+    assert(ds.buffer[1] == "Not empty");
+    assert(ds.buffer[2] == "");
+    
+    println("  ✓ Empty string at [0]: '{ds.buffer[0]}'");
+    println("  ✓ Non-empty at [1]: '{ds.buffer[1]}'");
+    println("  ✓ Empty string at [2]: '{ds.buffer[2]}'");
+}
+
+// Test 2: Boundary access
+void test_boundary_access() {
+    println("\nTest 2: Boundary Access");
+    
+    Data<int> di;
+    di.buffer[0] = 1;
+    di.buffer[9] = 999;
+    
+    assert(di.buffer[0] == 1);
+    assert(di.buffer[9] == 999);
+    
+    println("  ✓ First element [0]: {di.buffer[0]}");
+    println("  ✓ Last element [9]: {di.buffer[9]}");
+}
+
+// Test 3: Sequential async lambda calls
+void test_nested_async_lambda() {
+    println("\nTest 3: Sequential Async Lambda");
+    
+    auto double_it = async int func(int x) {
+        return x * 2;
+    };
+    
+    auto add_ten = async int func(int x) {
+        return x + 10;
+    };
+    
+    int step1 = await double_it(21);
+    int step2 = await add_ten(step1);
+    
+    assert(step1 == 42);
+    assert(step2 == 52);
+    println("  ✓ First lambda: {step1}");
+    println("  ✓ Second lambda: {step2}");
+}
+
+// Test 4: Generic array reassignment
+void test_generic_array_reassignment() {
+    println("\nTest 4: Generic Array Reassignment");
+    
+    Data<string> ds;
+    ds.buffer[0] = "First";
+    ds.buffer[0] = "Updated";
+    
+    assert(ds.buffer[0] == "Updated");
+    println("  ✓ Reassigned value: {ds.buffer[0]}");
+    
+    Data<int> di;
+    di.buffer[0] = 10;
+    di.buffer[0] = 20;
+    di.buffer[0] = 30;
+    
+    assert(di.buffer[0] == 30);
+    println("  ✓ Multiple reassignments: {di.buffer[0]}");
+}

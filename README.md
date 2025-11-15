@@ -1,7 +1,7 @@
 # Cb (シーフラット) プログラミング言語
 
-**最新バージョン**: v0.13.0 - FFI & Developer Experience  
-**リリース日**: 2025年11月14日  
+**最新バージョン**: v0.13.2 - Generic String Arrays & Async Lambda  
+**リリース日**: 2025年11月16日  
 **ステータス**: 🚧 Development
 
 ### 📊 品質指標（v0.13.0）

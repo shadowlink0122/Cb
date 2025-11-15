@@ -13,6 +13,7 @@
 #include "assert/assert_tests.hpp"
 #include "assign/test_assign.hpp"
 #include "async/test_async.hpp"
+#include "async/test_v0_13_2_async.hpp" // v0.13.2: Async Lambda Support
 #include "basic/test_basic.hpp"
 #include "bitwise/test_bitwise.hpp"
 #include "bool_expr/test_bool_expr.hpp"
@@ -44,6 +45,7 @@
 #include "func_type_check/test_func_type_check.hpp"
 #include "generic_constructor/test_generic_constructor.hpp"
 #include "generics/test_generics.hpp"
+#include "generics/test_v0_13_2_generics.hpp" // v0.13.2: Generic String Array Fix
 #include "global_array/test_global_array.hpp"
 #include "global_vars/test_global_vars.hpp"
 #include "if/test_if.hpp"
@@ -327,6 +329,9 @@ int main() {
     CategoryTimingStats::set_current_category("v0.11.0 Generics");
     run_test_with_continue(GenericsTests::run_all_generics_tests,
                            "Generic Struct Tests (Phase 0)", failed_tests);
+    run_test_with_continue(V0132GenericsTests::run_all_v0_13_2_generics_tests,
+                           "v0.13.2 Generic String Array Tests",
+                           failed_tests); // v0.13.2
     CategoryTimingStats::print_category_summary("v0.11.0 Generics");
 
     // 構造体・インターフェーステスト群
