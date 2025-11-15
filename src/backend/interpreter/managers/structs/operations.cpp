@@ -837,6 +837,11 @@ std::string StructOperations::get_struct_member_array_string_element(
             return true;
         }
 
+        // v0.13.2: Also check if array_strings has actual data
+        if (!var->array_strings.empty()) {
+            return true;
+        }
+
         return false;
     };
 

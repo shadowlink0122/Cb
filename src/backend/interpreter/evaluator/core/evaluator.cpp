@@ -950,7 +950,9 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             }
         }
 
-        if (inferred_type.type_info == TYPE_STRING && node->left &&
+        // v0.13.2: Handle struct member array access (e.g., obj.items[0])
+        // Check actual member type instead of relying on inferred_type
+        if (node->left &&
             node->left->node_type == ASTNodeType::AST_MEMBER_ACCESS) {
             const ASTNode *member_node = node->left.get();
             std::string member_name = member_node->name;
@@ -969,15 +971,61 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             if (!object_name.empty() && node->array_index) {
                 int64_t array_index =
                     evaluate_expression(node->array_index.get());
+
+                // Try to get the member variable to check its actual type
                 try {
-                    std::string value =
-                        interpreter_.get_struct_member_array_string_element(
-                            object_name, member_name,
-                            static_cast<int>(array_index));
-                    return TypedValue(value,
-                                      InferredType(TYPE_STRING, "string"));
+                    Variable *member_var = interpreter_.get_struct_member(
+                        object_name, member_name);
+                    if (member_var && member_var->is_array) {
+                        // Check if it's a string array based on actual data
+                        // Priority 1: Explicit type markers
+                        bool explicit_string_type =
+                            (member_var->type == TYPE_STRING) ||
+                            (member_var->type ==
+                             static_cast<TypeInfo>(TYPE_ARRAY_BASE +
+                                                   TYPE_STRING)) ||
+                            (member_var->array_type_info.base_type ==
+                             TYPE_STRING);
+
+                        // Priority 2: Check if the actual element at the index
+                        // contains a string This handles generic types like
+                        // Container<string> where type info may be TYPE_UNKNOWN
+                        bool has_string_at_index =
+                            (array_index >= 0 &&
+                             array_index <
+                                 static_cast<int64_t>(
+                                     member_var->array_strings.size()) &&
+                             !member_var->array_strings[array_index].empty());
+
+                        bool is_string_array =
+                            explicit_string_type || has_string_at_index;
+
+                        if (is_string_array) {
+                            std::string value =
+                                interpreter_
+                                    .get_struct_member_array_string_element(
+                                        object_name, member_name,
+                                        static_cast<int>(array_index));
+                            return TypedValue(
+                                value, InferredType(TYPE_STRING, "string"));
+                        }
+                    }
                 } catch (const std::exception &) {
-                    // フォールバックして通常処理
+                    // If direct member access fails, try the old path for
+                    // backward compatibility
+                    if (inferred_type.type_info == TYPE_STRING) {
+                        try {
+                            std::string value =
+                                interpreter_
+                                    .get_struct_member_array_string_element(
+                                        object_name, member_name,
+                                        static_cast<int>(array_index));
+                            return TypedValue(
+                                value, InferredType(TYPE_STRING, "string"));
+                        } catch (const std::exception &) {
+                            // フォールバックして通常処理
+                        }
+                    }
                 }
             }
         }
