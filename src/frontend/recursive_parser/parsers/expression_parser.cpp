@@ -538,6 +538,22 @@ ASTNode *ExpressionParser::parseUnary() {
         return await_node;
     }
 
+    // v0.13.1: try式 / checked式のパース
+    if (parser_->check(TokenType::TOK_TRY) ||
+        parser_->check(TokenType::TOK_CHECKED)) {
+        Token keyword = parser_->advance();
+        ASTNode *operand = parseUnary();
+
+        ASTNodeType node_type = (keyword.type == TokenType::TOK_TRY)
+                                    ? ASTNodeType::AST_TRY_EXPR
+                                    : ASTNodeType::AST_CHECKED_EXPR;
+
+        ASTNode *node = new ASTNode(node_type);
+        node->left = std::unique_ptr<ASTNode>(operand);
+        parser_->setLocation(node, keyword);
+        return node;
+    }
+
     // Prefix operators: !, -, ~, &, *
     if (parser_->check(TokenType::TOK_NOT) ||
         parser_->check(TokenType::TOK_MINUS) ||

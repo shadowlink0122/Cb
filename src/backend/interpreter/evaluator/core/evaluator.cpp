@@ -252,6 +252,13 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
             evaluate_expression_lambda);
     }
 
+    case ASTNodeType::AST_TRY_EXPR:
+    case ASTNodeType::AST_CHECKED_EXPR: {
+        int64_t placeholder = evaluate_expression(node);
+        InferredType result_type(TYPE_ENUM, "Result<auto, RuntimeError>");
+        return consume_numeric_typed_value(node, placeholder, result_type);
+    }
+
     case ASTNodeType::AST_ARRAY_LITERAL: {
         // 配列リテラルの場合、プレースホルダーとして0を返し、型情報を保持
         InferredType array_type = type_engine_.infer_type(node);

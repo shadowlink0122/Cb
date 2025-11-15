@@ -1,0 +1,68 @@
+Result<int, RuntimeError> safe_deref(int* ptr) {
+    return try *ptr;
+}
+
+Result<int, RuntimeError> divide_pointer(int* ptr, int divisor) {
+    Result<int, RuntimeError> deref = safe_deref(ptr);
+    match (deref) {
+        Ok(value) => {
+            int quotient = value / divisor;
+            return Result<int, RuntimeError>::Ok(quotient);
+        }
+        Err(err) => {
+            return Result<int, RuntimeError>::Err(err);
+        }
+    }
+}
+
+Result<int, RuntimeError> checked_access(int[] values, int idx) {
+    return checked values[idx];
+}
+
+void expect_ok(Result<int, RuntimeError> result, int expected, string label) {
+    match (result) {
+        Ok(value) => {
+            println("{label}: Ok -> {value}");
+            assert(value == expected);
+        }
+        Err(err) => {
+            println("{label}: Unexpected Err -> {err}");
+            assert(false);
+        }
+    }
+}
+
+void expect_err(Result<int, RuntimeError> result, string label) {
+    match (result) {
+        Ok(value) => {
+            println("{label}: Unexpected Ok -> {value}");
+            assert(false);
+        }
+        Err(err) => {
+            println("{label}: Err -> {err}");
+        }
+    }
+}
+
+void main() {
+    println("=== Error Handling Basics ===");
+
+    int value = 42;
+    int* value_ptr = &value;
+    expect_ok(safe_deref(value_ptr), 42, "safe_deref ok");
+
+    int* null_ptr = nullptr;
+    expect_err(safe_deref(null_ptr), "safe_deref null");
+    expect_err(divide_pointer(null_ptr, 2), "divide_pointer null");
+    expect_ok(divide_pointer(value_ptr, 2), 21, "divide_pointer ok");
+
+    int[3] numbers;
+    numbers[0] = 5;
+    numbers[1] = 15;
+    numbers[2] = 25;
+
+    expect_ok(checked_access(numbers, 2), 25, "sum_checked_prefix ok");
+    expect_err(checked_access(numbers, 5), "sum_checked_prefix oob");
+
+    println("=== Error Handling Basics Passed ===");
+}

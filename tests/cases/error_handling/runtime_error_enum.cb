@@ -1,0 +1,30 @@
+// RuntimeError enumのバリアントを確認する基本テスト
+
+void main() {
+    println("=== RuntimeError enum smoke test ===");
+
+    RuntimeError null_err = RuntimeError::NullPointerError("ptr");
+    RuntimeError div_err = RuntimeError::DivisionByZeroError("lhs / rhs");
+
+    match (null_err) {
+        NullPointerError(msg) => {
+            println("NullPointerError -> {msg}");
+        }
+        _ => {
+            println("Unexpected variant for null_err");
+            assert(false);
+        }
+    }
+
+    match (div_err) {
+        DivisionByZeroError(msg) => {
+            println("DivisionByZeroError -> {msg}");
+        }
+        _ => {
+            println("Unexpected variant for div_err");
+            assert(false);
+        }
+    }
+
+    println("=== RuntimeError enum test passed ===");
+}
