@@ -816,7 +816,43 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 throw DetailedErrorException("Undefined variable: " + var_name);
             }
 
-            if (var->type == TYPE_STRING) {
+            // v0.13.4: 文字列配列への代入をサポート
+            // 基底型を取得
+            TypeInfo base_type =
+                (var->type >= TYPE_ARRAY_BASE)
+                    ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
+                    : var->type;
+
+            // 文字列配列の場合
+            if (base_type == TYPE_STRING && var->is_array) {
+                // constチェック
+                if (var->is_const) {
+                    throw std::runtime_error(
+                        "Cannot assign to const variable: " + var_name);
+                }
+
+                // 右辺が文字列リテラルの場合
+                if (node->right &&
+                    node->right->node_type == ASTNodeType::AST_STRING_LITERAL) {
+                    std::string str_value = node->right->str_value;
+                    // array_stringsに代入
+                    if (index < 0 || index >= var->array_size) {
+                        throw std::runtime_error(
+                            "String array index out of bounds: " + var_name +
+                            "[" + std::to_string(index) + "]");
+                    }
+                    if (index >=
+                        static_cast<int64_t>(var->array_strings.size())) {
+                        throw std::runtime_error(
+                            "String array storage not initialized: " +
+                            var_name);
+                    }
+                    var->array_strings[index] = str_value;
+                } else {
+                    throw std::runtime_error("Unsupported right-hand side for "
+                                             "string array assignment");
+                }
+            } else if (var->type == TYPE_STRING) {
                 // 通常のstring型変数（str_valueを持つ）の場合
                 if (!var->str_value.empty() || var->value == 0) {
                     interpreter.assign_string_element(

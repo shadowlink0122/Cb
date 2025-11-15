@@ -2254,6 +2254,17 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 } else if (actual_type == "char") {
                     char *arr = reinterpret_cast<char *>(ptr_value);
                     return static_cast<int64_t>(arr[index]);
+                } else if (actual_type == "string") {
+                    // v0.13.4: 文字列配列のサポート
+                    // メモリレイアウト: char*ポインタの配列
+                    char **arr = reinterpret_cast<char **>(ptr_value);
+                    char *str = arr[index];
+                    if (str == nullptr) {
+                        // 空文字列を返す
+                        throw ReturnException(std::string(""));
+                    }
+                    // char*をstd::stringに変換して返す
+                    throw ReturnException(std::string(str));
                 }
                 // int, その他はデフォルトのint扱い
             } else {
@@ -2692,6 +2703,54 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 } else if (actual_type == "char") {
                     char *arr = reinterpret_cast<char *>(ptr_value);
                     arr[index] = static_cast<char>(value);
+                    return 0;
+                } else if (actual_type == "string") {
+                    // v0.13.4: 文字列配列のサポート
+                    // 第3引数は文字列値
+                    const ASTNode *value_node = node->arguments[2].get();
+
+                    // 文字列リテラルまたは文字列変数を評価
+                    std::string str_value;
+                    if (value_node->node_type ==
+                        ASTNodeType::AST_STRING_LITERAL) {
+                        str_value = value_node->str_value;
+                    } else if (value_node->node_type ==
+                               ASTNodeType::AST_VARIABLE) {
+                        Variable *var =
+                            interpreter_.find_variable(value_node->name);
+                        if (var && var->type == TYPE_STRING) {
+                            str_value = var->str_value;
+                        } else {
+                            throw std::runtime_error(
+                                "array_set: string variable not found or not a "
+                                "string");
+                        }
+                    } else {
+                        throw std::runtime_error(
+                            "array_set: unsupported value type for string");
+                    }
+
+                    // メモリレイアウト: char*ポインタの配列
+                    // 文字列のdeep copyを作成
+                    char *str_copy = (char *)malloc(str_value.size() + 1);
+                    strcpy(str_copy, str_value.c_str());
+
+                    // 配列内のポインタを更新
+                    char **arr = reinterpret_cast<char **>(ptr_value);
+
+                    // 既存の文字列があれば解放
+                    if (arr[index] != nullptr) {
+                        free(arr[index]);
+                    }
+
+                    arr[index] = str_copy;
+
+                    if (interpreter_.is_debug_mode()) {
+                        std::cerr << "[array_set] String set at index " << index
+                                  << ": '" << str_value << "' at "
+                                  << (void *)str_copy << "\n";
+                    }
+
                     return 0;
                 }
                 // int, その他はデフォルトのint扱い
