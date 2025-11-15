@@ -1,0 +1,51 @@
+// Test: Generic async method implementation
+// ジェネリック型でのasyncメソッド実装
+
+interface Container<T> {
+    async T get_value();
+    async T compute(T input);
+}
+
+struct Box<T> {
+    T value;
+};
+
+impl Container<T> for Box<T> {
+    async T get_value() {
+        return self.value;
+    }
+
+    async T compute(T input) {
+        return input;
+    }
+}
+
+void main() {
+    println("=== Impl Generic Async Method Test ===");
+
+    // Test with int
+    Box<int> int_box;
+    int_box.value = 42;
+
+    int int_result = await int_box.get_value();
+    println("Int box value: {int_result}");
+    assert(int_result == 42);
+
+    int computed = await int_box.compute(100);
+    println("Computed int: {computed}");
+    assert(computed == 100);
+
+    // Test with string
+    Box<string> str_box;
+    str_box.value = "Hello";
+
+    string str_result = await str_box.get_value();
+    println("String box value: {str_result}");
+    assert(str_result == "Hello");
+
+    string computed_str = await str_box.compute("World");
+    println("Computed string: {computed_str}");
+    assert(computed_str == "World");
+
+    println("=== Test Complete ===");
+}

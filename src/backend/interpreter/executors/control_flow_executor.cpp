@@ -68,9 +68,13 @@ void ControlFlowExecutor::execute_while_statement(const ASTNode *node) {
             } catch (const ContinueException &e) {
                 // continue文でループ継続
                 continue;
-            } catch (const YieldException &) {
+            } catch (const YieldException &yield_exc) {
                 // v0.12.0: auto_yieldモードでのyield
-                throw; // YieldExceptionを再スロー
+                if (yield_exc.is_from_loop) {
+                    throw; // auto_yieldはそのまま再スロー
+                }
+                // 明示的なyieldはループ継続扱いにしてタスク側で同じステートメントを再開
+                throw YieldException(true);
             }
         }
     } catch (const BreakException &e) {
@@ -150,15 +154,21 @@ void ControlFlowExecutor::execute_for_statement(const ASTNode *node) {
             } catch (const ContinueException &e) {
                 // continue文でループ継続、update部分だけ実行
                 debug_msg(DebugMsgId::INTERPRETER_FOR_CONTINUE, iteration);
-            } catch (const YieldException &) {
+            } catch (const YieldException &yield_exc) {
                 // v0.12.0: auto_yieldモードでのyield
-                // 次のイテレーションのためにupdate式を実行してから再スロー
-                if (node->update_expr) {
-                    debug_msg(DebugMsgId::INTERPRETER_FOR_UPDATE_EXEC,
-                              iteration);
-                    interpreter_->execute_statement(node->update_expr.get());
+                if (yield_exc.is_from_loop) {
+                    // 自動yield時のみupdate式を先に実行
+                    if (node->update_expr) {
+                        debug_msg(DebugMsgId::INTERPRETER_FOR_UPDATE_EXEC,
+                                  iteration);
+                        interpreter_->execute_statement(
+                            node->update_expr.get());
+                    }
+                    throw; // そのまま再スロー
                 }
-                throw; // YieldExceptionを再スロー
+
+                // 明示的なyieldはループ継続扱いにしてタスク側で同じステートメントを再開
+                throw YieldException(true);
             }
 
             if (node->update_expr) {

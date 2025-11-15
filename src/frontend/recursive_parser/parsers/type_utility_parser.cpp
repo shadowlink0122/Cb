@@ -63,6 +63,14 @@ std::string TypeUtilityParser::parseType() {
     std::string original_type;
     bool saw_unsigned = false;
     bool saw_const = false;
+    bool saw_async = false; // v0.13.1: async修飾子
+
+    // v0.13.1: Check for async qualifier (for async function types)
+    if (parser_->check(TokenType::TOK_ASYNC)) {
+        saw_async = true;
+        parsed.is_async = true;
+        parser_->advance();
+    }
 
     // Check for const qualifier
     if (parser_->check(TokenType::TOK_CONST)) {
@@ -466,6 +474,11 @@ std::string TypeUtilityParser::parseType() {
             parsed.is_const = true;
         }
         full_type = "const " + full_type;
+    }
+
+    // v0.13.1: async修飾子を型文字列に追加
+    if (saw_async) {
+        full_type = "async " + full_type;
     }
 
     parsed.full_type = full_type;

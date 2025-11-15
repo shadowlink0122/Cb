@@ -23,6 +23,9 @@ void Interpreter::push_scope() {
     }
 
     variable_manager_->push_scope();
+    statement_position_stack_.emplace_back(
+        std::make_shared<std::map<const ASTNode *, size_t>>());
+    current_scope().statement_positions = statement_position_stack_.back();
     push_defer_scope();
     // v0.10.0: デストラクタスタックも追加
     destructor_stacks_.push_back(
@@ -52,6 +55,9 @@ void Interpreter::push_scope(const std::string &scope_id) {
     }
 
     variable_manager_->push_scope();
+    statement_position_stack_.emplace_back(
+        std::make_shared<std::map<const ASTNode *, size_t>>());
+    current_scope().statement_positions = statement_position_stack_.back();
     push_defer_scope();
     // v0.10.0: デストラクタスタックも追加
     destructor_stacks_.push_back(
@@ -181,7 +187,14 @@ void Interpreter::pop_scope() {
         }
     }
 
+    if (!statement_position_stack_.empty()) {
+        statement_position_stack_.pop_back();
+    }
     variable_manager_->pop_scope();
+    if (!statement_position_stack_.empty() && !scope_stack.empty()) {
+        scope_stack.back().statement_positions =
+            statement_position_stack_.back();
+    }
 }
 
 // ========================================================================

@@ -4,10 +4,16 @@
 #include "../../../common/debug_messages.h"
 #include "core/interpreter.h"
 #include "event_loop/simple_event_loop.h"
-#include <iostream>
 
 StatementListExecutor::StatementListExecutor(Interpreter *interpreter)
     : interpreter_(interpreter) {}
+
+namespace {
+void clear_resume_position(std::map<const ASTNode *, size_t> &positions,
+                           const ASTNode *node) {
+    positions.erase(node);
+}
+} // namespace
 
 void StatementListExecutor::execute_statement_list(const ASTNode *node) {
     if (!node) {
@@ -16,49 +22,41 @@ void StatementListExecutor::execute_statement_list(const ASTNode *node) {
 
     debug_msg(DebugMsgId::INTERPRETER_STMT_LIST_EXEC, node->statements.size());
 
-    if (interpreter_->debug_mode) {
-        std::cerr << "[STMT_LIST_DEBUG] Processing " << node->statements.size()
-                  << " statements" << std::endl;
+    auto stmt_positions = interpreter_->current_statement_positions();
+    size_t start_index = 0;
+    if (auto it = stmt_positions->find(node); it != stmt_positions->end()) {
+        start_index = it->second;
     }
 
+    auto clear_entry = [&]() { clear_resume_position(*stmt_positions, node); };
+
     try {
-        for (size_t i = 0; i < node->statements.size(); ++i) {
-            if (interpreter_->debug_mode) {
-                std::cerr << "[STMT_LIST_DEBUG] Processing statement "
-                          << (i + 1) << "/" << node->statements.size()
-                          << ", type="
-                          << static_cast<int>(node->statements[i]->node_type)
-                          << std::endl;
+        for (size_t i = start_index; i < node->statements.size(); ++i) {
+            (*stmt_positions)[node] = i;
+
+            try {
+                interpreter_->execute_statement(node->statements[i].get());
+            } catch (const YieldException &e) {
+                (*stmt_positions)[node] = e.is_from_loop ? i : (i + 1);
+                throw;
             }
 
-            interpreter_->execute_statement(node->statements[i].get());
+            (*stmt_positions)[node] = i + 1;
 
-            // v0.12.0 / v0.13.0 Phase 2.0:
-            // ステートメント実行後、イベントループを1サイクル実行してバックグラウンドタスクを進める
-            // スコープ深度に関係なく、バックグラウンドタスクがあれば進行させる
-            // これにより、再帰関数内でもバックグラウンドタスクが進行する
             if (interpreter_->get_simple_event_loop().has_tasks()) {
-                if (interpreter_->debug_mode) {
-                    std::cerr
-                        << "[STMT_LIST_DEBUG] Running event loop cycle after "
-                           "statement "
-                        << (i + 1) << std::endl;
-                }
                 interpreter_->get_simple_event_loop().run_one_cycle();
             }
-
-            if (interpreter_->debug_mode) {
-                std::cerr << "[STMT_LIST_DEBUG] Completed statement " << (i + 1)
-                          << "/" << node->statements.size() << std::endl;
-            }
         }
 
-        if (interpreter_->debug_mode) {
-            std::cerr << "[STMT_LIST_DEBUG] All " << node->statements.size()
-                      << " statements processed" << std::endl;
-        }
+        clear_entry();
     } catch (const ReturnException &) {
-        // ReturnExceptionは再スロー（関数から抜ける必要がある）
+        clear_entry();
+        throw;
+    } catch (const BreakException &) {
+        clear_entry();
+        throw;
+    } catch (const ContinueException &) {
+        clear_entry();
         throw;
     }
 }
@@ -71,45 +69,58 @@ void StatementListExecutor::execute_compound_statement(const ASTNode *node) {
     debug_msg(DebugMsgId::INTERPRETER_COMPOUND_STMT_EXEC,
               node->statements.size());
 
-    // v0.11.0: 複合文{}ごとにデストラクタスコープを作成
-    // 変数スコープは作成せず、デストラクタとdeferのみ管理
-    // v0.13.1 FIX: デストラクタ実行中はスコープpushをスキップ
-    // （struct_members_refの無効化を防ぐ）
     bool pushed_scope = false;
     if (!interpreter_->is_calling_destructor()) {
         interpreter_->push_destructor_scope();
         pushed_scope = true;
     }
 
+    auto stmt_positions = interpreter_->current_statement_positions();
+    size_t start_index = 0;
+    if (auto it = stmt_positions->find(node); it != stmt_positions->end()) {
+        start_index = it->second;
+    }
+
+    auto clear_entry = [&]() { clear_resume_position(*stmt_positions, node); };
+
     try {
-        for (const auto &stmt : node->statements) {
-            interpreter_->execute_statement(stmt.get());
+        for (size_t i = start_index; i < node->statements.size(); ++i) {
+            (*stmt_positions)[node] = i;
+
+            try {
+                interpreter_->execute_statement(node->statements[i].get());
+            } catch (const YieldException &e) {
+                (*stmt_positions)[node] = e.is_from_loop ? i : (i + 1);
+                if (pushed_scope) {
+                    interpreter_->pop_destructor_scope();
+                }
+                throw;
+            }
+
+            (*stmt_positions)[node] = i + 1;
         }
+
+        if (pushed_scope) {
+            interpreter_->pop_destructor_scope();
+        }
+        clear_entry();
     } catch (const ReturnException &) {
-        // ReturnExceptionは再スロー（関数から抜ける必要がある）
-        // スコープ終了時にデストラクタとdeferを実行してから再スロー
+        clear_entry();
         if (pushed_scope) {
             interpreter_->pop_destructor_scope();
         }
         throw;
     } catch (const BreakException &) {
-        // BreakExceptionは再スロー（ループから抜ける必要がある）
-        // スコープ終了時にデストラクタとdeferを実行してから再スロー
+        clear_entry();
         if (pushed_scope) {
             interpreter_->pop_destructor_scope();
         }
         throw;
     } catch (const ContinueException &) {
-        // ContinueExceptionは再スロー（次のイテレーションへ）
-        // スコープ終了時にデストラクタとdeferを実行してから再スロー
+        clear_entry();
         if (pushed_scope) {
             interpreter_->pop_destructor_scope();
         }
         throw;
-    }
-
-    // スコープ終了時にデストラクタとdeferを実行
-    if (pushed_scope) {
-        interpreter_->pop_destructor_scope();
     }
 }

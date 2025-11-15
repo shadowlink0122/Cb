@@ -609,6 +609,43 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
         return parseStructLiteral();
     }
 
+    // v0.13.1: async lambda の処理: async 型 func(params) { body }
+    // 例: async int func() { return 42; }
+    if (parser_->check(TokenType::TOK_ASYNC)) {
+        // 先読みしてasyncラムダ式かチェック
+        RecursiveLexer temp_lexer = parser_->lexer_;
+        Token temp_current = parser_->current_token_;
+
+        parser_->advance(); // asyncをスキップ
+
+        // 型トークンがあるかチェック
+        if (parser_->check(TokenType::TOK_INT) ||
+            parser_->check(TokenType::TOK_VOID) ||
+            parser_->check(TokenType::TOK_LONG) ||
+            parser_->check(TokenType::TOK_SHORT) ||
+            parser_->check(TokenType::TOK_TINY) ||
+            parser_->check(TokenType::TOK_FLOAT) ||
+            parser_->check(TokenType::TOK_DOUBLE) ||
+            parser_->check(TokenType::TOK_BOOL) ||
+            parser_->check(TokenType::TOK_STRING_TYPE) ||
+            parser_->check(TokenType::TOK_CHAR_TYPE)) {
+
+            parser_->advance(); // 型をスキップ
+
+            // `func` キーワードがあればasyncラムダ式
+            if (parser_->check(TokenType::TOK_FUNC)) {
+                // 状態を戻してparseLambdaを呼ぶ
+                parser_->lexer_ = temp_lexer;
+                parser_->current_token_ = temp_current;
+                return parseLambda();
+            }
+        }
+
+        // asyncラムダ式でない場合は状態を戻す
+        parser_->lexer_ = temp_lexer;
+        parser_->current_token_ = temp_current;
+    }
+
     // 無名関数（ラムダ式）の処理: 型 func(params) { body }
     // 例: int func(int x) { return x * 2; }
     if (parser_->check(TokenType::TOK_INT) ||
@@ -765,8 +802,23 @@ ASTNode *PrimaryExpressionParser::parseArrayLiteral() {
 }
 
 ASTNode *PrimaryExpressionParser::parseLambda() {
+    // v0.13.1: asyncキーワードをチェック
+    bool is_async = false;
+    if (parser_->check(TokenType::TOK_ASYNC)) {
+        is_async = true;
+        parser_->advance();
+    }
+
     // 戻り値の型を解析
     std::string return_type = parser_->parseType();
+
+    // v0.13.1: async関数の戻り値をFuture<T>で自動ラッピング
+    if (is_async) {
+        // 戻り値がすでにFuture<>で始まっている場合はラップしない
+        if (return_type.find("Future<") != 0) {
+            return_type = "Future<" + return_type + ">";
+        }
+    }
 
     // 'func' キーワードを消費
     if (!parser_->check(TokenType::TOK_FUNC)) {
@@ -783,6 +835,7 @@ ASTNode *PrimaryExpressionParser::parseLambda() {
     ASTNode *lambda = new ASTNode(ASTNodeType::AST_LAMBDA_EXPR);
     lambda->is_lambda = true;
     lambda->lambda_return_type_name = return_type;
+    lambda->is_async_function = is_async; // v0.13.1: asyncフラグを設定
 
     // 型名をTypeInfoに変換（parser_->getTypeInfoFromStringを使用）
     lambda->lambda_return_type = parser_->getTypeInfoFromString(return_type);

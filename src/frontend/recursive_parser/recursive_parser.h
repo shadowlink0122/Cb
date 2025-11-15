@@ -34,6 +34,7 @@ struct ParsedTypeInfo {
     bool is_const = false; // const修飾子かどうか（前置const）
     bool is_pointer_const = false; // ポインタ自体がconst (T* const)
     bool is_pointee_const = false; // 指し先がconst (const T*)
+    bool is_async = false; // v0.13.1: async修飾子かどうか（async関数型用）
 };
 
 class RecursiveParser {

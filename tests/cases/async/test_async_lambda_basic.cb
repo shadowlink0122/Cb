@@ -1,0 +1,17 @@
+// Test: Async lambda basic
+// asyncラムダ式の基本機能
+
+void main() {
+    println("=== Async Lambda Basic Test ===");
+
+    // Test 1: Basic async lambda
+    auto lambda = async int func() {
+        return 42;
+    };
+
+    int result = await lambda();
+    println("Result: {result}");
+    assert(result == 42);
+
+    println("=== Test Complete ===");
+}

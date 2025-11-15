@@ -1,0 +1,26 @@
+// Test: Async lambda with parameters
+// パラメータ付きasyncラムダ式
+
+void main() {
+    println("=== Async Lambda with Parameters Test ===");
+
+    // Test 1: Single parameter
+    auto add_async = async int func(int x) {
+        return x + 10;
+    };
+
+    int result1 = await add_async(5);
+    println("Result 1: {result1}");
+    assert(result1 == 15);
+
+    // Test 2: Multiple parameters
+    auto multiply_async = async int func(int a, int b) {
+        return a * b;
+    };
+
+    int result2 = await multiply_async(6, 7);
+    println("Result 2: {result2}");
+    assert(result2 == 42);
+
+    println("=== Test Complete ===");
+}

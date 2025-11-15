@@ -6,15 +6,20 @@
 #include <deque>
 #include <iostream>
 #include <map>
+#include <memory>
+#include <optional>
+#include <queue>
 #include <set>
+#include <stack>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
-// v0.12.0: Event Loop の前方宣言
 namespace cb {
 class EventLoop;
-class SimpleEventLoop; // v0.12.1 Phase 2.0
-class FFIManager;      // v0.13.0: FFI Manager
+class SimpleEventLoop;
+class FFIManager;
 } // namespace cb
 
 // 前方宣言
@@ -424,8 +429,10 @@ struct AsyncTask {
     bool use_internal_future = true; // internal_futureを使用するか
 
     // v0.12.1 Phase 2.0: メソッド呼び出し対応
-    bool has_self = false; // selfが存在するか
-    Variable self_value;   // selfの値
+    bool has_self = false;          // selfが存在するか
+    Variable self_value;            // selfの値
+    bool has_self_receiver = false; // selfの書き戻し先があるか
+    std::string self_receiver_name; // selfの書き戻し先変数名
 
     // 実行状態
     bool is_started = false;  // 実行開始済みか
@@ -446,6 +453,8 @@ struct AsyncTask {
     // 協調的マルチタスク用
     bool auto_yield = true; // 各ステートメント後に自動yield（デフォルトtrue）
     bool is_statement_first_time = true; // 現在のステートメントが初回実行か
+    std::shared_ptr<std::map<const ASTNode *, size_t>>
+        statement_positions; // ステートメント再開位置
 
     // v0.12.0: 非同期sleep対応
     bool is_sleeping = false; // sleep中か
@@ -462,10 +471,11 @@ struct AsyncTask {
     AsyncTask()
         : task_id(0), function_node(nullptr), function_name(""),
           future_var(nullptr), use_internal_future(true), has_self(false),
-          is_started(false), is_executed(false), current_statement_index(0),
-          task_scope(nullptr), has_return_value(false), return_value(0),
-          return_double_value(0.0), return_string_value(""),
-          return_type(TYPE_VOID), return_is_struct(false), auto_yield(true),
+          has_self_receiver(false), is_started(false), is_executed(false),
+          current_statement_index(0), task_scope(nullptr),
+          has_return_value(false), return_value(0), return_double_value(0.0),
+          return_string_value(""), return_type(TYPE_VOID),
+          return_is_struct(false), auto_yield(true),
           is_statement_first_time(true), is_sleeping(false), wake_up_time_ms(0),
           is_waiting(false), waiting_for_task_id(-1), has_timeout(false),
           timeout_ms(0) {}
@@ -474,11 +484,11 @@ struct AsyncTask {
               std::vector<Variable> arguments, Variable *future)
         : task_id(id), function_node(node), function_name(name),
           args(std::move(arguments)), future_var(future),
-          use_internal_future(true), has_self(false), is_started(false),
-          is_executed(false), current_statement_index(0), task_scope(nullptr),
-          has_return_value(false), return_value(0), return_double_value(0.0),
-          return_string_value(""), return_type(TYPE_VOID),
-          return_is_struct(false), auto_yield(true),
+          use_internal_future(true), has_self(false), has_self_receiver(false),
+          is_started(false), is_executed(false), current_statement_index(0),
+          task_scope(nullptr), has_return_value(false), return_value(0),
+          return_double_value(0.0), return_string_value(""),
+          return_type(TYPE_VOID), return_is_struct(false), auto_yield(true),
           is_statement_first_time(true), is_sleeping(false), wake_up_time_ms(0),
           is_waiting(false), waiting_for_task_id(-1) {}
 };
@@ -505,12 +515,14 @@ struct Scope {
     std::map<std::string, FunctionPointer>
         function_pointers; // 関数ポインタ変数
     std::string scope_id; // スコープの一意識別子（implメソッド用）
+    std::shared_ptr<std::map<const ASTNode *, size_t>> statement_positions;
 
     void clear() {
         variables.clear();
         functions.clear();
         function_pointers.clear();
         scope_id.clear();
+        statement_positions.reset();
     }
 };
 
@@ -706,6 +718,8 @@ class Interpreter : public EvaluatorInterface {
   private:
     std::vector<Scope> scope_stack;
     Scope global_scope;
+    std::vector<std::shared_ptr<std::map<const ASTNode *, size_t>>>
+        statement_position_stack_;
     bool debug_mode;
     std::unique_ptr<OutputManager> output_manager_;
     std::map<std::string, std::string>
@@ -746,6 +760,9 @@ class Interpreter : public EvaluatorInterface {
 
     // v0.12.1 Phase 2.0: Simple Event Loop（協調的マルチタスキング）
     std::unique_ptr<class cb::SimpleEventLoop> simple_event_loop_;
+
+    // v0.13.0: Foreign Function Interface manager
+    std::unique_ptr<class cb::FFIManager> ffi_manager_;
 
     // v0.12.0: async関数のタスクカウンター（一意なFuture識別用）
     int async_task_counter_ = 0;
@@ -798,9 +815,6 @@ class Interpreter : public EvaluatorInterface {
     std::unique_ptr<StatementListExecutor>
         statement_list_executor_; // 文リスト・複合文実行
     std::unique_ptr<ReturnHandler> return_handler_; // return文処理
-
-    // v0.13.0: FFI Manager
-    std::unique_ptr<cb::FFIManager> ffi_manager_;
     std::unique_ptr<AssertionHandler> assertion_handler_; // アサーション文処理
     std::unique_ptr<BreakContinueHandler>
         break_continue_handler_; // break/continue文処理
@@ -858,6 +872,29 @@ class Interpreter : public EvaluatorInterface {
     Scope &current_scope();
     Scope &get_current_scope() { return current_scope(); }
     Scope &get_global_scope() { return global_scope; }
+    std::shared_ptr<std::map<const ASTNode *, size_t>>
+    current_statement_positions() {
+        if (statement_position_stack_.empty()) {
+            statement_position_stack_.emplace_back(
+                std::make_shared<std::map<const ASTNode *, size_t>>());
+        }
+        return statement_position_stack_.back();
+    }
+    void set_current_statement_positions(
+        std::shared_ptr<std::map<const ASTNode *, size_t>> positions) {
+        if (!positions) {
+            positions = std::make_shared<std::map<const ASTNode *, size_t>>();
+        }
+        if (statement_position_stack_.empty()) {
+            statement_position_stack_.push_back(positions);
+        } else {
+            statement_position_stack_.back() = positions;
+        }
+        if (!scope_stack.empty()) {
+            scope_stack.back().statement_positions =
+                statement_position_stack_.back();
+        }
+    }
 
     // デストラクタスコープ管理（変数スコープは作成しない）
     void push_destructor_scope();
@@ -1140,9 +1177,6 @@ class Interpreter : public EvaluatorInterface {
     // v0.13.1: デストラクタ実行中かチェック
     bool is_calling_destructor() const { return is_calling_destructor_; }
 
-    // v0.13.0: FFIManagerへのアクセス
-    cb::FFIManager *get_ffi_manager() { return ffi_manager_.get(); }
-
     // エラー表示ヘルパー関数
     void throw_runtime_error_with_location(const std::string &message,
                                            const ASTNode *node = nullptr);
@@ -1218,6 +1252,9 @@ class Interpreter : public EvaluatorInterface {
         return expression_evaluator_.get();
     }
     TypedValue evaluate_typed_expression(const ASTNode *node);
+
+    // FFI managerへのアクセス
+    cb::FFIManager *get_ffi_manager() { return ffi_manager_.get(); }
 
     // TypeManagerへのアクセス
     TypeManager *get_type_manager() { return type_manager_.get(); }

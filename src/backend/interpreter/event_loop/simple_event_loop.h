@@ -56,6 +56,10 @@ class SimpleEventLoop {
     // タスクスコープの初期化
     void initialize_task_scope(AsyncTask &task);
 
+    // タスク完了時の後処理（selfの同期など）
+    void finalize_task_if_needed(int task_id);
+    void sync_async_self_receiver(AsyncTask &task);
+
     Interpreter &interpreter_;
     std::deque<int> task_queue_;     // 実行待ちタスクID
     std::map<int, AsyncTask> tasks_; // タスクID -> AsyncTask
