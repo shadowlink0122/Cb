@@ -35,6 +35,16 @@ struct ParsedTypeInfo {
     bool is_pointer_const = false; // ポインタ自体がconst (T* const)
     bool is_pointee_const = false; // 指し先がconst (const T*)
     bool is_async = false; // v0.13.1: async修飾子かどうか（async関数型用）
+    bool is_function_type = false;         // v0.13.2: 関数型かどうか
+    bool function_is_async = false;        // 関数型がasyncかどうか
+    std::string function_return_type_name; // 関数型の戻り値型名
+    TypeInfo function_return_type_info = TYPE_UNKNOWN; // 関数型の戻り値TypeInfo
+    std::vector<std::string>
+        function_param_type_names; // 関数型: パラメータ型名リスト
+    std::vector<TypeInfo>
+        function_param_type_infos; // 関数型: パラメータTypeInfoリスト
+    std::vector<std::string>
+        function_param_names; // 関数型: パラメータ名（オプション）
 };
 
 class RecursiveParser {
@@ -167,7 +177,12 @@ class RecursiveParser {
     // Utility methods
     ASTNode *cloneAstNode(const ASTNode *node);
     TypeInfo getTypeInfoFromString(const std::string &type_name);
+    TypeInfo getTypeInfoFromString(const std::string &type_name) const;
     ASTNode *parseArrayLiteral();
+    FunctionPointerTypeInfo
+    buildFunctionPointerTypeInfo(const ParsedTypeInfo &parsed) const;
+    void applyFunctionPointerTypeInfo(ASTNode *node,
+                                      const ParsedTypeInfo &parsed) const;
 
     // struct管理
     std::unordered_map<std::string, StructDefinition>

@@ -851,6 +851,7 @@ ASTNode *PrimaryExpressionParser::parseLambda() {
         do {
             // パラメータの型を解析
             std::string param_type = parser_->parseType();
+            ParsedTypeInfo param_parsed = parser_->getLastParsedTypeInfo();
 
             // パラメータ名を解析
             if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
@@ -865,8 +866,35 @@ ASTNode *PrimaryExpressionParser::parseLambda() {
             // パラメータノードを作成
             ASTNode *param = new ASTNode(ASTNodeType::AST_PARAM_DECL);
             param->name = param_name;
-            param->type_name = param_type;
-            param->type_info = parser_->getTypeInfoFromString(param_type);
+            param->type_name = param_parsed.full_type;
+            param->original_type_name = param_parsed.original_type.empty()
+                                            ? param_parsed.full_type
+                                            : param_parsed.original_type;
+            TypeInfo param_type_info =
+                parser_->resolveParsedTypeInfo(param_parsed);
+            if (param_type_info == TYPE_UNKNOWN) {
+                param_type_info = parser_->getTypeInfoFromString(param_type);
+            }
+            param->type_info = param_type_info;
+            param->is_pointer = param_parsed.is_pointer;
+            param->pointer_depth = param_parsed.pointer_depth;
+            param->pointer_base_type_name = param_parsed.base_type;
+            param->pointer_base_type = param_parsed.base_type_info;
+            param->is_reference = param_parsed.is_reference;
+            param->is_rvalue_reference = param_parsed.is_rvalue_reference;
+            param->is_unsigned = param_parsed.is_unsigned;
+            param->is_const = param_parsed.is_const;
+            param->is_pointer_const_qualifier = param_parsed.is_pointer_const;
+            param->is_pointee_const_qualifier =
+                param_parsed.is_const && param_parsed.is_pointer;
+            if (param_parsed.is_array) {
+                param->array_type_info = param_parsed.array_info;
+                param->is_array = true;
+            }
+
+            if (param_parsed.is_function_type) {
+                parser_->applyFunctionPointerTypeInfo(param, param_parsed);
+            }
 
             lambda->lambda_params.push_back(std::unique_ptr<ASTNode>(param));
 

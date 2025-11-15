@@ -165,6 +165,10 @@ TypeInfo
 RecursiveParser::resolveParsedTypeInfo(const ParsedTypeInfo &parsed) const {
     TypeInfo resolved = parsed.base_type_info;
 
+    if (parsed.is_function_type) {
+        return TYPE_FUNCTION_POINTER;
+    }
+
     std::string base_lookup = parsed.base_type;
     if (base_lookup.rfind("struct ", 0) == 0) {
         base_lookup = base_lookup.substr(7);
@@ -472,6 +476,59 @@ ASTNode *RecursiveParser::parseTypedefDeclaration() {
 
 TypeInfo RecursiveParser::getTypeInfoFromString(const std::string &type_name) {
     return type_utility_parser_->getTypeInfoFromString(type_name);
+}
+
+TypeInfo
+RecursiveParser::getTypeInfoFromString(const std::string &type_name) const {
+    return type_utility_parser_->getTypeInfoFromString(type_name);
+}
+
+FunctionPointerTypeInfo RecursiveParser::buildFunctionPointerTypeInfo(
+    const ParsedTypeInfo &parsed) const {
+    TypeInfo return_type = parsed.function_return_type_info;
+    if (return_type == TYPE_UNKNOWN &&
+        !parsed.function_return_type_name.empty()) {
+        return_type = getTypeInfoFromString(parsed.function_return_type_name);
+    }
+
+    std::vector<TypeInfo> param_types = parsed.function_param_type_infos;
+    if (param_types.size() < parsed.function_param_type_names.size()) {
+        param_types.resize(parsed.function_param_type_names.size(),
+                           TYPE_UNKNOWN);
+    }
+
+    for (size_t i = 0; i < param_types.size(); ++i) {
+        if (param_types[i] == TYPE_UNKNOWN &&
+            i < parsed.function_param_type_names.size()) {
+            param_types[i] =
+                getTypeInfoFromString(parsed.function_param_type_names[i]);
+        }
+    }
+
+    return FunctionPointerTypeInfo(
+        return_type, parsed.function_return_type_name, param_types,
+        parsed.function_param_type_names, parsed.function_param_names,
+        parsed.function_is_async);
+}
+
+void RecursiveParser::applyFunctionPointerTypeInfo(
+    ASTNode *node, const ParsedTypeInfo &parsed) const {
+    if (!node || !parsed.is_function_type) {
+        return;
+    }
+
+    node->is_function_pointer = true;
+    node->type_info = TYPE_FUNCTION_POINTER;
+    node->function_pointer_type = buildFunctionPointerTypeInfo(parsed);
+
+    if (!parsed.full_type.empty()) {
+        node->type_name = parsed.full_type;
+    }
+    if (node->original_type_name.empty()) {
+        node->original_type_name = parsed.original_type.empty()
+                                       ? parsed.full_type
+                                       : parsed.original_type;
+    }
 }
 
 ASTNode *RecursiveParser::parseReturnStatement() {

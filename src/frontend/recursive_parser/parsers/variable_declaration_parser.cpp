@@ -275,6 +275,10 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
             node->arguments = std::move(var_info.ctor_arguments);
         }
 
+        if (parsed.is_function_type) {
+            parser_->applyFunctionPointerTypeInfo(node, parsed);
+        }
+
         return node;
     } else {
         // 複数変数宣言の場合
@@ -297,6 +301,10 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         if (base_parsed_type.is_array) {
             node->array_type_info = base_parsed_type.array_info;
             node->is_array = true;
+        }
+
+        if (base_parsed_type.is_function_type) {
+            parser_->applyFunctionPointerTypeInfo(node, base_parsed_type);
         }
 
         // 各変数を子ノードとして追加
@@ -330,6 +338,10 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
 
             if (var.init_expr) {
                 var_node->init_expr = std::move(var.init_expr);
+            }
+
+            if (parsed.is_function_type) {
+                parser_->applyFunctionPointerTypeInfo(var_node, parsed);
             }
 
             node->children.push_back(std::unique_ptr<ASTNode>(var_node));

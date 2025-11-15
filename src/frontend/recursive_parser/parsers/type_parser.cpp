@@ -194,6 +194,27 @@ bool TypeParser::isValidType(const std::string &type_name) {
     base_type.erase(std::remove(base_type.begin(), base_type.end(), ' '),
                     base_type.end());
 
+    auto trim = [](const std::string &value) {
+        size_t start = value.find_first_not_of(' ');
+        if (start == std::string::npos) {
+            return std::string();
+        }
+        size_t end = value.find_last_not_of(' ');
+        return value.substr(start, end - start + 1);
+    };
+
+    std::string normalized = trim(base_type);
+    if (normalized.rfind("async ", 0) == 0) {
+        normalized = trim(normalized.substr(6));
+    }
+
+    size_t paren_pos = normalized.find('(');
+    size_t closing_pos = normalized.rfind(')');
+    if (paren_pos != std::string::npos && closing_pos != std::string::npos &&
+        closing_pos > paren_pos) {
+        return true;
+    }
+
     // 基本型のチェック
     if (base_type == "int" || base_type == "long" || base_type == "short" ||
         base_type == "tiny" || base_type == "bool" || base_type == "string" ||
