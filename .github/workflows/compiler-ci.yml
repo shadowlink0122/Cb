@@ -1,4 +1,4 @@
-name: Cb CI
+name: Cb Compiler CI
 
 on:
   push:
@@ -36,9 +36,9 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cb-build
+          name: cb-build-compiler
           path: |
-            main
+            cb
             *.o
             src/**/*.o
           retention-days: 1
@@ -53,10 +53,10 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: cb-build
+          name: cb-build-compiler
       - name: Make executable
-        run: chmod +x main
-      - name: Install build tools (for test runner)
+        run: chmod +x cb
+      - name: Install build tools (for test runner and compilation)
         run: sudo apt-get update && sudo apt-get install -y g++
       - name: Run unit tests (make unit-test)
         run: make unit-test
@@ -71,11 +71,13 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: cb-build
+          name: cb-build-compiler
       - name: Make executable
-        run: chmod +x main
-      - name: Run integration tests (make integration-test)
-        run: make integration-test
+        run: chmod +x cb
+      - name: Install build tools (for compilation)
+        run: sudo apt-get update && sudo apt-get install -y g++
+      - name: Run integration tests via compiler (make integration-test-compiler)
+        run: make integration-test-compiler
 
   stdlib-test:
     runs-on: ubuntu-latest
@@ -87,10 +89,10 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: cb-build
+          name: cb-build-compiler
       - name: Make executable
-        run: chmod +x main
-      - name: Install build tools (for test runner)
+        run: chmod +x cb
+      - name: Install build tools (for compilation)
         run: sudo apt-get update && sudo apt-get install -y g++
-      - name: Run stdlib tests (make stdlib-test)
-        run: make stdlib-test
+      - name: Run stdlib tests via compiler (make stdlib-cb-test-compiler)
+        run: make stdlib-cb-test-compiler
