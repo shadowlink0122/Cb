@@ -1,5 +1,7 @@
+#include "../backend/codegen/hir_to_cpp.h" // v0.14.0: C++コード生成
 #include "../backend/interpreter/core/error_handler.h"
 #include "../backend/interpreter/core/interpreter.h"
+#include "../backend/ir/hir/hir_generator.h" // v0.14.0: HIR生成
 #include "../common/ast.h"
 #include "../common/debug.h"
 
@@ -15,6 +17,7 @@
 #include <iostream>
 #include <memory>
 #include <sstream>
+#include <unistd.h> // for getpid
 #include <vector>
 
 using namespace RecursiveParserNS;
@@ -26,7 +29,15 @@ std::vector<std::string> file_lines;
 int main(int argc, char **argv) {
     if (argc < 2) {
         std::cerr << "使用法: " << argv[0]
-                  << " <ファイル名> [-d|--debug] [--debug-ja]" << std::endl;
+                  << " <ファイル名> [-c|--compile] [-d|--debug] [--debug-ja]"
+                  << std::endl;
+        std::cerr << "オプション:" << std::endl;
+        std::cerr << "  -c, --compile    コンパイルのみ（IR生成して終了）"
+                  << std::endl;
+        std::cerr << "  -d, --debug      デバッグモード" << std::endl;
+        std::cerr << "  --debug-ja       日本語デバッグモード" << std::endl;
+        std::cerr << "  --no-preprocess  プリプロセッサを無効化" << std::endl;
+        std::cerr << "  -D<macro>[=val]  マクロを定義" << std::endl;
         return 1;
     }
 
@@ -35,6 +46,7 @@ int main(int argc, char **argv) {
     debug_mode = false;
     debug_language = DebugLanguage::ENGLISH;
     bool enable_preprocessor = true;
+    bool compile_only = false; // v0.14.0: コンパイルのみモード
     PreprocessorNS::Preprocessor preprocessor;
 
     for (int i = 1; i < argc; ++i) {
@@ -44,6 +56,10 @@ int main(int argc, char **argv) {
         } else if (std::string(argv[i]) == "--debug-ja") {
             debug_mode = true;
             debug_language = DebugLanguage::JAPANESE;
+        } else if (std::string(argv[i]) == "-c" ||
+                   std::string(argv[i]) == "--compile") {
+            // v0.14.0: コンパイルのみモード（IR生成して終了）
+            compile_only = true;
         } else if (std::string(argv[i]) == "--no-preprocess") {
             enable_preprocessor = false;
         } else if (std::string(argv[i]).substr(0, 2) == "-D") {
@@ -116,6 +132,94 @@ int main(int argc, char **argv) {
         if (!root) {
             std::fprintf(stderr, "Error: AST generation failed\n");
             return 1;
+        }
+
+        // v0.14.0: コンパイルのみモード（HIR → C++ → Binary）
+        if (compile_only) {
+            std::cout << "Compile mode: Generating HIR from AST..."
+                      << std::endl;
+
+            // HIRGeneratorを使ってASTからHIRを生成
+            cb::ir::HIRGenerator hir_gen;
+            auto hir_program = hir_gen.generate(root->statements);
+
+            if (!hir_program) {
+                std::cerr << "Error: HIR generation failed" << std::endl;
+                return 1;
+            }
+
+            std::cout << "HIR generation successful!" << std::endl;
+            std::cout << "  Functions: " << hir_program->functions.size()
+                      << std::endl;
+            std::cout << "  Structs: " << hir_program->structs.size()
+                      << std::endl;
+            std::cout << "  Enums: " << hir_program->enums.size() << std::endl;
+            std::cout << "  Interfaces: " << hir_program->interfaces.size()
+                      << std::endl;
+            std::cout << "  Impls: " << hir_program->impls.size() << std::endl;
+            std::cout << "  FFI Functions: "
+                      << hir_program->foreign_functions.size() << std::endl;
+            std::cout << "  Global Vars: " << hir_program->global_vars.size()
+                      << std::endl;
+
+            // v0.14.0: C++コード生成
+            cb::codegen::HIRToCpp transpiler;
+            std::string cpp_code = transpiler.generate(*hir_program);
+
+            // 一時C++ファイルに保存
+            std::string temp_cpp =
+                "/tmp/cb_compiled_" + std::to_string(getpid()) + ".cpp";
+            std::ofstream cpp_out(temp_cpp);
+            cpp_out << cpp_code;
+            cpp_out.close();
+
+            std::cout << "C++ code generated: " << temp_cpp << std::endl;
+
+            // デバッグモードの場合、C++コードを保存
+            if (debug_mode) {
+                std::string debug_cpp = filename + ".generated.cpp";
+                std::ofstream debug_out(debug_cpp);
+                debug_out << cpp_code;
+                debug_out.close();
+                std::cout << "Debug: C++ code saved to " << debug_cpp
+                          << std::endl;
+            }
+
+            // 出力ファイル名を決定
+            std::string output_binary = filename;
+            size_t dot_pos = output_binary.find_last_of('.');
+            if (dot_pos != std::string::npos) {
+                output_binary = output_binary.substr(0, dot_pos);
+            }
+
+            // コマンドライン引数から出力ファイル名を取得
+            for (int i = 1; i < argc - 1; ++i) {
+                if (std::string(argv[i]) == "-o") {
+                    output_binary = argv[i + 1];
+                    break;
+                }
+            }
+
+            // C++コンパイラでコンパイル
+            std::string compile_cmd = "g++ -std=c++17 " + temp_cpp + " -o " +
+                                      output_binary + " -lm 2>&1";
+            std::cout << "Compiling C++ code..." << std::endl;
+
+            int compile_result = system(compile_cmd.c_str());
+
+            // 一時ファイルを削除（デバッグモード以外）
+            if (!debug_mode) {
+                std::remove(temp_cpp.c_str());
+            }
+
+            if (compile_result != 0) {
+                std::cerr << "Error: C++ compilation failed" << std::endl;
+                return 1;
+            }
+
+            std::cout << "Compilation completed successfully!" << std::endl;
+            std::cout << "Output binary: " << output_binary << std::endl;
+            return 0;
         }
 
         // インタープリターでASTを実行
