@@ -11,8 +11,8 @@ void test_system_allocator_basic() {
     alloc.deallocation_count = 0;
     
     println("SystemAllocator initialized");
-    println("  allocation_count: %d", alloc.allocation_count);
-    println("  deallocation_count: %d", alloc.deallocation_count);
+    println("  allocation_count: {alloc.allocation_count}");
+    println("  deallocation_count: {alloc.deallocation_count}");
     
     println("✅ SystemAllocator basic test passed");
 }

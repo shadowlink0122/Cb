@@ -118,6 +118,8 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
         } else {
             node->int_value = 0;
         }
+        node->literal_type = TYPE_CHAR; // Mark as char literal
+        node->type_info = TYPE_CHAR;
         return node;
     }
 

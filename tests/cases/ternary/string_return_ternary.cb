@@ -22,25 +22,25 @@ int main() {
     // 1. 文字列リテラルによる三項演算子
     bool is_positive = true;
     string result1 = is_positive ? "pos" : "neg";
-    println("Literal ternary: %s", result1);
+    println("Literal ternary: {result1}");
     
     // 2. 関数呼び出しによる三項演算子  
     int value = 10;
     string result2 = (value > 0) ? get_positive() : get_negative();
-    println("Function ternary: %s", result2);
+    println("Function ternary: {result2}");
     
     // 3. 関数内での三項演算子
     string result3 = simple_classification(15);
-    println("Function with ternary: %s", result3);
+    println("Function with ternary: {result3}");
     
     string result4 = simple_classification(-5);
-    println("Function with ternary 2: %s", result4);
+    println("Function with ternary 2: {result4}");
     
     // 4. 複雑な条件での文字列戻り値
     int test_value = 0;
     string result5 = (test_value > 0) ? get_positive() : 
                      (test_value < 0) ? get_negative() : get_zero();
-    println("Complex ternary: %s", result5);
+    println("Complex ternary: {result5}");
     
     println("=== String Return Value Test Complete ===");
     return 0;

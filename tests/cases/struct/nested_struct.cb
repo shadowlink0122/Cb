@@ -24,7 +24,7 @@ int main() {
     
     // Verify individual struct member assignment
     if (addr.zipcode != 94105) {
-        println("ERROR: addr.zipcode should be 94105, got %d", addr.zipcode);
+        println("ERROR: addr.zipcode should be 94105, got {addr.zipcode}");
         return 1;
     }
     
@@ -34,31 +34,29 @@ int main() {
     
     // Verify basic struct member assignment
     if (tech_corp.employee_count != 150) {
-        println("ERROR: tech_corp.employee_count should be 150, got %d", tech_corp.employee_count);
+        println("ERROR: tech_corp.employee_count should be 150, got {tech_corp.employee_count}");
         return 1;
     }
     
-    println("Company: %s", tech_corp.name);
-    println("Address (separate): %s, %s %d", 
-            addr.street, addr.city, addr.zipcode);
-    println("Employees: %d", tech_corp.employee_count);
+    println("Company: {tech_corp.name}");
+    println("Address (separate): {addr.street}, {addr.city} {addr.zipcode}");
+    println("Employees: {tech_corp.employee_count}");
     
     // Test modification of basic struct members
     tech_corp.employee_count = tech_corp.employee_count + 25;
     if (tech_corp.employee_count != 175) {
-        println("ERROR: After modification, tech_corp.employee_count should be 175, got %d", tech_corp.employee_count);
+        println("ERROR: After modification, tech_corp.employee_count should be 175, got {tech_corp.employee_count}");
         return 1;
     }
     
     addr.zipcode = 94106;
     if (addr.zipcode != 94106) {
-        println("ERROR: After modification, addr.zipcode should be 94106, got %d", addr.zipcode);
+        println("ERROR: After modification, addr.zipcode should be 94106, got {addr.zipcode}");
         return 1;
     }
     
-    println("Updated Address: %s, %s %d", 
-            addr.street, addr.city, addr.zipcode);
-    println("Updated Employees: %d", tech_corp.employee_count);
+    println("Updated Address: {addr.street}, {addr.city} {addr.zipcode}");
+    println("Updated Employees: {tech_corp.employee_count}");
     println("Basic struct test passed (nested features not yet supported)");
     return 0;
 }

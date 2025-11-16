@@ -98,46 +98,46 @@ int main() {
     Printable p1 = mi;
     string miToString = p1.toString();
     int miSize = p1.getSize();
-    println("MyInt toString: %s", miToString);
-    println("MyInt getSize: %d", miSize);
+    println("MyInt toString: {miToString}");
+    println("MyInt getSize: {miSize}");
     
     // MyString型のテスト
     MyString ms = "test";
     Printable p2 = ms;
     string msToString = p2.toString();
     int msSize = p2.getSize();
-    println("MyString toString: %s", msToString);
-    println("MyString getSize: %d", msSize);
+    println("MyString toString: {msToString}");
+    println("MyString getSize: {msSize}");
     
     // IntArray型のテスト
     IntArray arr = [1, 2, 3, 4, 5];
     Printable p3 = arr;
     string arrToString = p3.toString();
     int arrSize = p3.getSize();
-    println("IntArray toString: %s", arrToString);
-    println("IntArray getSize: %d", arrSize);
+    println("IntArray toString: {arrToString}");
+    println("IntArray getSize: {arrSize}");
     
     // Matrix型のテスト
     Matrix mat = [[1, 2], [3, 4]];
     Printable p4 = mat;
     string matToString = p4.toString();
     int matSize = p4.getSize();
-    println("Matrix toString: %s", matToString);
-    println("Matrix getSize: %d", matSize);
+    println("Matrix toString: {matToString}");
+    println("Matrix getSize: {matSize}");
     
     // Simpleインターフェースのテスト
     Simple s1 = mi;
     int s1Value = s1.getValue();
     int s1Valid = s1.isValid();
-    println("MyInt getValue: %d", s1Value);
-    println("MyInt isValid: %d", s1Valid);
+    println("MyInt getValue: {s1Value}");
+    println("MyInt isValid: {s1Valid}");
     
     // Comparableインターフェースのテスト
     Comparable c1 = mi;
     bool equalsResult = c1.equals(42);
     int compareResult = c1.compare(42);
-    println("MyInt equals: %d", equalsResult);
-    println("MyInt compare: %d", compareResult);
+    println("MyInt equals: {equalsResult}");
+    println("MyInt compare: {compareResult}");
     
     println("=== テスト完了 ===");
     return 0;

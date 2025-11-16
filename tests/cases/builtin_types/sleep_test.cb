@@ -12,7 +12,7 @@ int main() {
     println("テスト2: カウントダウン");
     int i = 5;
     while (i > 0) {
-        println("%d...", i);
+        println("{i}...");
         sleep(1000);
         i = i - 1;
     }
@@ -21,7 +21,7 @@ int main() {
     println("テスト3: 短い待機");
     int j = 0;
     while (j < 5) {
-        println("ティック %d", j);
+        println("ティック {j}");
         sleep(200);
         j = j + 1;
     }

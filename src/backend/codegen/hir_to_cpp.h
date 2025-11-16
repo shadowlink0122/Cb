@@ -85,6 +85,11 @@ class HIRToCpp {
     std::string generate_sizeof(const ir::hir::HIRExpr &expr);
     std::string generate_new(const ir::hir::HIRExpr &expr);
     std::string generate_await(const ir::hir::HIRExpr &expr);
+    std::string generate_pre_incdec(const ir::hir::HIRExpr &expr);
+    std::string generate_post_incdec(const ir::hir::HIRExpr &expr);
+
+    // 文の生成（追加）
+    void generate_assert(const ir::hir::HIRStmt &stmt);
 
     // 型の生成
     std::string generate_type(const ir::hir::HIRType &type);

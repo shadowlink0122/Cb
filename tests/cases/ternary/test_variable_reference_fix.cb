@@ -17,19 +17,19 @@ int main() {
     
     // 1. 変数参照の三項演算子テスト
     string result1 = check_variable_in_ternary();
-    println("Variable reference test: %s", result1);
+    println("Variable reference test: {result1}");
     
     // 2. printf内での関数呼び出しテスト
-    println("Function call in printf: %s", get_status(85));
-    println("Function call in printf: %s", get_status(65));
-    println("Function call in printf: %s", get_status(45));
+    println("Function call in printf: {get_status(85)}");
+    println("Function call in printf: {get_status(65)}");
+    println("Function call in printf: {get_status(45)}");
     
     // 3. 複雑なケース：変数参照 + 関数呼び出し
     string base_message = "result";
     int test_score = 90;
     
     string combined_result = (test_score >= 80) ? base_message : "failed";
-    println("Combined test (variable + condition): %s", combined_result);
+    println("Combined test (variable + condition): {combined_result}");
     
     // 4. ネストした変数参照テスト
     string level1 = "high";
@@ -38,7 +38,7 @@ int main() {
     
     int priority = 85;
     string final_level = (priority > 80) ? level1 : (priority > 50) ? level2 : level3;
-    println("Nested variable reference: %s", final_level);
+    println("Nested variable reference: {final_level}");
     
     println("=== Test Complete ===");
     return 0;

@@ -14,12 +14,12 @@ int main() {
     s.grades[1] = 92;
     s.grades[2] = 78;
     
-    println("Student: %s (ID: %d)", s.name, s.student_id);
-    println("Grades: [%d, %d, %d]", s.grades[0], s.grades[1], s.grades[2]);
+    println("Student: {s.name} (ID: {s.student_id})");
+    println("Grades: [{s.grades[0]}, {s.grades[1]}, {s.grades[2]}]");
     
     int total = s.grades[0] + s.grades[1] + s.grades[2];
     int average = total / 3;
-    println("Average: %d", average);
+    println("Average: {average}");
     
     // 期待される出力:
     // Student: Charlie (ID: 12345)

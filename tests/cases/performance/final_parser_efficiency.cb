@@ -28,7 +28,7 @@ int main() {
         ((v9 > w5) ? (w6 * v10 + w7) : (v1 - w8 + v2)) *
         ((w9 < v3) ? (w10 + v4 - w1) : (v5 * w2 / v6));
     
-    println("Complex expression: %d", complex_expr);
+    println("Complex expression: {complex_expr}");
     
     // 3. 関数配列アクセスチェーン（型推論テスト）
     int array_result = 
@@ -36,7 +36,7 @@ int main() {
         get_test_array()[v3] + get_test_array()[v4] + 
         get_test_array()[v5] + get_test_array()[v6];
     
-    println("Array chain result: %d", array_result);
+    println("Array chain result: {array_result}");
     
     // 4. 深い関数ネスティング
     int nested = simple_calc(
@@ -47,7 +47,7 @@ int main() {
         simple_calc(w5, w6) / simple_calc(w7, w8 + 1)
     );
     
-    println("Nested functions: %d", nested);
+    println("Nested functions: {nested}");
     
     // 5. 複雑三項演算子
     int ternary_result = 
@@ -59,7 +59,7 @@ int main() {
                 (w9 > w10 ? v1 + v2 : v3 + v4) :
                 (v5 + v6 > w1 + w2 ? v7 + v8 : w3 + w4));
     
-    println("Ternary result: %d", ternary_result);
+    println("Ternary result: {ternary_result}");
     
     // 6. 論理演算短絡評価
     bool logic_result = 
@@ -67,7 +67,7 @@ int main() {
         ((v5 == w5 && v6 != w6) || (v7 <= w7 && v8 >= w8)) &&
         ((v9 != w9 || v10 == w10) && (v1 > 0 && w1 > 0));
     
-    println("Logic result: %d", logic_result ? 1 : 0);
+    println("Logic result: {logic_result ? 1 : 0}");
     
     // 7. 最終統合式
     int final_result = 
@@ -76,7 +76,7 @@ int main() {
         (logic_result ? 1000 : -1000) +
         (get_test_array()[10] * simple_calc(v10, w10));
     
-    println("FINAL INTEGRATED RESULT: %d", final_result);
+    println("FINAL INTEGRATED RESULT: {final_result}");
     
     // パフォーマンス統計
     println("=== PERFORMANCE STATS ===");

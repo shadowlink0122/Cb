@@ -36,13 +36,13 @@ int main() {
     
     // パブリックメソッドの呼び出し - 内部でプライベートメソッドを使用
     int result1 = calc.calculate(10);
-    println("calculate(10) = %d", result1);
+    println("calculate(10) = {result1}");
     
     int result2 = calc.calculate(-5);
-    println("calculate(-5) = %d", result2);
+    println("calculate(-5) = {result2}");
     
     string status = calc.getStatus();
-    println("status = %s", status);
+    println("status = {status}");
     
     println("Private method basic test passed");
     return 0;

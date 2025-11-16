@@ -28,12 +28,12 @@ int main() {
     
     // Verify student creation
     if (alice.student_id != 1001) {
-        println("ERROR: alice.student_id should be 1001, got %d", alice.student_id);
+        println("ERROR: alice.student_id should be 1001, got {alice.student_id}");
         return 1;
     }
     
     if (bob.student_id != 1002) {
-        println("ERROR: bob.student_id should be 1002, got %d", bob.student_id);
+        println("ERROR: bob.student_id should be 1002, got {bob.student_id}");
         return 1;
     }
     
@@ -48,17 +48,17 @@ int main() {
     
     // Verify grade assignments
     if (alice.grades[0] != 85) {
-        println("ERROR: alice.grades[0] should be 85, got %d", alice.grades[0]);
+        println("ERROR: alice.grades[0] should be 85, got {alice.grades[0]}");
         return 1;
     }
     
     if (alice.grades[1] != 92) {
-        println("ERROR: alice.grades[1] should be 92, got %d", alice.grades[1]);
+        println("ERROR: alice.grades[1] should be 92, got {alice.grades[1]}");
         return 1;
     }
     
     if (bob.grades[2] != 94) {
-        println("ERROR: bob.grades[2] should be 94, got %d", bob.grades[2]);
+        println("ERROR: bob.grades[2] should be 94, got {bob.grades[2]}");
         return 1;
     }
     
@@ -68,37 +68,37 @@ int main() {
     // Test Alice
     int alice_avg = calculate_average(alice);
     println("Student 1:");
-    println("  Name: %s (ID: %d)", alice.name, alice.student_id);
-    println("  Grades: [%d, %d, %d]", alice.grades[0], alice.grades[1], alice.grades[2]);
-    println("  Average: %d", alice_avg);
+    println("  Name: {alice.name} (ID: {alice.student_id})");
+    println("  Grades: [{alice.grades[0]}, {alice.grades[1]}, {alice.grades[2]}]");
+    println("  Average: {alice_avg}");
     println("");
     
     if (alice_avg != 85) {
-        println("ERROR: Alice's average should be 85, got %d", alice_avg);
+        println("ERROR: Alice's average should be 85, got {alice_avg}");
         return 1;
     }
     
     // Test Bob  
     int bob_avg = calculate_average(bob);
     println("Student 2:");
-    println("  Name: %s (ID: %d)", bob.name, bob.student_id);
-    println("  Grades: [%d, %d, %d]", bob.grades[0], bob.grades[1], bob.grades[2]);
-    println("  Average: %d", bob_avg);
+    println("  Name: {bob.name} (ID: {bob.student_id})");
+    println("  Grades: [{bob.grades[0]}, {bob.grades[1]}, {bob.grades[2]}]");
+    println("  Average: {bob_avg}");
     println("");
     
     if (bob_avg != 90) {
-        println("ERROR: Bob's average should be 90, got %d", bob_avg);
+        println("ERROR: Bob's average should be 90, got {bob_avg}");
         return 1;
     }
     
     // Test modification
     alice.grades[0] = alice.grades[0] + 5;
     if (alice.grades[0] != 90) {
-        println("ERROR: After modification, alice.grades[0] should be 90, got %d", alice.grades[0]);
+        println("ERROR: After modification, alice.grades[0] should be 90, got {alice.grades[0]}");
         return 1;
     }
     
-    println("Updated Alice's first grade: %d", alice.grades[0]);
+    println("Updated Alice's first grade: {alice.grades[0]}");
     println("Comprehensive struct test passed (simplified version)");
     return 0;
 }

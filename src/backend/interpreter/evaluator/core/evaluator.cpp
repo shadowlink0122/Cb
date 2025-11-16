@@ -1510,6 +1510,10 @@ ExpressionEvaluator::format_interpolated_value(const TypedValue &value,
     if (format_spec.empty()) {
         if (value.type.type_info == TYPE_STRING) {
             return value.string_value;
+        } else if (value.type.type_info == TYPE_CHAR) {
+            // char型は文字として出力
+            char c = static_cast<char>(value.value);
+            return std::string(1, c);
         } else if (value.is_numeric_result) {
             if (value.is_float_result) {
                 if (value.type.type_info == TYPE_QUAD) {

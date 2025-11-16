@@ -93,7 +93,9 @@ struct HIRExpr {
         Dereference, // *expr - 間接参照
         SizeOf,      // sizeof(type) or sizeof(expr)
         New,         // new Type - メモリ確保
-        Await        // await expr - async/await
+        Await,       // await expr - async/await
+        PreIncDec,   // ++i, --i
+        PostIncDec   // i++, i--
     };
 
     ExprKind kind;
@@ -190,7 +192,8 @@ struct HIRStmt {
         Defer,  // defer文
         Delete, // delete文
         Try,    // try-catch文
-        Throw   // throw/エラー送出
+        Throw,  // throw/エラー送出
+        Assert  // assert文
     };
 
     StmtKind kind;
@@ -254,6 +257,10 @@ struct HIRStmt {
 
     // throw
     std::unique_ptr<HIRExpr> throw_expr;
+
+    // assert
+    std::unique_ptr<HIRExpr> assert_expr;
+    std::string assert_message;
 };
 
 // HIR関数

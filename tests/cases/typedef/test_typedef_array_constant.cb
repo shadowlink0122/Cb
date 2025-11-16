@@ -14,14 +14,14 @@ int main() {
     for (int i = 0; i < SIZE; i++) {
         int expected = i * 2;
         if (arr[i] != expected) {
-            println("ERROR: arr[%d] should be %d, got %d", i, expected, arr[i]);
+            println("ERROR: arr[{i}] should be {expected}, got {arr[i]}");
             return 1;
         }
     }
     
     // 配列内容確認（出力は最後に）
     for (int i = 0; i < SIZE; i++) {
-        println("%d %d", i, arr[i]);
+        println("{i} {arr[i]}");
     }
     
     println("Typedef array constant test passed");

@@ -15,12 +15,12 @@ int main() {
     
     // Verify enum values
     if (test_c != 2) {
-        println("ERROR: Job::c should be 2, got %d", test_c);
+        println("ERROR: Job::c should be 2, got {test_c}");
         return 1;
     }
     
     if (test_e != 11) {
-        println("ERROR: Job::e should be 11, got %d", test_e);
+        println("ERROR: Job::e should be 11, got {test_e}");
         return 1;
     }
     
@@ -30,12 +30,12 @@ int main() {
     
     // Verify enum used as array index
     if (value != 300) {
-        println("ERROR: numbers[Job::c] should be 300, got %d", value);
+        println("ERROR: numbers[Job::c] should be 300, got {value}");
         return 1;
     }
     
-    println("Enum values: a=%d, b=%d, c=%d, d=%d, e=%d", test_a, test_b, test_c, test_d, test_e);
-    println("Array access with enum: numbers[Job::c] = %d", value);
+    println("Enum values: a={test_a}, b={test_b}, c={test_c}, d={test_d}, e={test_e}");
+    println("Array access with enum: numbers[Job::c] = {value}");
     println("Enum array index test passed");
     
     return Job::e;  // 11を返す

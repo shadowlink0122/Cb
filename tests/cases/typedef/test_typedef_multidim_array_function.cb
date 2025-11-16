@@ -21,14 +21,14 @@ int main() {
         for (int c = 0; c < COLS; c++) {
             int expected = r * 10 + c;
             if (row[c] != expected) {
-                println("ERROR: row[%d] should be %d, got %d", c, expected, row[c]);
+                println("ERROR: row[{c}] should be {expected}, got {row[c]}");
                 return 1;
             }
         }
         
         // 出力
         for (int c = 0; c < COLS; c++) {
-            println("row[%d] = %d", c, row[c]);
+            println("row[{c}] = {row[c]}");
         }
     }
     

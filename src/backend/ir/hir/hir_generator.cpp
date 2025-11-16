@@ -155,6 +155,51 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
         break;
     }
 
+    // v0.14.0: String interpolation support
+    case ASTNodeType::AST_INTERPOLATED_STRING: {
+        // 補間文字列は複数のセグメントを連結したBinaryOp(+)として変換
+        if (node->children.empty()) {
+            expr.kind = HIRExpr::ExprKind::Literal;
+            expr.literal_value = "";
+            expr.literal_type = convert_type(TYPE_STRING);
+            break;
+        }
+
+        if (node->children.size() == 1) {
+            // セグメントが1つだけの場合、そのまま返す
+            return convert_expr(node->children[0].get());
+        }
+
+        // 複数セグメントの場合、順次連結
+        auto result = convert_expr(node->children[0].get());
+        for (size_t i = 1; i < node->children.size(); i++) {
+            HIRExpr concat;
+            concat.kind = HIRExpr::ExprKind::BinaryOp;
+            concat.op = "+";
+            concat.left = std::make_unique<HIRExpr>(std::move(result));
+            concat.right = std::make_unique<HIRExpr>(
+                convert_expr(node->children[i].get()));
+            result = std::move(concat);
+        }
+        return result;
+    }
+
+    case ASTNodeType::AST_STRING_INTERPOLATION_SEGMENT: {
+        // セグメントは文字列リテラルまたは式
+        if (node->left) {
+            // 式セグメント - std::to_string()でラップ
+            expr.kind = HIRExpr::ExprKind::FunctionCall;
+            expr.func_name = "std::to_string";
+            expr.arguments.push_back(convert_expr(node->left.get()));
+        } else {
+            // 文字列リテラルセグメント
+            expr.kind = HIRExpr::ExprKind::Literal;
+            expr.literal_value = node->str_value;
+            expr.literal_type = convert_type(TYPE_STRING);
+        }
+        break;
+    }
+
     case ASTNodeType::AST_VARIABLE:
     case ASTNodeType::AST_IDENTIFIER: {
         expr.kind = HIRExpr::ExprKind::Variable;
@@ -179,17 +224,32 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_FUNC_CALL: {
-        expr.kind = HIRExpr::ExprKind::FunctionCall;
+        // v0.14.0: メソッド呼び出しのサポート (obj.method(), ptr->method())
+        if (node->left) {
+            // レシーバーオブジェクトがある場合はメソッド呼び出し
+            expr.kind = HIRExpr::ExprKind::MethodCall;
+            expr.receiver =
+                std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+            expr.method_name = node->name;
+            expr.is_arrow = node->is_arrow_call;
 
-        // v0.14.0: 修飾名のサポート (m.sqrt, c.abs)
-        if (node->is_qualified_call && !node->qualified_name.empty()) {
-            expr.func_name = node->qualified_name;
+            for (const auto &arg : node->arguments) {
+                expr.arguments.push_back(convert_expr(arg.get()));
+            }
         } else {
-            expr.func_name = node->name;
-        }
+            // 通常の関数呼び出し
+            expr.kind = HIRExpr::ExprKind::FunctionCall;
 
-        for (const auto &arg : node->arguments) {
-            expr.arguments.push_back(convert_expr(arg.get()));
+            // v0.14.0: 修飾名のサポート (m.sqrt, c.abs)
+            if (node->is_qualified_call && !node->qualified_name.empty()) {
+                expr.func_name = node->qualified_name;
+            } else {
+                expr.func_name = node->name;
+            }
+
+            for (const auto &arg : node->arguments) {
+                expr.arguments.push_back(convert_expr(arg.get()));
+            }
         }
         break;
     }
@@ -289,6 +349,22 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
         break;
     }
 
+    case ASTNodeType::AST_PRE_INCDEC: {
+        expr.kind = HIRExpr::ExprKind::PreIncDec;
+        expr.op = node->op;
+        expr.operand =
+            std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+        break;
+    }
+
+    case ASTNodeType::AST_POST_INCDEC: {
+        expr.kind = HIRExpr::ExprKind::PostIncDec;
+        expr.op = node->op;
+        expr.operand =
+            std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+        break;
+    }
+
     case ASTNodeType::AST_NEW_EXPR: {
         expr.kind = HIRExpr::ExprKind::New;
         expr.new_type = convert_type(node->type_info, node->type_name);
@@ -336,11 +412,14 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
         //     break;
         // }
 
-    default:
-        report_error("Unsupported expression type in HIR generation",
-                     node->location);
+    default: {
+        std::string error_msg =
+            "Unsupported expression type in HIR generation: AST node type " +
+            std::to_string(static_cast<int>(node->node_type));
+        report_error(error_msg, node->location);
         expr.kind = HIRExpr::ExprKind::Literal;
         break;
+    }
     }
 
     return expr;
@@ -356,33 +435,144 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
 
     stmt.location = convert_location(node->location);
 
+    if (debug_mode) {
+        std::cerr << "[HIR_STMT] Converting statement type: "
+                  << static_cast<int>(node->node_type) << std::endl;
+    }
+
     switch (node->node_type) {
     case ASTNodeType::AST_VAR_DECL: {
         stmt.kind = HIRStmt::StmtKind::VarDecl;
         stmt.var_name = node->name;
         stmt.var_type = convert_type(node->type_info, node->type_name);
         stmt.is_const = node->is_const;
-        if (node->right) {
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STMT_VAR_DECL, node->name.c_str());
+        }
+        // v0.14.0: init_exprを優先的に使用（新しいパーサーフォーマット）
+        if (node->init_expr) {
+            stmt.init_expr =
+                std::make_unique<HIRExpr>(convert_expr(node->init_expr.get()));
+            if (debug_mode) {
+                std::cerr
+                    << "[HIR_STMT]     Has initializer expression (init_expr)"
+                    << std::endl;
+            }
+        } else if (node->right) {
             stmt.init_expr =
                 std::make_unique<HIRExpr>(convert_expr(node->right.get()));
+            if (debug_mode) {
+                std::cerr << "[HIR_STMT]     Has initializer expression (right)"
+                          << std::endl;
+            }
+        } else if (debug_mode) {
+            std::cerr << "[HIR_STMT]     No initializer expression"
+                      << std::endl;
+        }
+        break;
+    }
+
+    case ASTNodeType::AST_MULTIPLE_VAR_DECL: {
+        // 複数変数宣言を個別のVarDeclに展開
+        // ブロックではなく、各変数宣言を順番に処理
+        stmt.kind = HIRStmt::StmtKind::VarDecl;
+
+        // 最初の変数を現在の文として処理
+        if (!node->children.empty()) {
+            const auto &first_var = node->children[0];
+            stmt.var_name = first_var->name;
+            stmt.var_type =
+                convert_type(first_var->type_info, first_var->type_name);
+            stmt.is_const = first_var->is_const;
+            if (first_var->right) {
+                stmt.init_expr = std::make_unique<HIRExpr>(
+                    convert_expr(first_var->right.get()));
+            }
+
+            // 残りの変数は...実際には1つの文に複数の宣言を含めることはできない
+            // HIRの設計上、ブロックとして扱う必要がある
+            // しかし、スコープ問題を避けるため、親に展開されるべき
+            // 一旦、Blockとして扱い、generate側で特別処理する
+            if (node->children.size() > 1) {
+                stmt.kind = HIRStmt::StmtKind::Block;
+                stmt.block_stmts.clear();
+
+                for (const auto &var_node : node->children) {
+                    HIRStmt var_stmt;
+                    var_stmt.kind = HIRStmt::StmtKind::VarDecl;
+                    var_stmt.var_name = var_node->name;
+                    var_stmt.var_type =
+                        convert_type(var_node->type_info, var_node->type_name);
+                    var_stmt.is_const = var_node->is_const;
+                    if (var_node->right) {
+                        var_stmt.init_expr = std::make_unique<HIRExpr>(
+                            convert_expr(var_node->right.get()));
+                    }
+                    var_stmt.location = convert_location(var_node->location);
+                    stmt.block_stmts.push_back(std::move(var_stmt));
+                }
+            }
         }
         break;
     }
 
     case ASTNodeType::AST_ASSIGN: {
         stmt.kind = HIRStmt::StmtKind::Assignment;
-        stmt.lhs = std::make_unique<HIRExpr>(convert_expr(node->left.get()));
-        stmt.rhs = std::make_unique<HIRExpr>(convert_expr(node->right.get()));
+
+        // 左辺：node->leftまたはnode->nameから取得
+        if (node->left) {
+            stmt.lhs =
+                std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+        } else if (!node->name.empty()) {
+            // 変数名が直接node->nameに入っている場合
+            HIRExpr var_expr;
+            var_expr.kind = HIRExpr::ExprKind::Variable;
+            var_expr.var_name = node->name;
+            stmt.lhs = std::make_unique<HIRExpr>(std::move(var_expr));
+        } else {
+            std::string error_msg = "AST_ASSIGN has no left operand or name";
+            report_error(error_msg, node->location);
+        }
+
+        // 右辺
+        if (node->right) {
+            stmt.rhs =
+                std::make_unique<HIRExpr>(convert_expr(node->right.get()));
+        } else {
+            std::string error_msg = "AST_ASSIGN has null right operand";
+            report_error(error_msg, node->location);
+        }
         break;
     }
 
     case ASTNodeType::AST_IF_STMT: {
         stmt.kind = HIRStmt::StmtKind::If;
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STMT_IF);
+        }
         stmt.condition =
             std::make_unique<HIRExpr>(convert_expr(node->condition.get()));
-        stmt.then_body =
-            std::make_unique<HIRStmt>(convert_stmt(node->body.get()));
-        if (node->else_body) {
+
+        // パーサーはif文の本体をleftに格納し、else節をrightに格納する
+        // bodyフィールドは使用されていない
+        if (node->left) {
+            stmt.then_body =
+                std::make_unique<HIRStmt>(convert_stmt(node->left.get()));
+        } else if (node->body) {
+            // 後方互換性のためbodyもチェック
+            stmt.then_body =
+                std::make_unique<HIRStmt>(convert_stmt(node->body.get()));
+        }
+
+        // else節
+        if (node->right) {
+            if (debug_mode) {
+                std::cerr << "[HIR_STMT]     Has else branch" << std::endl;
+            }
+            stmt.else_body =
+                std::make_unique<HIRStmt>(convert_stmt(node->right.get()));
+        } else if (node->else_body) {
+            // 後方互換性のためelse_bodyもチェック
             stmt.else_body =
                 std::make_unique<HIRStmt>(convert_stmt(node->else_body.get()));
         }
@@ -437,8 +627,20 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
     case ASTNodeType::AST_COMPOUND_STMT:
     case ASTNodeType::AST_STMT_LIST: {
         stmt.kind = HIRStmt::StmtKind::Block;
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STMT_BLOCK,
+                        static_cast<int>(node->statements.size()));
+        }
         for (const auto &child : node->statements) {
-            stmt.block_stmts.push_back(convert_stmt(child.get()));
+            if (child) {
+                stmt.block_stmts.push_back(convert_stmt(child.get()));
+            }
+        }
+        if (debug_mode && stmt.block_stmts.empty()) {
+            std::cerr << "Warning: Empty block generated from "
+                         "COMPOUND_STMT/STMT_LIST at "
+                      << node->location.filename << ":" << node->location.line
+                      << std::endl;
         }
         break;
     }
@@ -473,6 +675,27 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
     case ASTNodeType::AST_FUNC_CALL: {
         stmt.kind = HIRStmt::StmtKind::ExprStmt;
         stmt.expr = std::make_unique<HIRExpr>(convert_expr(node));
+        break;
+    }
+
+    case ASTNodeType::AST_PRE_INCDEC:
+    case ASTNodeType::AST_POST_INCDEC: {
+        // インクリメント/デクリメントを式文として扱う
+        stmt.kind = HIRStmt::StmtKind::ExprStmt;
+        stmt.expr = std::make_unique<HIRExpr>(convert_expr(node));
+        break;
+    }
+
+    case ASTNodeType::AST_ASSERT_STMT: {
+        // assert文をHIRに変換
+        stmt.kind = HIRStmt::StmtKind::Assert;
+        if (node->condition) {
+            stmt.assert_expr =
+                std::make_unique<HIRExpr>(convert_expr(node->condition.get()));
+        }
+        if (!node->name.empty()) {
+            stmt.assert_message = node->name;
+        }
         break;
     }
 
@@ -567,11 +790,23 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
         break;
     }
 
-    default:
-        report_error("Unsupported statement type in HIR generation",
-                     node->location);
+    // v0.14.0: import文のサポート（関数内でのimportを含む）
+    case ASTNodeType::AST_IMPORT_STMT: {
+        // import文は基本的にコンパイル時に処理されているが、
+        // HIRとしては空のブロックとして扱う（C++では不要）
+        stmt.kind = HIRStmt::StmtKind::Block;
+        // 空のブロック（C++生成時には何も出力されない）
+        break;
+    }
+
+    default: {
+        std::string error_msg =
+            "Unsupported statement type in HIR generation: AST node type " +
+            std::to_string(static_cast<int>(node->node_type));
+        report_error(error_msg, node->location);
         stmt.kind = HIRStmt::StmtKind::Block;
         break;
+    }
     }
 
     return stmt;

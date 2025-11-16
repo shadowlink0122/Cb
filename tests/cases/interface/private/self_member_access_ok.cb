@@ -13,7 +13,7 @@ interface ISecretOps {
 
 impl ISecretOps for SecretBox {
     void log() {
-        println("self.secret = %d, self.visible = %d", self.secret, self.visible);
+        println("self.secret = {self.secret}, self.visible = {self.visible}");
     }
     
     int reveal() {
@@ -35,15 +35,15 @@ int main() {
     
     // 構造体インスタンスとしてのメソッド呼び出し
     box.log();
-    println("reveal = %d", box.reveal());
+    println("reveal = {box.reveal()}");
     box.bump(5);
     box.log();
-    println("reveal after bump = %d", box.reveal());
+    println("reveal after bump = {box.reveal()}");
     
     // インターフェース経由のメソッド呼び出し
     ISecretOps ops = box;
     ops.log();
-    println("interface reveal = %d", ops.reveal());
+    println("interface reveal = {ops.reveal()}");
     
     println("Private member access via self test passed");
     return 0;

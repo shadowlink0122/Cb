@@ -18,9 +18,9 @@ int main() {
 
     m.data = [1, 2, 3, 4, 5, 6];
     
-    println("Matrix: %s (%dx%d)", m.name, m.rows, m.cols);
-    println("Row 0: [%d, %d, %d]", m.data[0], m.data[1], m.data[2]);
-    println("Row 1: [%d, %d, %d]", m.data[3], m.data[4], m.data[5]);
+    println("Matrix: {m.name} ({m.rows}x{m.cols})");
+    println("Row 0: [{m.data[0]}, {m.data[1]}, {m.data[2]}]");
+    println("Row 1: [{m.data[3]}, {m.data[4]}, {m.data[5]}]");
     
     // 期待される出力:
     // Matrix: Sample Matrix (2x3)

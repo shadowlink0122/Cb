@@ -32,6 +32,7 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     emit_line("#include <functional>");
     emit_line("#include <cmath>     // For FFI math functions");
     emit_line("#include <cstdlib>   // For FFI C functions");
+    emit_line("#include <cassert>   // For assert statements");
     emit_line("");
 
     // 標準ライブラリのエイリアス
@@ -515,6 +516,9 @@ void HIRToCpp::generate_stmt(const HIRStmt &stmt) {
         }
         emit(";\n");
         break;
+    case HIRStmt::StmtKind::Assert:
+        generate_assert(stmt);
+        break;
     default:
         emit_line("// TODO: Unsupported statement");
         break;
@@ -598,6 +602,16 @@ void HIRToCpp::generate_for(const HIRStmt &stmt) {
                 emit(" = ");
                 emit(generate_expr(*stmt.init->init_expr));
             }
+        } else if (stmt.init->kind == HIRStmt::StmtKind::Assignment) {
+            if (stmt.init->lhs && stmt.init->rhs) {
+                emit(generate_expr(*stmt.init->lhs));
+                emit(" = ");
+                emit(generate_expr(*stmt.init->rhs));
+            }
+        } else if (stmt.init->kind == HIRStmt::StmtKind::ExprStmt) {
+            if (stmt.init->expr) {
+                emit(generate_expr(*stmt.init->expr));
+            }
         }
     }
     emit("; ");
@@ -611,9 +625,15 @@ void HIRToCpp::generate_for(const HIRStmt &stmt) {
     // update
     if (stmt.update) {
         if (stmt.update->kind == HIRStmt::StmtKind::Assignment) {
-            emit(generate_expr(*stmt.update->lhs));
-            emit(" = ");
-            emit(generate_expr(*stmt.update->rhs));
+            if (stmt.update->lhs && stmt.update->rhs) {
+                emit(generate_expr(*stmt.update->lhs));
+                emit(" = ");
+                emit(generate_expr(*stmt.update->rhs));
+            }
+        } else if (stmt.update->kind == HIRStmt::StmtKind::ExprStmt) {
+            if (stmt.update->expr) {
+                emit(generate_expr(*stmt.update->expr));
+            }
         }
     }
 
@@ -641,15 +661,39 @@ void HIRToCpp::generate_return(const HIRStmt &stmt) {
 }
 
 void HIRToCpp::generate_block(const HIRStmt &stmt) {
-    emit_line("{");
-    increase_indent();
-
-    for (const auto &s : stmt.block_stmts) {
-        generate_stmt(s);
+    // デバッグ: ブロック内の文の種類を確認
+    if (stmt.block_stmts.empty()) {
+        // 空のブロックの場合は何も出力しない（ただし、デバッグのためコメントを残す）
+        emit_line("// Empty block");
+        return;
     }
 
-    decrease_indent();
-    emit_line("}");
+    // 変数宣言のみのブロックの場合、中括弧を省略して直接展開
+    bool all_var_decls = !stmt.block_stmts.empty();
+    for (const auto &s : stmt.block_stmts) {
+        if (s.kind != HIRStmt::StmtKind::VarDecl) {
+            all_var_decls = false;
+            break;
+        }
+    }
+
+    if (all_var_decls) {
+        // 変数宣言のみなので、中括弧なしで直接出力
+        for (const auto &s : stmt.block_stmts) {
+            generate_stmt(s);
+        }
+    } else {
+        // 通常のブロック
+        emit_line("{");
+        increase_indent();
+
+        for (const auto &s : stmt.block_stmts) {
+            generate_stmt(s);
+        }
+
+        decrease_indent();
+        emit_line("}");
+    }
 }
 
 void HIRToCpp::generate_switch(const HIRStmt &stmt) {
@@ -771,6 +815,10 @@ std::string HIRToCpp::generate_expr(const HIRExpr &expr) {
         return generate_new(expr);
     case HIRExpr::ExprKind::Await:
         return generate_await(expr);
+    case HIRExpr::ExprKind::PreIncDec:
+        return generate_pre_incdec(expr);
+    case HIRExpr::ExprKind::PostIncDec:
+        return generate_post_incdec(expr);
     default:
         return "/* unsupported expr */";
     }
@@ -949,6 +997,27 @@ std::string HIRToCpp::generate_new(const HIRExpr &expr) {
 std::string HIRToCpp::generate_await(const HIRExpr &expr) {
     // C++20 co_await
     return "co_await " + generate_expr(*expr.operand);
+}
+
+std::string HIRToCpp::generate_pre_incdec(const HIRExpr &expr) {
+    return expr.op + generate_expr(*expr.operand);
+}
+
+std::string HIRToCpp::generate_post_incdec(const HIRExpr &expr) {
+    return generate_expr(*expr.operand) + expr.op;
+}
+
+void HIRToCpp::generate_assert(const HIRStmt &stmt) {
+    emit_indent();
+    emit("assert(");
+    if (stmt.assert_expr) {
+        emit(generate_expr(*stmt.assert_expr));
+    }
+    emit(")");
+    if (!stmt.assert_message.empty()) {
+        emit(" /* " + stmt.assert_message + " */");
+    }
+    emit(";\n");
 }
 
 // === 型の生成 ===

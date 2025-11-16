@@ -11,37 +11,37 @@ int main() {
     
     // Verify named initialization
     if (p1.age != 25) {
-        println("ERROR: p1.age should be 25, got %d", p1.age);
+        println("ERROR: p1.age should be 25, got {p1.age}");
         return 1;
     }
     
     if (p1.height != 165) {
-        println("ERROR: p1.height should be 165, got %d", p1.height);
+        println("ERROR: p1.height should be 165, got {p1.height}");
         return 1;
     }
     
-    println("Person 1: %s, %d years old, %d cm", p1.name, p1.age, p1.height);
+    println("Person 1: {p1.name}, {p1.age} years old, {p1.height} cm");
     
     // 位置ベース初期化
     Person p2 = {"Bob", 30, 180};
     
     // Verify positional initialization
     if (p2.age != 30) {
-        println("ERROR: p2.age should be 30, got %d", p2.age);
+        println("ERROR: p2.age should be 30, got {p2.age}");
         return 1;
     }
     
     if (p2.height != 180) {
-        println("ERROR: p2.height should be 180, got %d", p2.height);
+        println("ERROR: p2.height should be 180, got {p2.height}");
         return 1;
     }
     
-    println("Person 2: %s, %d years old, %d cm", p2.name, p2.age, p2.height);
+    println("Person 2: {p2.name}, {p2.age} years old, {p2.height} cm");
     
     // Test member access and modification
     p1.age = p1.age + 1;
     if (p1.age != 26) {
-        println("ERROR: After increment, p1.age should be 26, got %d", p1.age);
+        println("ERROR: After increment, p1.age should be 26, got {p1.age}");
         return 1;
     }
     

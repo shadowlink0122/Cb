@@ -31,10 +31,10 @@ int main() {
     Grade grade = 'A';
     LogLevel level = "INFO";
     
-    println("   StatusCode: %d", status);
-    println("   Flag: %d", enabled);
-    println("   Grade: %c", grade);
-    println("   LogLevel: %s", level);
+    println("   StatusCode: {status}");
+    println("   Flag: {enabled}");
+    println("   Grade: {grade}");
+    println("   LogLevel: {level}");
     
     // ========== Section 2: 基本型ユニオン ==========
     println("2. Basic Type Unions:");
@@ -44,11 +44,11 @@ int main() {
     PrimitiveType prim2 = true;
     PrimitiveType prim3 = 'X';
     
-    println("   NumericType (int): %d", num1);
-    println("   NumericType (long): %d", num2);
-    println("   PrimitiveType (int): %d", prim1);
-    println("   PrimitiveType (bool): %d", prim2);
-    println("   PrimitiveType (char): %c", prim3);
+    println("   NumericType (int): {num1}");
+    println("   NumericType (long): {num2}");
+    println("   PrimitiveType (int): {prim1}");
+    println("   PrimitiveType (bool): {prim2}");
+    println("   PrimitiveType (char): {prim3}");
     
     // ========== Section 3: カスタム型ユニオン ==========
     println("3. Custom Type Unions:");
@@ -57,10 +57,10 @@ int main() {
     CustomUnion custom1 = customInt;
     CustomUnion custom2 = customString;
     
-    println("   MyInt: %d", customInt);
-    println("   MyString: %s", customString);
-    println("   CustomUnion (MyInt): %d", custom1);
-    println("   CustomUnion (MyString): %s", custom2);
+    println("   MyInt: {customInt}");
+    println("   MyString: {customString}");
+    println("   CustomUnion (MyInt): {custom1}");
+    println("   CustomUnion (MyString): {custom2}");
     
     // ========== Section 4: 構造体型ユニオン ==========
     println("4. Struct Type Unions:");
@@ -72,10 +72,10 @@ int main() {
     EntityUnion entity1 = origin;
     EntityUnion entity2 = alice;
     
-    println("   Point origin: (%d, %d)", origin.x, origin.y);
-    println("   Point target: (%d, %d)", target.x, target.y);
-    println("   Person Alice: %s, %d", alice.name, alice.age);
-    println("   Person Bob: %s, %d", bob.name, bob.age);
+    println("   Point origin: ({origin.x}, {origin.y})");
+    println("   Point target: ({target.x}, {target.y})");
+    println("   Person Alice: {alice.name}, {alice.age}");
+    println("   Person Bob: {bob.name}, {bob.age}");
     println("   EntityUnion (Point): assigned");
     println("   EntityUnion (Person): assigned");
     
@@ -87,8 +87,8 @@ int main() {
     ArrayUnion array1 = numbers;
     ArrayUnion array2 = flags;
     
-    println("   int[3]: [%d, %d, %d]", numbers[0], numbers[1], numbers[2]);
-    println("   bool[2]: [%d, %d]", flags[0], flags[1]);
+    println("   int[3]: [{numbers[0]}, {numbers[1]}, {numbers[2]}]");
+    println("   bool[2]: [{flags[0]}, {flags[1]}]");
     println("   ArrayUnion (int[3]): assigned");
     println("   ArrayUnion (bool[2]): assigned");
     
@@ -107,12 +107,12 @@ int main() {
     int[2] coords = [50, 100];
     MegaUnion mega7 = coords;           // 配列型
     
-    println("   MegaUnion (999): %d", mega1);
-    println("   MegaUnion (special): %s", mega2);
-    println("   MegaUnion (true): %d", mega3);
-    println("   Regular int variable: %d", regularInt);
-    println("   MegaUnion (int): %d", mega4);
-    println("   MegaUnion (MyInt): %d", mega5);
+    println("   MegaUnion (999): {mega1}");
+    println("   MegaUnion (special): {mega2}");
+    println("   MegaUnion (true): {mega3}");
+    println("   Regular int variable: {regularInt}");
+    println("   MegaUnion (int): {mega4}");
+    println("   MegaUnion (MyInt): {mega5}");
     println("   MegaUnion (Point): assigned");
     println("   MegaUnion (int[2]): assigned");
     
@@ -123,10 +123,10 @@ int main() {
     grade = 'C';
     level = "ERROR";
     
-    println("   Updated StatusCode: %d", status);
-    println("   Updated Flag: %d", enabled);
-    println("   Updated Grade: %c", grade);
-    println("   Updated LogLevel: %s", level);
+    println("   Updated StatusCode: {status}");
+    println("   Updated Flag: {enabled}");
+    println("   Updated Grade: {grade}");
+    println("   Updated LogLevel: {level}");
     
     // ========== Section 8: 複雑な構造体操作 ==========
     println("8. Complex Struct Operations:");
@@ -137,8 +137,8 @@ int main() {
     entity2 = center;
     
     println("   EntityUnion reassignment: completed");
-    println("   Charlie: %s, %d", charlie.name, charlie.age);
-    println("   Center: (%d, %d)", center.x, center.y);
+    println("   Charlie: {charlie.name}, {charlie.age}");
+    println("   Center: ({center.x}, {center.y})");
     
     // ========== テスト完了 ==========
     println("");

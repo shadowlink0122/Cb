@@ -60,7 +60,7 @@ int main() {
     IProcessor processor = seed;
     
     int safe_result = processor.process(25);
-    println("process(25) = %d", safe_result);
+    println("process(25) = {safe_result}");
     
     // プライベートメソッドの外部呼び出しはエラーになるべき
     processor.createHelperSeed();

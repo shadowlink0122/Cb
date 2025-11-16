@@ -9,16 +9,16 @@ int main() {
     
     // Verify explicit enum values
     if (test_a != 0) {
-        println("ERROR: Job::a should be 0, got %d", test_a);
+        println("ERROR: Job::a should be 0, got {test_a}");
         return 1;
     }
     
     if (test_b != 1) {
-        println("ERROR: Job::b should be 1, got %d", test_b);
+        println("ERROR: Job::b should be 1, got {test_b}");
         return 1;
     }
     
-    println("Explicit enum values: a=%d, b=%d", test_a, test_b);
+    println("Explicit enum values: a={test_a}, b={test_b}");
     println("Explicit values enum test passed");
     return 0;
 }

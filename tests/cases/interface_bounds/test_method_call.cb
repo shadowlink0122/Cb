@@ -13,7 +13,7 @@ struct SystemAllocator {
 
 impl Allocator for SystemAllocator {
     void* allocate(int size) {
-        println("SystemAllocator.allocate(size=%d)", size);
+        println("SystemAllocator.allocate(size={size})");
         return nullptr;
     }
     

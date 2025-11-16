@@ -22,9 +22,9 @@ void test_struct_ptr_array() {
     
     // 読み取りテスト
     println("\n--- Read Test ---");
-    println("ptr[0].x = %d, ptr[0].y = %d", ptr[0].x, ptr[0].y);
-    println("ptr[1].x = %d, ptr[1].y = %d", ptr[1].x, ptr[1].y);
-    println("ptr[2].x = %d, ptr[2].y = %d", ptr[2].x, ptr[2].y);
+    println("ptr[0].x = {ptr[0].x}, ptr[0].y = {ptr[0].y}");
+    println("ptr[1].x = {ptr[1].x}, ptr[1].y = {ptr[1].y}");
+    println("ptr[2].x = {ptr[2].x}, ptr[2].y = {ptr[2].y}");
     
     // 書き込みテスト
     println("\n--- Write Test ---");
@@ -34,13 +34,13 @@ void test_struct_ptr_array() {
     ptr[1].y = 400;
     
     println("After write:");
-    println("ptr[0].x = %d, ptr[0].y = %d", ptr[0].x, ptr[0].y);
-    println("ptr[1].x = %d, ptr[1].y = %d", ptr[1].x, ptr[1].y);
+    println("ptr[0].x = {ptr[0].x}, ptr[0].y = {ptr[0].y}");
+    println("ptr[1].x = {ptr[1].x}, ptr[1].y = {ptr[1].y}");
     
     // 元の配列も変わっているか確認
     println("\nOriginal array:");
-    println("points[0].x = %d, points[0].y = %d", points[0].x, points[0].y);
-    println("points[1].x = %d, points[1].y = %d", points[1].x, points[1].y);
+    println("points[0].x = {points[0].x}, points[0].y = {points[0].y}");
+    println("points[1].x = {points[1].x}, points[1].y = {points[1].y}");
 }
 
 void main() {

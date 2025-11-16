@@ -30,5 +30,5 @@ struct Container<T, A: Allocator> {
 void main() {
     Container<int, SystemAllocator> c;
     c.data.value = 123;
-    println("Complex type arguments: value=%d", c.data.value);
+    println("Complex type arguments: value={c.data.value}");
 }

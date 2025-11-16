@@ -38,7 +38,7 @@ struct SystemAllocator {
 
 impl Allocator for SystemAllocator {
     void* allocate(int size) {
-        println("[SystemAllocator] Allocate %d bytes", size);
+        println("[SystemAllocator] Allocate {size} bytes");
         return nullptr;  // Placeholder for actual malloc
     }
     
@@ -87,8 +87,7 @@ void memory_pool_init(MemoryPool& pool) {
 }
 
 void* memory_pool_allocate(MemoryPool& pool, int size) {
-    println("[MemoryPool] Allocate %d bytes (total allocations: %d)", 
-            size, pool.allocations);
+    println("[MemoryPool] Allocate {size} bytes (total allocations: {pool.allocations})");
     pool.allocations = pool.allocations + 1;
     return nullptr;  // Placeholder
 }
@@ -103,7 +102,7 @@ void test_memory_pool() {
     void* ptr2 = memory_pool_allocate(pool, 64);
     void* ptr3 = memory_pool_allocate(pool, 128);
     
-    println("Memory pool: OK (allocations=%d)", pool.allocations);
+    println("Memory pool: OK (allocations={pool.allocations})");
 }
 
 // ============================================================================
@@ -142,7 +141,7 @@ struct Node {
 };
 
 void node_init(Node& node, int size) {
-    println("[Node] Initialize with data_size=%d", size);
+    println("[Node] Initialize with data_size={size}");
     node.data = nullptr;
     node.data_size = size;
 }
@@ -179,7 +178,7 @@ struct BumpAllocator {
 
 impl Allocator for BumpAllocator {
     void* allocate(int size) {
-        println("[BumpAllocator] Allocate %d bytes (offset=%d)", size, self.offset);
+        println("[BumpAllocator] Allocate {size} bytes (offset={self.offset})");
         return nullptr;
     }
     
@@ -189,7 +188,7 @@ impl Allocator for BumpAllocator {
 }
 
 void bump_allocator_init(BumpAllocator& alloc, int capacity) {
-    println("[BumpAllocator] Initialize with capacity=%d", capacity);
+    println("[BumpAllocator] Initialize with capacity={capacity}");
     alloc.buffer = nullptr;
     alloc.offset = 0;
     alloc.capacity = capacity;

@@ -527,8 +527,20 @@ void OutputManager::print_value(const ASTNode *expr) {
 
                 io_interface_->write_string(oss.str().c_str());
             } else {
-                write_numeric_value(io_interface_, var->type, var->value,
-                                    var->double_value, var->quad_value);
+                // For union types, use current_type if available
+                TypeInfo display_type = var->type;
+                if (var->current_type != TYPE_UNKNOWN) {
+                    display_type = var->current_type;
+                }
+
+                // Special handling for char type - print as character
+                if (display_type == TYPE_CHAR) {
+                    char c = static_cast<char>(var->value);
+                    io_interface_->write_char(c);
+                } else {
+                    write_numeric_value(io_interface_, display_type, var->value,
+                                        var->double_value, var->quad_value);
+                }
             }
             return;
         }
@@ -987,87 +999,13 @@ std::string OutputManager::process_escape_sequences(const std::string &input) {
 }
 
 bool OutputManager::has_unescaped_format_specifiers(const std::string &str) {
-    debug_msg(DebugMsgId::PRINT_FORMAT_SPEC_CHECKING, str.c_str());
-    for (size_t i = 0; i < str.length(); i++) {
-        if (str[i] == '%') {
-            // \% でエスケープされているかチェック
-            if (i > 0 && str[i - 1] == '\\') {
-                continue; // エスケープされている
-            }
-            // 次の文字がフォーマット指定子かチェック
-            if (i + 1 < str.length()) {
-                // 幅指定子（数字）をスキップ
-                size_t pos = i + 1;
-                while (pos < str.length() && std::isdigit(str[pos])) {
-                    pos++;
-                }
-
-                // 幅指定後の文字を確認
-                if (pos < str.length()) {
-                    char format_char = str[pos];
-                    if (format_char == 'd' || format_char == 's' ||
-                        format_char == 'c' || format_char == 'p' ||
-                        format_char == 'f' || format_char == '%') {
-                        debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND,
-                                  std::string(1, format_char).c_str());
-                        return true;
-                    }
-                    // %lld のチェック
-                    if (format_char == 'l' && pos + 2 < str.length() &&
-                        str[pos + 1] == 'l' && str[pos + 2] == 'd') {
-                        debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "lld");
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-    debug_msg(DebugMsgId::PRINT_NO_FORMAT_SPECIFIERS);
+    // Format specifiers are deprecated - always return false
     return false;
 }
 
 size_t OutputManager::count_format_specifiers(const std::string &str) {
-    size_t count = 0;
-    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, str.c_str());
-    for (size_t i = 0; i < str.length(); i++) {
-        if (str[i] == '%') {
-            // \% でエスケープされているかチェック
-            if (i > 0 && str[i - 1] == '\\') {
-                continue; // エスケープされている
-            }
-            if (i + 1 < str.length()) {
-                // 幅指定子（数字）をスキップ
-                size_t pos = i + 1;
-                while (pos < str.length() && std::isdigit(str[pos])) {
-                    pos++;
-                }
-
-                // 幅指定後の文字を確認
-                if (pos < str.length()) {
-                    char format_char = str[pos];
-                    if (format_char == 'd' || format_char == 's' ||
-                        format_char == 'c' || format_char == 'p' ||
-                        format_char == 'f') {
-                        count++;
-                        debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT,
-                                  std::to_string(count).c_str());
-                    } else if (format_char == 'l' && pos + 2 < str.length() &&
-                               str[pos + 1] == 'l' && str[pos + 2] == 'd') {
-                        count++;
-                        debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT,
-                                  std::to_string(count).c_str());
-                        i = pos + 2; // %lld をスキップ
-                    } else if (format_char == '%') {
-                        // %% は引数を消費しないのでカウントしない
-                        debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "%%");
-                    }
-                }
-                // %% は引数を消費しないのでカウントしない
-            }
-        }
-    }
-    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
-    return count;
+    // Format specifiers are deprecated - always return 0
+    return 0;
 }
 
 void OutputManager::print_multiple(const ASTNode *arg_list) {

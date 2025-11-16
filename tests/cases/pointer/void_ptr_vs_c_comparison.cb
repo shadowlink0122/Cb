@@ -38,7 +38,7 @@ struct SystemAllocator {
 
 impl Allocator for SystemAllocator {
     void* allocate(int size) {
-        println("[Cb] Allocating %d bytes", size);
+        println("[Cb] Allocating {size} bytes");
         // 現在: nullptr を返す (プレースホルダー)
         // 将来: 実際のメモリアドレスを返す
         return nullptr;
@@ -145,7 +145,7 @@ void test_allocator_pattern() {
 // ============================================================================
 
 void process_generic_data(void* data, int size) {
-    println("Processing generic data: size=%d bytes", size);
+    println("Processing generic data: size={size} bytes");
     // In C/C++: Cast to appropriate type based on context
 }
 

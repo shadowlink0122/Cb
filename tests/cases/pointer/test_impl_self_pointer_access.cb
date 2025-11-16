@@ -79,21 +79,21 @@ int main() {
     PointerHolder holder;
     holder.data_ptr = nullptr;
     
-    println("Initial: is_null = %d", holder.is_null());
+    println("Initial: is_null = {holder.is_null()}");
     
     holder.set_pointer(&value);
     println("After set_pointer:");
-    println("is_null = %d", holder.is_null());
-    println("get_value = %d", holder.get_value());
+    println("is_null = {holder.is_null()}");
+    println("get_value = {holder.get_value()}");
     
     holder.update_value(100);
     println("After update_value(100):");
-    println("value = %d", value);
-    println("get_value = %d", holder.get_value());
+    println("value = {value}");
+    println("get_value = {holder.get_value()}");
     
     holder.set_pointer_to_null();
     println("After set_pointer_to_null:");
-    println("is_null = %d", holder.is_null());
+    println("is_null = {holder.is_null()}");
     println("✓ Test 1 passed");
     println("");
     
@@ -107,12 +107,12 @@ int main() {
     container.node_ptr = &node1;
     
     println("Initial:");
-    println("container.get_value() = %d", container.get_value());
+    println("container.get_value() = {container.get_value()}");
     
     container.set_value(15);
     println("After set_value(15):");
-    println("node1.value = %d", node1.value);
-    println("container.get_value() = %d", container.get_value());
+    println("node1.value = {node1.value}");
+    println("container.get_value() = {container.get_value()}");
     
     println("✓ Test 2 passed");
     println("");
@@ -126,16 +126,16 @@ int main() {
     holder2.data_ptr = &val1;
     
     println("Initially pointing to val1:");
-    println("get_value = %d", holder2.get_value());
+    println("get_value = {holder2.get_value()}");
     
     holder2.set_pointer(&val2);
     println("After reassigning to val2:");
-    println("get_value = %d", holder2.get_value());
+    println("get_value = {holder2.get_value()}");
     
     holder2.update_value(333);
     println("After update_value(333):");
-    println("val2 = %d", val2);
-    println("get_value = %d", holder2.get_value());
+    println("val2 = {val2}");
+    println("get_value = {holder2.get_value()}");
     
     println("✓ Test 3 passed");
     println("");
