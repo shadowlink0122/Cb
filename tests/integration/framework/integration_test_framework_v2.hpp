@@ -43,7 +43,7 @@ enum class ExecutionMode {
 class IntegrationTestConfig {
 private:
     static inline ExecutionMode current_mode = ExecutionMode::Interpreter;
-    static inline std::string cb_executable_path = "../../main";
+    static inline std::string cb_executable_path = "../../cb";
 
 public:
     static void set_execution_mode(ExecutionMode mode) {
@@ -67,7 +67,9 @@ public:
         std::string cmd = cb_executable_path;
 
         if (mode == ExecutionMode::Compiler) {
-            cmd += " -c";
+            cmd += " compile";
+        } else {
+            cmd += " run";
         }
 
         cmd += " " + test_file + " 2>&1";

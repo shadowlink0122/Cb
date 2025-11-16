@@ -100,7 +100,7 @@ inline int run_command_and_capture_with_time(const std::string& command, std::st
 // テンポラリファイルを使用したテスト実行
 inline void run_cb_test_with_output(const std::string& test_file, 
                                    const std::function<void(const std::string&, int)>& validator) {
-    std::string command = "../../main " + test_file + " 2>&1";
+    std::string command = "../../cb run " + test_file + " 2>&1";
     std::string output;
     int exit_code = run_command_and_capture(command, output);
     
@@ -122,7 +122,7 @@ inline void run_cb_test_with_output(const std::string& test_file,
 inline void run_cb_test_with_output_and_time(const std::string& test_file, 
                                              const std::function<void(const std::string&, int)>& validator,
                                              double& execution_time_ms) {
-    std::string command = "../../main " + test_file + " 2>&1";
+    std::string command = "../../cb run " + test_file + " 2>&1";
     std::string output;
     int exit_code = run_command_and_capture_with_time(command, output, execution_time_ms);
     
