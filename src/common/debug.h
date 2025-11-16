@@ -562,6 +562,89 @@ enum class DebugMsgId {
     SLEEP_TASK_SLEEPING,           // タスクがまだsleep中
     SLEEP_TASK_WOKE_UP,            // タスクがsleepから起床
 
+    // HIR (High-level Intermediate Representation) 関連
+    HIR_GENERATION_START,    // HIR生成開始
+    HIR_GENERATION_COMPLETE, // HIR生成完了
+    HIR_PROCESSING_NODE,     // ノード処理中
+
+    // HIR関数処理
+    HIR_FUNCTION_PROCESSING,       // 関数処理中
+    HIR_FUNCTION_ADDED,            // 関数追加
+    HIR_FUNCTION_BODY_START,       // 関数本体処理開始
+    HIR_FUNCTION_BODY_COMPLETE,    // 関数本体処理完了
+    HIR_FUNCTION_PARAM_PROCESSING, // 関数パラメータ処理中
+    HIR_FUNCTION_PARAM_ADDED,      // 関数パラメータ追加
+
+    // HIR構造体処理
+    HIR_STRUCT_PROCESSING,       // 構造体処理中
+    HIR_STRUCT_ADDED,            // 構造体追加
+    HIR_STRUCT_FIELD_PROCESSING, // 構造体フィールド処理中
+    HIR_STRUCT_FIELD_ADDED,      // 構造体フィールド追加
+
+    // HIR列挙型処理
+    HIR_ENUM_PROCESSING,       // 列挙型処理中
+    HIR_ENUM_ADDED,            // 列挙型追加
+    HIR_ENUM_VALUE_PROCESSING, // 列挙値処理中
+    HIR_ENUM_VALUE_ADDED,      // 列挙値追加
+
+    // HIRインターフェース処理
+    HIR_INTERFACE_PROCESSING,        // インターフェース処理中
+    HIR_INTERFACE_ADDED,             // インターフェース追加
+    HIR_INTERFACE_METHOD_PROCESSING, // インターフェースメソッド処理中
+    HIR_INTERFACE_METHOD_ADDED, // インターフェースメソッド追加
+
+    // HIR実装処理
+    HIR_IMPL_PROCESSING,        // 実装処理中
+    HIR_IMPL_ADDED,             // 実装追加
+    HIR_IMPL_METHOD_PROCESSING, // 実装メソッド処理中
+    HIR_IMPL_METHOD_ADDED,      // 実装メソッド追加
+
+    // HIRグローバル変数処理
+    HIR_GLOBAL_VAR_PROCESSING, // グローバル変数処理中
+    HIR_GLOBAL_VAR_ADDED,      // グローバル変数追加
+
+    // HIR FFI関数処理
+    HIR_FFI_FUNCTION_PROCESSING, // FFI関数処理中
+    HIR_FFI_FUNCTION_ADDED,      // FFI関数追加
+
+    // HIRステートメント処理
+    HIR_STATEMENT_PROCESSING, // ステートメント処理中
+    HIR_STATEMENT_CONVERTED,  // ステートメント変換完了
+    HIR_STMT_RETURN,          // return文処理
+    HIR_STMT_IF,              // if文処理
+    HIR_STMT_WHILE,           // while文処理
+    HIR_STMT_FOR,             // for文処理
+    HIR_STMT_EXPR,            // 式文処理
+    HIR_STMT_VAR_DECL,        // 変数宣言文処理
+    HIR_STMT_BLOCK,           // ブロック文処理
+
+    // HIR式処理
+    HIR_EXPRESSION_PROCESSING, // 式処理中
+    HIR_EXPRESSION_CONVERTED,  // 式変換完了
+    HIR_EXPR_LITERAL,          // リテラル式
+    HIR_EXPR_VARIABLE,         // 変数式
+    HIR_EXPR_BINARY_OP,        // 二項演算式
+    HIR_EXPR_UNARY_OP,         // 単項演算式
+    HIR_EXPR_FUNC_CALL,        // 関数呼び出し式
+    HIR_EXPR_MEMBER_ACCESS,    // メンバアクセス式
+    HIR_EXPR_ARRAY_ACCESS,     // 配列アクセス式
+    HIR_EXPR_CAST,             // キャスト式
+    HIR_EXPR_TERNARY,          // 三項演算式
+
+    // HIR型処理
+    HIR_TYPE_RESOLUTION, // 型解決
+    HIR_TYPE_RESOLVED,   // 型解決完了
+    HIR_TYPE_PRIMITIVE,  // プリミティブ型
+    HIR_TYPE_STRUCT,     // 構造体型
+    HIR_TYPE_ARRAY,      // 配列型
+    HIR_TYPE_POINTER,    // ポインタ型
+    HIR_TYPE_FUNCTION,   // 関数型
+
+    // HIRジェネリック処理
+    HIR_GENERIC_INSTANTIATION,    // ジェネリック具体化
+    HIR_GENERIC_PARAM_PROCESSING, // ジェネリックパラメータ処理
+    HIR_GENERIC_CONSTRAINT,       // ジェネリック制約処理
+
     // 汎用デバッグ（最後の手段として残す）
     GENERIC_DEBUG, // 汎用デバッグライン出力
 
@@ -577,6 +660,10 @@ void debug_msg(DebugMsgId msg_id, ...);
 
 // 多言語対応エラー出力関数
 void error_msg(DebugMsgId msg_id, ...);
+
+// デバッグマクロ
+#define DEBUG_PRINT(...) debug_msg(__VA_ARGS__)
+#define ERROR_PRINT(...) error_msg(__VA_ARGS__)
 
 inline void debug_log_line(const std::string &message) {
     if (!debug_mode)

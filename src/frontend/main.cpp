@@ -75,6 +75,7 @@ int main(int argc, char **argv) {
     // Parse arguments
     std::string filename;
     std::string output_file;
+    std::string cpp_output_dir;
     debug_mode = false;
     debug_language = DebugLanguage::ENGLISH;
     bool enable_preprocessor = true;
@@ -96,6 +97,13 @@ int main(int argc, char **argv) {
                 output_file = argv[++i];
             } else {
                 std::cerr << "Error: -o requires an output filename\n";
+                return 1;
+            }
+        } else if (arg == "-cpp") {
+            if (i + 1 < argc) {
+                cpp_output_dir = argv[++i];
+            } else {
+                std::cerr << "Error: -cpp requires a directory path\n";
                 return 1;
             }
         } else if (arg.substr(0, 2) == "-D") {
@@ -188,69 +196,74 @@ int main(int argc, char **argv) {
                 return 1;
             }
 
-            std::cout << "HIR generation successful!" << std::endl;
-            std::cout << "  Functions: " << hir_program->functions.size()
-                      << std::endl;
-            std::cout << "  Structs: " << hir_program->structs.size()
-                      << std::endl;
-            std::cout << "  Enums: " << hir_program->enums.size() << std::endl;
-            std::cout << "  Interfaces: " << hir_program->interfaces.size()
-                      << std::endl;
-            std::cout << "  Impls: " << hir_program->impls.size() << std::endl;
-            std::cout << "  FFI Functions: "
-                      << hir_program->foreign_functions.size() << std::endl;
-            std::cout << "  Global Vars: " << hir_program->global_vars.size()
-                      << std::endl;
-
             // v0.14.0: C++コード生成
             cb::codegen::HIRToCpp transpiler;
             std::string cpp_code = transpiler.generate(*hir_program);
 
-            // tmpディレクトリを作成
-            system("mkdir -p ./tmp");
+            // C++出力ディレクトリの決定
+            std::string cpp_dir;
+            std::string cpp_filename;
 
-            // 一時C++ファイルに保存
-            std::string temp_cpp =
-                "./tmp/cb_compiled_" + std::to_string(getpid()) + ".cpp";
-            std::ofstream cpp_out(temp_cpp);
+            if (!cpp_output_dir.empty()) {
+                // -cpp オプションで指定された場合
+                cpp_dir = cpp_output_dir;
+            } else {
+                // デフォルト: ./tmp に元のファイルと同じ階層を作成
+                cpp_dir = "./tmp";
+
+                // 入力ファイルのディレクトリ構造を取得
+                std::string input_dir = filename;
+                size_t last_slash = input_dir.find_last_of("/\\");
+                if (last_slash != std::string::npos) {
+                    input_dir = input_dir.substr(0, last_slash);
+                    cpp_dir = "./tmp/" + input_dir;
+                }
+            }
+
+            // ディレクトリを作成
+            std::string mkdir_cmd = "mkdir -p " + cpp_dir;
+            system(mkdir_cmd.c_str());
+
+            // ファイル名を決定（ベース名 + .cpp）
+            std::string base_name = filename;
+            size_t last_slash_base = base_name.find_last_of("/\\");
+            if (last_slash_base != std::string::npos) {
+                base_name = base_name.substr(last_slash_base + 1);
+            }
+            size_t dot_pos = base_name.find_last_of('.');
+            if (dot_pos != std::string::npos) {
+                base_name = base_name.substr(0, dot_pos);
+            }
+
+            cpp_filename = cpp_dir + "/" + base_name + ".cpp";
+
+            // C++コードをファイルに保存
+            std::ofstream cpp_out(cpp_filename);
             cpp_out << cpp_code;
             cpp_out.close();
 
-            if (debug_mode) {
-                std::cout << "C++ code generated: " << temp_cpp << std::endl;
-            }
+            std::cout << "C++ code saved to: " << cpp_filename << std::endl;
 
-            // デバッグモードの場合、追加で読みやすい名前でも保存
-            if (debug_mode) {
-                // 入力ファイル名ベースの名前で保存
-                std::string base_name = filename;
-                size_t last_slash = base_name.find_last_of("/\\");
-                if (last_slash != std::string::npos) {
-                    base_name = base_name.substr(last_slash + 1);
-                }
-                size_t dot_pos = base_name.find_last_of('.');
-                if (dot_pos != std::string::npos) {
-                    base_name = base_name.substr(0, dot_pos);
-                }
-
-                std::string debug_cpp = "./tmp/" + base_name + ".generated.cpp";
-                std::ofstream debug_out(debug_cpp);
-                debug_out << cpp_code;
-                debug_out.close();
-                std::cout << "Debug: C++ code also saved to " << debug_cpp
-                          << std::endl;
-            }
+            // 一時C++ファイル（コンパイル用）
+            std::string temp_cpp =
+                "./tmp/cb_compiled_" + std::to_string(getpid()) + ".cpp";
+            std::ofstream temp_out(temp_cpp);
+            temp_out << cpp_code;
+            temp_out.close();
 
             // 出力ファイル名を決定
             std::string output_binary;
             if (!output_file.empty()) {
+                // -o オプションで指定された場合はそのまま使用
                 output_binary = output_file;
             } else {
+                // デフォルト: 入力ファイルと同じディレクトリに .o 拡張子で出力
                 output_binary = filename;
                 size_t dot_pos = output_binary.find_last_of('.');
                 if (dot_pos != std::string::npos) {
                     output_binary = output_binary.substr(0, dot_pos);
                 }
+                output_binary += ".o";
             }
 
             // C++コンパイラでコンパイル

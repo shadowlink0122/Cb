@@ -189,7 +189,15 @@ BACKEND_OBJS = \
 	$(INTERPRETER_FFI_OBJS) \
 	$(IR_OBJS)
 PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uart_output.o
-COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(COMMON_DIR)/ast.o $(PLATFORM_OBJS)
+# デバッグメッセージモジュール
+DEBUG_DIR=$(COMMON_DIR)/debug
+DEBUG_OBJS = \
+	$(DEBUG_DIR)/debug_parser_messages.o \
+	$(DEBUG_DIR)/debug_ast_messages.o \
+	$(DEBUG_DIR)/debug_interpreter_messages.o \
+	$(DEBUG_DIR)/debug_hir_messages.o
+
+COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(DEBUG_OBJS) $(COMMON_DIR)/ast.o $(PLATFORM_OBJS)
 
 # 実行ファイル
 MAIN_TARGET=cb
@@ -297,6 +305,10 @@ $(BACKEND_DIR)/managers/common/%.o: $(BACKEND_DIR)/managers/common/%.cpp $(COMMO
 
 # 共通オブジェクト生成
 $(COMMON_DIR)/%.o: $(COMMON_DIR)/%.cpp $(COMMON_DIR)/ast.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# デバッグメッセージモジュールのコンパイル
+$(DEBUG_DIR)/%.o: $(DEBUG_DIR)/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # プラットフォーム固有オブジェクト生成
@@ -562,7 +574,10 @@ clean: clean-ffi
 	rm -f tests/unit/test_main tests/unit/dummy.o
 	rm -f tests/stdlib/test_main
 	rm -f /tmp/cb_integration_test.log
-	find . -name "*.o" -type f -delete
+	find src -name "*.o" -type f -delete
+	find tests -name "*.o" -type f -delete
+	find sample -name "*.o" -type f -delete
+	rm -rf tmp/*
 	rm -rf **/*.dSYM *.dSYM
 	rm -rf tests/integration/*.dSYM
 	rm -rf tests/unit/*.dSYM

@@ -65,6 +65,7 @@ void print_compile_help(const char *program_name) {
     std::cout << "   or: " << program_name << " -c [options] <file>\n\n";
     std::cout << "Options:\n";
     std::cout << "  -o <output>             Specify output file name\n";
+    std::cout << "  -cpp <dir>              Specify C++ output directory\n";
     std::cout
         << "  -d, --debug             Enable debug mode (keep generated C++)\n";
     std::cout << "  --debug-ja              Enable Japanese debug mode\n";
@@ -74,12 +75,14 @@ void print_compile_help(const char *program_name) {
     std::cout << "\nExamples:\n";
     std::cout << "  " << program_name << " compile program.cb\n";
     std::cout << "  " << program_name << " compile program.cb -o myapp\n";
+    std::cout << "  " << program_name << " -c program.cb -cpp ./generated\n";
     std::cout << "  " << program_name << " -c program.cb -o myapp -d\n";
     std::cout << "\nOutput:\n";
-    std::cout
-        << "  Without -o: Creates executable with same name as input file\n";
+    std::cout << "  Without -o: Creates <filename>.o in the same directory\n";
     std::cout << "  With -o:    Creates executable with specified name\n";
-    std::cout << "  Debug mode: Keeps generated C++ code in ./tmp/ directory\n";
+    std::cout
+        << "  Without -cpp: Saves C++ to ./tmp/<input_path>/<filename>.cpp\n";
+    std::cout << "  With -cpp:    Saves C++ to <dir>/<filename>.cpp\n";
     std::cout << "\nDescription:\n";
     std::cout
         << "  The compile command generates optimized native binaries via:\n";
@@ -87,7 +90,7 @@ void print_compile_help(const char *program_name) {
     std::cout << "  2. Generate High-level IR (HIR)\n";
     std::cout << "  3. Transpile to C++\n";
     std::cout << "  4. Compile with g++/clang\n";
-    std::cout << "\n  Compiled binaries provide:\n";
+    std::cout << "\n  Compiled binaries (.o) provide:\n";
     std::cout << "  - Maximum performance\n";
     std::cout << "  - Standalone deployment\n";
     std::cout << "  - No runtime dependencies\n";

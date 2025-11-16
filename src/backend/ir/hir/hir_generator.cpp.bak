@@ -1,6 +1,6 @@
 #include "hir_generator.h"
-#include "../../../common/debug.h"
 #include "hir_builder.h"
+#include "../../../common/debug.h"
 #include <iostream>
 
 namespace cb {
@@ -15,7 +15,7 @@ HIRGenerator::~HIRGenerator() {}
 std::unique_ptr<HIRProgram>
 HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
     DEBUG_PRINT(DebugMsgId::HIR_GENERATION_START);
-
+    
     auto program = std::make_unique<HIRProgram>();
 
     for (const auto &node : ast_nodes) {
@@ -24,10 +24,6 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
 
         switch (node->node_type) {
         case ASTNodeType::AST_FUNC_DECL: {
-            if (debug_mode && !node->name.empty()) {
-                DEBUG_PRINT(DebugMsgId::HIR_FUNCTION_PROCESSING,
-                            node->name.c_str());
-            }
             auto func = convert_function(node.get());
             program->functions.push_back(std::move(func));
             break;
@@ -113,18 +109,7 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
         }
     }
 
-    if (debug_mode) {
-        DEBUG_PRINT(DebugMsgId::HIR_GENERATION_COMPLETE);
-        fprintf(stderr, "HIR generation successful!\n");
-        fprintf(stderr, "  Functions: %zu\n", program->functions.size());
-        fprintf(stderr, "  Structs: %zu\n", program->structs.size());
-        fprintf(stderr, "  Enums: %zu\n", program->enums.size());
-        fprintf(stderr, "  Interfaces: %zu\n", program->interfaces.size());
-        fprintf(stderr, "  Impls: %zu\n", program->impls.size());
-        fprintf(stderr, "  Foreign Functions: %zu\n",
-                program->foreign_functions.size());
-        fprintf(stderr, "  Global Vars: %zu\n", program->global_vars.size());
-    }
+    DEBUG_PRINT(DebugMsgId::HIR_GENERATION_COMPLETE);
 
     return program;
 }
@@ -358,6 +343,10 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
 
     switch (node->node_type) {
     case ASTNodeType::AST_VAR_DECL: {
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STMT_VAR_DECL, 
+                       node->name ? node->name : "unnamed");
+        }
         stmt.kind = HIRStmt::StmtKind::VarDecl;
         stmt.var_name = node->name;
         stmt.var_type = convert_type(node->type_info, node->type_name);
@@ -370,6 +359,9 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_ASSIGN: {
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STATEMENT_PROCESSING, "Assignment");
+        }
         stmt.kind = HIRStmt::StmtKind::Assignment;
         stmt.lhs = std::make_unique<HIRExpr>(convert_expr(node->left.get()));
         stmt.rhs = std::make_unique<HIRExpr>(convert_expr(node->right.get()));
@@ -377,6 +369,9 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_IF_STMT: {
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STMT_IF);
+        }
         stmt.kind = HIRStmt::StmtKind::If;
         stmt.condition =
             std::make_unique<HIRExpr>(convert_expr(node->condition.get()));
@@ -390,6 +385,9 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_WHILE_STMT: {
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STMT_WHILE);
+        }
         stmt.kind = HIRStmt::StmtKind::While;
         stmt.condition =
             std::make_unique<HIRExpr>(convert_expr(node->condition.get()));
@@ -398,6 +396,9 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_FOR_STMT: {
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STMT_FOR);
+        }
         stmt.kind = HIRStmt::StmtKind::For;
         if (node->init_expr) {
             stmt.init =
@@ -416,6 +417,9 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_RETURN_STMT: {
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STMT_RETURN);
+        }
         stmt.kind = HIRStmt::StmtKind::Return;
         if (node->left) {
             stmt.return_expr =
@@ -436,6 +440,10 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
 
     case ASTNodeType::AST_COMPOUND_STMT:
     case ASTNodeType::AST_STMT_LIST: {
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STMT_BLOCK, 
+                       static_cast<int>(node->statements.size()));
+        }
         stmt.kind = HIRStmt::StmtKind::Block;
         for (const auto &child : node->statements) {
             stmt.block_stmts.push_back(convert_stmt(child.get()));
@@ -589,6 +597,10 @@ HIRFunction HIRGenerator::convert_function(const ASTNode *node) {
     func.is_async = node->is_async;
     func.is_exported = node->is_exported;
 
+    if (debug_mode) {
+        DEBUG_PRINT(DebugMsgId::HIR_FUNCTION_BODY_START);
+    }
+
     // v0.14.0: ジェネリックパラメータ
     if (node->is_generic) {
         func.generic_params = node->type_parameters;
@@ -596,10 +608,15 @@ HIRFunction HIRGenerator::convert_function(const ASTNode *node) {
 
     // パラメータの変換
     for (const auto &param : node->parameters) {
+        if (debug_mode && param && param->name) {
+            DEBUG_PRINT(DebugMsgId::HIR_FUNCTION_PARAM_PROCESSING, param->name);
+        }
+        
         HIRFunction::Parameter hir_param;
         hir_param.name = param->name;
         hir_param.type = convert_type(param->type_info, param->type_name);
         hir_param.is_const = param->is_const;
+
 
         // TODO: デフォルト引数は将来実装
         // if (param->default_value) {
@@ -613,6 +630,10 @@ HIRFunction HIRGenerator::convert_function(const ASTNode *node) {
     // 関数本体の変換
     if (node->body) {
         func.body = std::make_unique<HIRStmt>(convert_stmt(node->body.get()));
+        
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_FUNCTION_BODY_COMPLETE, 1);
+        }
     }
 
     return func;
