@@ -61,10 +61,12 @@ void execute_array_decl(StatementExecutor *executor, Interpreter &interpreter,
 
     // struct配列の場合、要素変数を初期化
     if (debug_mode) {
+        Variable *reg_var = interpreter.find_variable(node->name);
         std::cerr << "[DEBUG_EXEC_ARRAY] After registration: var.is_struct="
                   << var.is_struct << ", var.is_array=" << var.is_array
                   << ", var.array_size=" << var.array_size
-                  << ", struct_type_name=" << var.struct_type_name << std::endl;
+                  << ", struct_type_name=" << var.struct_type_name
+                  << ", var_ptr=" << (void *)reg_var << std::endl;
     }
     if (var.is_struct && var.is_array && var.array_size > 0 &&
         !var.struct_type_name.empty()) {

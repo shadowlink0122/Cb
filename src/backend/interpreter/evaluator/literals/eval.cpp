@@ -161,6 +161,17 @@ TypedValue evaluate_variable_typed(const ASTNode *node,
     } else if (var->type == TYPE_STRUCT) {
         return TypedValue(*var,
                           InferredType(TYPE_STRUCT, var->struct_type_name));
+    } else if (var->is_enum) {
+        // v0.13.4: enum型変数の評価
+        if (var->has_associated_value) {
+            // 関連値を持つenum（Rust風）は構造体として扱う
+            return TypedValue(*var,
+                              InferredType(TYPE_ENUM, var->enum_type_name));
+        } else {
+            // 古いスタイルのenum（関連値なし）は整数として扱う
+            return TypedValue(var->value,
+                              InferredType(TYPE_ENUM, var->enum_type_name));
+        }
     } else if (var->type == TYPE_INTERFACE) {
         return TypedValue(*var,
                           InferredType(TYPE_INTERFACE, var->interface_name));

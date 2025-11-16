@@ -816,6 +816,16 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 throw DetailedErrorException("Undefined variable: " + var_name);
             }
 
+            // v0.13.4: デバッグ - find_variable直後の状態
+            if (interpreter.is_debug_mode()) {
+                std::cerr << "[FIND_VAR] var_name=" << var_name
+                          << ", var_ptr=" << (void *)var
+                          << ", var->is_array=" << var->is_array
+                          << ", var->array_size=" << var->array_size
+                          << ", var->array_strings.size()="
+                          << var->array_strings.size() << std::endl;
+            }
+
             // v0.13.4: 文字列配列への代入をサポート
             // 基底型を取得
             TypeInfo base_type =
@@ -829,6 +839,15 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
                 if (var->is_const) {
                     throw std::runtime_error(
                         "Cannot assign to const variable: " + var_name);
+                }
+
+                // デバッグ出力
+                if (interpreter.is_debug_mode()) {
+                    std::cerr << "[STRING_ARRAY_ASSIGN] var_name=" << var_name
+                              << ", index=" << index
+                              << ", array_size=" << var->array_size
+                              << ", array_strings.size()="
+                              << var->array_strings.size() << std::endl;
                 }
 
                 // 右辺が文字列リテラルの場合

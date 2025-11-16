@@ -84,10 +84,12 @@ struct Variable {
     bool is_enum = false;       // enum型かどうか
     std::string enum_type_name; // enum型名（"Option_int"など）
     std::string enum_variant;   // バリアント名（"Some", "None"など）
-    // 関連値（簡易版：int64_tとstringのみサポート）
+    // 関連値（拡張版：int64_t, string, および任意の型をサポート）
     bool has_associated_value = false;
     int64_t associated_int_value = 0;
     std::string associated_str_value;
+    // v0.13.4: struct/enum型の関連値をサポート（生ポインタを使用）
+    Variable *associated_value = nullptr; // 任意の型の関連値（所有権なし）
 
     // union型用
     std::string type_name;                // union型名（union型の場合）
@@ -177,6 +179,12 @@ struct Variable {
         has_associated_value = other.has_associated_value;
         associated_int_value = other.associated_int_value;
         associated_str_value = other.associated_str_value;
+        // v0.13.4: associated_valueをdeep copy
+        if (other.associated_value) {
+            associated_value = new Variable(*other.associated_value);
+        } else {
+            associated_value = nullptr;
+        }
 
         {
             char dbg_buf[128];
@@ -257,12 +265,14 @@ struct Variable {
             has_associated_value = other.has_associated_value;
             associated_int_value = other.associated_int_value;
             associated_str_value = other.associated_str_value;
-
-            {
-                char dbg_buf[128];
-                snprintf(dbg_buf, sizeof(dbg_buf),
-                         "[VAR_ASSIGN_OP] After: this.is_enum=%d", is_enum);
-                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            // v0.13.4: associated_valueをdeep copy
+            if (associated_value) {
+                delete associated_value;
+            }
+            if (other.associated_value) {
+                associated_value = new Variable(*other.associated_value);
+            } else {
+                associated_value = nullptr;
             }
 
             // 残りのメンバをコピー
@@ -295,6 +305,15 @@ struct Variable {
 
             // v0.13.1: 参照もコピーする（デストラクタでselfが使用）
             struct_members_ref = other.struct_members_ref;
+
+            {
+                char dbg_buf[256];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "[VAR_ASSIGN_OP] After copy: this.is_enum=%d, "
+                         "is_array=%d, array_size=%d, array_strings.size()=%zu",
+                         is_enum, is_array, array_size, array_strings.size());
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
         }
         return *this;
     }

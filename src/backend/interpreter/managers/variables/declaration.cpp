@@ -223,8 +223,17 @@ void VariableManager::process_variable_declaration(const ASTNode *node) {
 
                     var.has_associated_value = true;
 
+                    // v0.13.4: struct/enum型の関連値をサポート
+                    if (typed_result.is_struct() && typed_result.struct_data) {
+                        // 構造体またはenum型の関連値（値コピーを作成）
+                        var.associated_value =
+                            new Variable(*typed_result.struct_data);
+                        debug_msg(DebugMsgId::GENERIC_DEBUG,
+                                  "[ENUM_VAR_DECL_MANAGER] Enum initialized "
+                                  "with complex value");
+                    }
                     // 文字列型の場合
-                    if (typed_result.type.type_info == TYPE_STRING) {
+                    else if (typed_result.type.type_info == TYPE_STRING) {
                         var.associated_str_value = typed_result.string_value;
                         debug_msg(
                             DebugMsgId::GENERIC_DEBUG,

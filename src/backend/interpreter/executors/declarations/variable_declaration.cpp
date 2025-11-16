@@ -459,10 +459,10 @@ void execute_variable_declaration(StatementExecutor *executor,
 
         // 初期化式がある場合は処理
         if (init_node) {
-            if (debug_mode) {
-                debug_log_line(
-                    "[DEBUG_STMT] Enum variable has initializer, node_type=" +
-                    std::to_string(static_cast<int>(init_node->node_type)));
+            if (interpreter.is_debug_mode()) {
+                std::cerr
+                    << "[DEBUG_STMT] Enum variable has initializer, node_type="
+                    << static_cast<int>(init_node->node_type) << std::endl;
             }
 
             // AST_ENUM_CONSTRUCTの場合は特別処理
@@ -476,8 +476,38 @@ void execute_variable_declaration(StatementExecutor *executor,
                         init_node->arguments[0].get());
                     var.has_associated_value = true;
 
+                    // v0.13.4: デバッグ出力
+                    if (interpreter.is_debug_mode()) {
+                        std::cerr
+                            << "[DEBUG_STMT] Evaluating enum argument: "
+                               "is_struct_result="
+                            << typed_result.is_struct_result << ", struct_data="
+                            << (typed_result.struct_data ? "set" : "null")
+                            << ", type.type_info="
+                            << static_cast<int>(typed_result.type.type_info)
+                            << std::endl;
+                    }
+
+                    // v0.13.4: struct/enum型の関連値をサポート
+                    if (typed_result.is_struct() && typed_result.struct_data) {
+                        // 構造体またはenum型の関連値（値コピーを作成）
+                        var.associated_value =
+                            new Variable(*typed_result.struct_data);
+                        if (debug_mode) {
+                            std::string type_desc =
+                                typed_result.struct_data->is_enum
+                                    ? ("enum:" +
+                                       typed_result.struct_data->enum_type_name)
+                                    : ("struct:" + typed_result.struct_data
+                                                       ->struct_type_name);
+                            debug_log_line(
+                                "[DEBUG_STMT] Enum initialized with variant: " +
+                                var.enum_variant +
+                                ", complex_value (type=" + type_desc + ")");
+                        }
+                    }
                     // 文字列型の場合
-                    if (typed_result.type.type_info == TYPE_STRING) {
+                    else if (typed_result.type.type_info == TYPE_STRING) {
                         var.associated_str_value = typed_result.string_value;
                         if (debug_mode) {
                             debug_log_line(
@@ -545,6 +575,9 @@ void execute_variable_declaration(StatementExecutor *executor,
                                 ret.struct_value.associated_int_value;
                             var.associated_str_value =
                                 ret.struct_value.associated_str_value;
+                            // v0.13.4: associated_valueもコピー
+                            var.associated_value =
+                                ret.struct_value.associated_value;
                             var.is_assigned = true;
 
                             if (debug_mode) {

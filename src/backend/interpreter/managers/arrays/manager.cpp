@@ -335,6 +335,25 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
             var.array_dimensions.push_back(size);
 
             // 配列要素を初期化
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "ARRAY_DEBUG: After setting array_size, var.array_size=%d",
+                    var.array_size);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+
+            {
+                char dbg_buf[512];
+                snprintf(
+                    dbg_buf, sizeof(dbg_buf),
+                    "ARRAY_DEBUG: node->type_info=%d, TYPE_STRING=%d, size=%d",
+                    static_cast<int>(node->type_info),
+                    static_cast<int>(TYPE_STRING), size);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+            }
+
             if (node->type_info == TYPE_STRING) {
                 var.array_strings.resize(size, "");
             } else if (node->is_pointer) {
@@ -352,6 +371,14 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
                                        node->type_info);
                 debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
                           "Numeric storage prepared");
+            }
+
+            {
+                char dbg_buf[512];
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "ARRAY_DEBUG: After 1D array init, var.array_size=%d",
+                         var.array_size);
+                debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
             }
         } else if (!node->array_type_info.dimensions.empty()) {
             debug_msg(DebugMsgId::ARRAY_DECL_DEBUG,
@@ -1088,6 +1115,14 @@ void ArrayManager::processArrayDeclaration(Variable &var, const ASTNode *node) {
     }
 
     // デバッグ: 最終的な配列状態を確認
+    {
+        char dbg_buf[512];
+        snprintf(dbg_buf, sizeof(dbg_buf),
+                 "ARRAY_DEBUG: Before final debug, var.array_size=%d, "
+                 "var.array_strings.size()=%zu",
+                 var.array_size, var.array_strings.size());
+        debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
+    }
     std::string debug_info =
         "Final array '" + node->name +
         "': size=" + std::to_string(var.array_size) +

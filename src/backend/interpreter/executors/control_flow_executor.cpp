@@ -366,8 +366,39 @@ void ControlFlowExecutor::execute_match_statement(const ASTNode *node) {
 
                     // ワイルドカード(_)の場合は変数を作成しない
                     if (binding_name != "_") {
-                        // 型に応じて変数を作成
-                        if (!enum_value.associated_str_value.empty()) {
+                        // v0.13.4: デバッグ出力
+                        if (interpreter_->is_debug_mode()) {
+                            std::cerr << "[MATCH_BINDING] binding_name="
+                                      << binding_name << ", associated_value="
+                                      << (enum_value.associated_value ? "set"
+                                                                      : "null")
+                                      << ", associated_str_value='"
+                                      << enum_value.associated_str_value << "'"
+                                      << ", associated_int_value="
+                                      << enum_value.associated_int_value
+                                      << std::endl;
+                        }
+
+                        // v0.13.4: associated_valueがある場合、それを使用
+                        if (enum_value.associated_value) {
+                            // struct/enum型の関連値（コピーを作成して代入）
+                            interpreter_->current_scope()
+                                .variables[binding_name] =
+                                *enum_value.associated_value;
+
+                            if (interpreter_->is_debug_mode()) {
+                                std::cerr
+                                    << "[MATCH_BINDING] Bound complex value: "
+                                       "is_enum="
+                                    << enum_value.associated_value->is_enum
+                                    << ", enum_type="
+                                    << enum_value.associated_value
+                                           ->enum_type_name
+                                    << std::endl;
+                            }
+                        }
+                        // 型に応じて変数を作成（後方互換性）
+                        else if (!enum_value.associated_str_value.empty()) {
                             // 文字列型の場合
                             interpreter_->assign_variable(
                                 binding_name, enum_value.associated_str_value);
