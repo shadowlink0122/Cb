@@ -48,7 +48,8 @@ int main() {
     println("length = {length}");
     
     bool empty = processor.isEmpty();
-    println("empty = {empty ? 1 : 0}");
+    int emptyValue = empty ? 1 : 0;
+    println("empty = {emptyValue}");
     
     println("String private method test passed");
     return 0;

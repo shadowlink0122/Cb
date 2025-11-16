@@ -39,23 +39,23 @@ int consumeTwice(IOperation op, int first, int second) {
 int main() {
     println("interface param return test:");
 
-    println("consume(3,4)={consume(3, 4}"));
+    println("consume(3,4)={consume(3, 4)}");
 
     int seed = 5;
-    println("consume(seed,10)={consume(seed, 10}"));
+    println("consume(seed,10)={consume(seed, 10)}");
 
     IOperation op_seed = seed;
-    println("consume(op_seed,7)={consume(op_seed, 7}"));
+    println("consume(op_seed,7)={consume(op_seed, 7)}");
 
     Multiplier mul = { factor: 3 };
-    println("consume(mul,4)={consume(mul, 4}"));
+    println("consume(mul,4)={consume(mul, 4)}");
 
-    println("consume(makeIntOperation(2),6)={consume(makeIntOperation(2}"), 6));
-    println("consume(makeMultiplierOperation(mul),5)={consume(makeMultiplierOperation(mul}"), 5));
+    println("consume(makeIntOperation(2),6)={consume(makeIntOperation(2), 6)}");
+    println("consume(makeMultiplierOperation(mul),5)={consume(makeMultiplierOperation(mul), 5)}");
 
-    println("consumeTwice(seed,1,2)={consumeTwice(seed, 1, 2}"));
-    println("consumeTwice(op_seed,2,3)={consumeTwice(op_seed, 2, 3}"));
-    println("consumeTwice(makeIntOperation(1),3,4)={consumeTwice(makeIntOperation(1}"), 3, 4));
+    println("consumeTwice(seed,1,2)={consumeTwice(seed, 1, 2)}");
+    println("consumeTwice(op_seed,2,3)={consumeTwice(op_seed, 2, 3)}");
+    println("consumeTwice(makeIntOperation(1),3,4)={consumeTwice(makeIntOperation(1), 3, 4)}");
 
     println("done");
     return 0;

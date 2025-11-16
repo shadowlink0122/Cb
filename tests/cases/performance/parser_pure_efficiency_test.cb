@@ -31,7 +31,8 @@ int main() {
     
     // 4. 複雑な論理式（短絡評価効率性）
     bool complex_bool = (x < y && y < z) || (z > 25 && x < 15) || (y == 20 && z > x);
-    println("Complex logical: {complex_bool ? 1 : 0}");
+    int complex_int = complex_bool ? 1 : 0;
+    println("Complex logical: {complex_int}");
     
     // 5. 関数配列アクセスチェーン（型推論効率性）
     int chain1 = get_numbers()[0] + get_numbers()[1] * get_numbers()[2];

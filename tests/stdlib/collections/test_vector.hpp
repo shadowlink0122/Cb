@@ -56,7 +56,7 @@ inline void test_vector_selective_import() {
     
     STDLIB_ASSERT_EQ(0, exit_code);
     STDLIB_ASSERT_CONTAINS(output, "✅ Default import works");
-    STDLIB_ASSERT_CONTAINS(output, "✅ Selective import works");
+    STDLIB_ASSERT_CONTAINS(output, "✅ Selective import works (Queue<int>)");
 }
 
 inline void test_vector_advanced_selective() {

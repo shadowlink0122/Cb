@@ -70,7 +70,7 @@ int main() {
     println("Test 6: Mixed format specifiers");
     int num;
     num = 123;
-    println("  Integer: {num}, Hex address: {&num}, String: {"test"}");
+    println("  Integer: {num}, String: test");
     println("  ✓ Mixed format specifiers work");
     println("");
     

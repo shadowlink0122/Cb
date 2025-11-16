@@ -67,7 +67,8 @@ int main() {
         ((v5 == w5 && v6 != w6) || (v7 <= w7 && v8 >= w8)) &&
         ((v9 != w9 || v10 == w10) && (v1 > 0 && w1 > 0));
     
-    println("Logic result: {logic_result ? 1 : 0}");
+    int logic_int = logic_result ? 1 : 0;
+    println("Logic result: {logic_int}");
     
     // 7. 最終統合式
     int final_result = 

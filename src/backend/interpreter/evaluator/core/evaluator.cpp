@@ -1515,6 +1515,19 @@ ExpressionEvaluator::format_interpolated_value(const TypedValue &value,
             char c = static_cast<char>(value.value);
             return std::string(1, c);
         } else if (value.is_numeric_result) {
+            // ポインタ型は16進数で表示
+            if (value.numeric_type == TYPE_POINTER ||
+                value.type.type_info == TYPE_POINTER) {
+                std::stringstream ss;
+                uint64_t unsigned_val = static_cast<uint64_t>(value.value);
+                // Remove tag bit from pointer metadata
+                uint64_t clean_value = unsigned_val;
+                if (value.value & (1LL << 63)) {
+                    clean_value &= ~(1ULL << 63);
+                }
+                ss << "0x" << std::hex << clean_value;
+                return ss.str();
+            }
             if (value.is_float_result) {
                 if (value.type.type_info == TYPE_QUAD) {
                     return std::to_string(value.quad_value);
