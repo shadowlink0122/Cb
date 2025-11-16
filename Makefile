@@ -28,6 +28,13 @@ INTERPRETER_OUTPUT=$(INTERPRETER_DIR)/output
 INTERPRETER_EVENT_LOOP=$(INTERPRETER_DIR)/event_loop
 INTERPRETER_TYPES=$(INTERPRETER_DIR)/types
 
+# v0.14.0: IR（中間表現）サブディレクトリ
+IR_DIR=$(BACKEND_DIR)/ir
+IR_HIR=$(IR_DIR)/hir
+IR_MIR=$(IR_DIR)/mir
+IR_LIR=$(IR_DIR)/lir
+IR_COMMON=$(IR_DIR)/common
+
 # コンパイラフラグ
 CXXFLAGS=-Wall -g -std=c++17
 CFLAGS=$(CXXFLAGS) -I. -I$(SRC_DIR) -I$(INTERPRETER_DIR)
@@ -146,6 +153,28 @@ INTERPRETER_TYPES_OBJS = \
 INTERPRETER_FFI_OBJS = \
 	$(INTERPRETER_DIR)/ffi_manager.o
 
+# v0.14.0: IRオブジェクトファイル
+IR_HIR_OBJS = \
+	$(IR_HIR)/hir_generator.o \
+	$(IR_HIR)/hir_node.o \
+	$(IR_HIR)/hir_builder.o
+
+# v0.14.0: Codegen (Code Generation) のオブジェクトファイル
+CODEGEN_DIR=$(BACKEND_DIR)/codegen
+CODEGEN_OBJS = \
+	$(CODEGEN_DIR)/hir_to_cpp.o
+
+# 	$(IR_HIR)/hir_visitor.o \
+# 	$(IR_HIR)/hir_dumper.o
+
+# IR_MIR_OBJS = \
+# 	$(IR_MIR)/mir_generator.o \
+# 	$(IR_MIR)/cfg_builder.o \
+# 	$(IR_MIR)/ssa_builder.o
+
+IR_OBJS = $(IR_HIR_OBJS) $(CODEGEN_OBJS)
+# $(IR_MIR_OBJS)
+
 # Backendオブジェクト（全て統合）
 BACKEND_OBJS = \
 	$(INTERPRETER_CORE_OBJS) \
@@ -157,7 +186,8 @@ BACKEND_OBJS = \
 	$(INTERPRETER_OUTPUT_OBJS) \
 	$(INTERPRETER_EVENT_LOOP_OBJS) \
 	$(INTERPRETER_TYPES_OBJS) \
-	$(INTERPRETER_FFI_OBJS)
+	$(INTERPRETER_FFI_OBJS) \
+	$(IR_OBJS)
 PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uart_output.o
 COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(COMMON_DIR)/ast.o $(PLATFORM_OBJS)
 
@@ -187,7 +217,7 @@ endif
 FFI_LIBS=$(STDLIB_FOREIGN_DIR)/libcppexample.$(LIB_EXT) \
          $(STDLIB_FOREIGN_DIR)/libadvanced.$(LIB_EXT)
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version ffi-libs clean-ffi test-ffi
+.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose hir-integration-test integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version ffi-libs clean-ffi test-ffi
 
 all: setup-dirs $(MAIN_TARGET) ffi-libs
 
@@ -336,6 +366,18 @@ integration-test: $(TESTS_DIR)/integration/test_main
 integration-test-verbose: $(TESTS_DIR)/integration/test_main
 	@echo "Running integration tests (verbose mode)..."
 	@cd tests/integration && ./test_main
+
+# HIR統合テスト：HIRコンパイル経由で統合テストを実行
+# integration-testと同じテストケースをHIRコンパイルしたバイナリで実行
+hir-integration-test: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running HIR Integration Test Suite"
+	@echo "============================================================="
+	@echo "Compiling integration test cases via HIR..."
+	@bash tests/integration/run_hir_tests.sh 2>&1 | tee /tmp/cb_hir_integration_raw.log | fold -s -w 80; \
+	if grep -q "FAILED" /tmp/cb_hir_integration_raw.log; then \
+		exit 1; \
+	fi
 
 # Stdlib test binary target
 $(TESTS_DIR)/stdlib/test_main: $(TESTS_DIR)/stdlib/main.cpp $(MAIN_TARGET)
@@ -601,6 +643,7 @@ help:
 	@echo "Test targets:"
 	@echo "  test                   - Run all 4 test suites"
 	@echo "  integration-test       - Run integration tests"
+	@echo "  hir-integration-test   - Run HIR integration tests (89 tests, 97.8% pass)"
 	@echo "  unit-test              - Run unit tests (30 tests)"
 	@echo "  stdlib-cpp-test        - Run stdlib C++ infrastructure tests"
 	@echo "  stdlib-cb-test         - Run stdlib Cb language tests"
