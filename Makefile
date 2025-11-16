@@ -1,7 +1,5 @@
 CC=g++
 CXX=g++
-LEX=flex
-YACC=bison
 
 # ディレクトリ設定
 SRC_DIR=src
