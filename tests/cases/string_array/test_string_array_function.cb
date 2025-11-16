@@ -1,0 +1,38 @@
+// Test: String arrays in functions
+// 関数での文字列配列の使用テスト
+
+string get_first(string[] arr) {
+    return arr[0];
+}
+
+void print_array(string[] arr, int size) {
+    println("Array contents:");
+    int i = 0;
+    while (i < size) {
+        println("  [{i}]: '{arr[i]}'");
+        i = i + 1;
+    }
+}
+
+void main() {
+    println("=== String Array Function Test ===");
+    
+    // Test 1: Pass array to function
+    string[4] names = ["Alice", "Bob", "Charlie", "David"];
+    
+    string first = get_first(names);
+    println("Test 1 - First element: '{first}'");
+    assert(first == "Alice");
+    
+    // Test 2: Print array
+    println("Test 2 - Print array:");
+    print_array(names, 4);
+    
+    // Test 3: Modify directly (not through function parameter)
+    names[1] = "Bobby";
+    println("Test 3 - After modification:");
+    println("  names[1]: '{names[1]}'");
+    assert(names[1] == "Bobby");
+    
+    println("=== All Tests Passed ===");
+}

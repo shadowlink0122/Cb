@@ -1,0 +1,41 @@
+// Test: String arrays with structs
+// 構造体と文字列配列の組み合わせテスト
+
+struct Person {
+    int id;
+    int age;
+};
+
+void main() {
+    println("=== String Array with Struct Test ===");
+    
+    // Test 1: Parallel arrays (string array + struct array)
+    string[3] names = ["Alice", "Bob", "Charlie"];
+    Person[3] people;
+    
+    people[0].id = 1;
+    people[0].age = 25;
+    
+    people[1].id = 2;
+    people[1].age = 30;
+    
+    people[2].id = 3;
+    people[2].age = 35;
+    
+    println("Test 1 - Parallel arrays:");
+    println("  Person 0: name='{names[0]}', id={people[0].id}, age={people[0].age}");
+    println("  Person 1: name='{names[1]}', id={people[1].id}, age={people[1].age}");
+    println("  Person 2: name='{names[2]}', id={people[2].id}, age={people[2].age}");
+    
+    assert(names[0] == "Alice");
+    assert(people[0].id == 1);
+    assert(people[0].age == 25);
+    assert(names[1] == "Bob");
+    assert(people[1].id == 2);
+    assert(people[1].age == 30);
+    assert(names[2] == "Charlie");
+    assert(people[2].id == 3);
+    assert(people[2].age == 35);
+    
+    println("=== All Tests Passed ===");
+}

@@ -1,0 +1,30 @@
+// Test: Const string arrays
+// const文字列配列のテスト
+
+void main() {
+    println("=== Const String Array Test ===");
+    
+    // Test 1: Const array with literal initialization
+    const string[2] greetings = ["Hello", "World"];
+    
+    println("Test 1 - Const array:");
+    println("  greetings[0]: '{greetings[0]}'");
+    println("  greetings[1]: '{greetings[1]}'");
+    
+    assert(greetings[0] == "Hello");
+    assert(greetings[1] == "World");
+    
+    // Test 2: Const array with explicit initialization
+    const string[3] colors = ["Red", "Green", "Blue"];
+    
+    println("Test 2 - Const colors:");
+    println("  colors[0]: '{colors[0]}'");
+    println("  colors[1]: '{colors[1]}'");
+    println("  colors[2]: '{colors[2]}'");
+    
+    assert(colors[0] == "Red");
+    assert(colors[1] == "Green");
+    assert(colors[2] == "Blue");
+    
+    println("=== All Tests Passed ===");
+}

@@ -1,0 +1,53 @@
+// Test: Basic string array operations
+// 文字列配列の基本操作テスト
+
+void main() {
+    println("=== String Array Basic Test ===");
+    
+    // Test 1: Declaration and assignment
+    string[3] fruits;
+    fruits[0] = "Apple";
+    fruits[1] = "Banana";
+    fruits[2] = "Cherry";
+    
+    println("Test 1 - Declaration and assignment:");
+    println("  fruits[0]: '{fruits[0]}'");
+    println("  fruits[1]: '{fruits[1]}'");
+    println("  fruits[2]: '{fruits[2]}'");
+    
+    assert(fruits[0] == "Apple");
+    assert(fruits[1] == "Banana");
+    assert(fruits[2] == "Cherry");
+    
+    // Test 2: Literal initialization
+    string[5] days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    
+    println("Test 2 - Literal initialization:");
+    println("  days[0]: '{days[0]}'");
+    println("  days[2]: '{days[2]}'");
+    println("  days[4]: '{days[4]}'");
+    
+    assert(days[0] == "Mon");
+    assert(days[2] == "Wed");
+    assert(days[4] == "Fri");
+    
+    // Test 3: Modification
+    days[2] = "Wednesday";
+    println("Test 3 - After modification:");
+    println("  days[2]: '{days[2]}'");
+    assert(days[2] == "Wednesday");
+    
+    // Test 4: Empty strings
+    string[2] empty;
+    empty[0] = "";
+    empty[1] = "Not empty";
+    
+    println("Test 4 - Empty strings:");
+    println("  empty[0]: '{empty[0]}'");
+    println("  empty[1]: '{empty[1]}'");
+    
+    assert(empty[0] == "");
+    assert(empty[1] == "Not empty");
+    
+    println("=== All Tests Passed ===");
+}
