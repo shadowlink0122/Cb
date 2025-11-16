@@ -29,7 +29,7 @@ inline void test_basic_struct_member_access() {
         }, execution_time);
     
     std::cout << "[integration-test] Basic struct member access test completed in " 
-              << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
+              << std::fixed << std::setprecision(3) << (execution_time / 1000.0) << " seconds" << std::endl;
 }
 
 // 構造体配列のメンバアクセステスト
@@ -53,7 +53,7 @@ inline void test_struct_array_member_access() {
         }, execution_time);
     
     std::cout << "[integration-test] Struct array member access test completed in " 
-              << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
+              << std::fixed << std::setprecision(3) << (execution_time / 1000.0) << " seconds" << std::endl;
 }
 
 // 構造体メンバの動的代入テスト
@@ -79,7 +79,7 @@ inline void test_struct_member_assignment() {
         }, execution_time);
     
     std::cout << "[integration-test] Struct member assignment test completed in " 
-              << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
+              << std::fixed << std::setprecision(3) << (execution_time / 1000.0) << " seconds" << std::endl;
 }
 
 // 混合型構造体メンバテスト
@@ -101,7 +101,7 @@ inline void test_mixed_type_struct_members() {
         }, execution_time);
     
     std::cout << "[integration-test] Mixed type struct members test completed in " 
-              << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
+              << std::fixed << std::setprecision(3) << (execution_time / 1000.0) << " seconds" << std::endl;
 }
 
 // 構造体配列とループの組み合わせテスト
@@ -124,7 +124,7 @@ inline void test_struct_array_loop() {
         }, execution_time);
     
     std::cout << "[integration-test] Struct array loop test completed in " 
-              << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
+              << std::fixed << std::setprecision(3) << (execution_time / 1000.0) << " seconds" << std::endl;
 }
 
 // TypedValue構造体データ保持機能テスト
@@ -142,27 +142,28 @@ inline void test_typed_value_struct_data() {
         }, execution_time);
     
     std::cout << "[integration-test] TypedValue struct data test completed in " 
-              << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
+              << std::fixed << std::setprecision(3) << (execution_time / 1000.0) << " seconds" << std::endl;
 }
 
 // パフォーマンステスト（基本的な構造体操作）
 inline void test_basic_struct_performance() {
     std::cout << "[integration-test] Running test_basic_struct_performance..." << std::endl;
     
-    double execution_time;
+    double execution_time_ms;
     run_cb_test_with_output_and_time("../../tests/cases/struct/performance_basic.cb", 
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Basic struct performance test should exit with code 0");
             INTEGRATION_ASSERT(output.find("Performance test completed") != std::string::npos, 
                               "Output should contain completion message");
-        }, execution_time);
+        }, execution_time_ms);
     
     // パフォーマンステストでは実行時間も重要
     // 注意：環境によって実行時間は変動するため、合理的な上限を設定
-    INTEGRATION_ASSERT(execution_time < 30.0, "Basic struct operations should complete within 30 seconds");
+    // execution_time_msはミリ秒なので、30秒 = 30000ミリ秒
+    INTEGRATION_ASSERT(execution_time_ms < 30000.0, "Basic struct operations should complete within 30 seconds");
     
     std::cout << "[integration-test] Basic struct performance test completed in " 
-              << std::fixed << std::setprecision(3) << execution_time << " seconds" << std::endl;
+              << std::fixed << std::setprecision(3) << (execution_time_ms / 1000.0) << " seconds" << std::endl;
 }
 
 // 全基本構造体テストを実行

@@ -1,0 +1,213 @@
+// Array of Generic Structs Test
+// Tests: Arrays containing generic struct instances,
+// operations on arrays of generic structs, nested scenarios
+
+// Simple generic box
+struct Box<T> {
+    T value;
+};
+
+// Generic pair
+struct Pair<T, U> {
+    T first;
+    U second;
+};
+
+// Generic container with metadata
+struct Item<T> {
+    T data;
+    int id;
+    string name;
+};
+
+void main() {
+    println("=== Array of Generic Structs Test ===");
+    
+    // Test 1: Array of Box<int>
+    println("\n--- Test 1: Array of Box<int> ---");
+    Box<int>[3] int_boxes;
+    
+    int_boxes[0].value = 10;
+    int_boxes[1].value = 20;
+    int_boxes[2].value = 30;
+    
+    println("int_boxes[0].value = {int_boxes[0].value}");
+    println("int_boxes[1].value = {int_boxes[1].value}");
+    println("int_boxes[2].value = {int_boxes[2].value}");
+    
+    assert(int_boxes[0].value == 10);
+    assert(int_boxes[1].value == 20);
+    assert(int_boxes[2].value == 30);
+    println("✅ Test 1 passed!");
+    
+    // Test 2: Array of Box<long>
+    println("\n--- Test 2: Array of Box<long> ---");
+    Box<long>[4] long_boxes;
+    
+    long_boxes[0].value = 100;
+    long_boxes[1].value = 200;
+    long_boxes[2].value = 300;
+    long_boxes[3].value = 400;
+    
+    println("long_boxes[0].value = {long_boxes[0].value}");
+    println("long_boxes[3].value = {long_boxes[3].value}");
+    
+    assert(long_boxes[0].value == 100);
+    assert(long_boxes[3].value == 400);
+    println("✅ Test 2 passed!");
+    
+    // Test 3: Array of Box<string>
+    println("\n--- Test 3: Array of Box<string> ---");
+    Box<string>[3] str_boxes;
+    
+    str_boxes[0].value = "First";
+    str_boxes[1].value = "Second";
+    str_boxes[2].value = "Third";
+    
+    println("str_boxes[0].value = {str_boxes[0].value}");
+    println("str_boxes[1].value = {str_boxes[1].value}");
+    println("str_boxes[2].value = {str_boxes[2].value}");
+    println("✅ Test 3 passed!");
+    
+    // Test 4: Array of Pair<int, long>
+    println("\n--- Test 4: Array of Pair<int, long> ---");
+    Pair<int, long>[2] pairs;
+    
+    pairs[0].first = 10;
+    pairs[0].second = 100;
+    pairs[1].first = 20;
+    pairs[1].second = 200;
+    
+    println("pairs[0]: ({pairs[0].first}, {pairs[0].second})");
+    println("pairs[1]: ({pairs[1].first}, {pairs[1].second})");
+    
+    assert(pairs[0].first == 10);
+    assert(pairs[0].second == 100);
+    assert(pairs[1].first == 20);
+    assert(pairs[1].second == 200);
+    println("✅ Test 4 passed!");
+    
+    // Test 5: Loop operations on array of generic structs
+    println("\n--- Test 5: Loop Operations ---");
+    Box<int>[5] loop_boxes;
+    
+    // Initialize with loop
+    for (int i = 0; i < 5; i = i + 1) {
+        loop_boxes[i].value = i * 100;
+    }
+    
+    // Verify with loop
+    for (int i = 0; i < 5; i = i + 1) {
+        println("loop_boxes[{i}].value = {loop_boxes[i].value}");
+        assert(loop_boxes[i].value == i * 100);
+    }
+    println("✅ Test 5 passed!");
+    
+    // Test 6: Array of Item<int> with complex structure
+    println("\n--- Test 6: Array of Item<int> ---");
+    Item<int>[3] items;
+    
+    items[0].data = 42;
+    items[0].id = 1;
+    items[0].name = "Item1";
+    
+    items[1].data = 84;
+    items[1].id = 2;
+    items[1].name = "Item2";
+    
+    items[2].data = 126;
+    items[2].id = 3;
+    items[2].name = "Item3";
+    
+    for (int i = 0; i < 3; i = i + 1) {
+        println("items[{i}]: data={items[i].data}, id={items[i].id}, name={items[i].name}");
+    }
+    
+    assert(items[0].data == 42);
+    assert(items[1].id == 2);
+    println("✅ Test 6 passed!");
+    
+    // Test 7: Copy between array elements
+    println("\n--- Test 7: Copy Operations ---");
+    Box<int>[3] src_boxes;
+    Box<int>[3] dst_boxes;
+    
+    src_boxes[0].value = 111;
+    src_boxes[1].value = 222;
+    src_boxes[2].value = 333;
+    
+    dst_boxes[0].value = src_boxes[0].value;
+    dst_boxes[1].value = src_boxes[1].value;
+    dst_boxes[2].value = src_boxes[2].value;
+    
+    println("Copied values:");
+    println("dst_boxes[0].value = {dst_boxes[0].value}");
+    println("dst_boxes[1].value = {dst_boxes[1].value}");
+    println("dst_boxes[2].value = {dst_boxes[2].value}");
+    
+    assert(dst_boxes[0].value == 111);
+    assert(dst_boxes[1].value == 222);
+    assert(dst_boxes[2].value == 333);
+    println("✅ Test 7 passed!");
+    
+    // Test 8: Update operations
+    println("\n--- Test 8: Update Operations ---");
+    Box<int>[2] update_boxes;
+    
+    update_boxes[0].value = 50;
+    update_boxes[1].value = 100;
+    
+    println("Before: [{update_boxes[0].value}, {update_boxes[1].value}]");
+    
+    update_boxes[0].value = update_boxes[0].value * 2;
+    update_boxes[1].value = update_boxes[1].value + update_boxes[0].value;
+    
+    println("After: [{update_boxes[0].value}, {update_boxes[1].value}]");
+    
+    assert(update_boxes[0].value == 100);
+    assert(update_boxes[1].value == 200);
+    println("✅ Test 8 passed!");
+    
+    // Test 9: Swap elements
+    println("\n--- Test 9: Swap Elements ---");
+    Box<int>[2] swap_boxes;
+    
+    swap_boxes[0].value = 111;
+    swap_boxes[1].value = 999;
+    
+    println("Before swap: [{swap_boxes[0].value}, {swap_boxes[1].value}]");
+    
+    int temp = swap_boxes[0].value;
+    swap_boxes[0].value = swap_boxes[1].value;
+    swap_boxes[1].value = temp;
+    
+    println("After swap: [{swap_boxes[0].value}, {swap_boxes[1].value}]");
+    
+    assert(swap_boxes[0].value == 999);
+    assert(swap_boxes[1].value == 111);
+    println("✅ Test 9 passed!");
+    
+    // Test 10: Find max value
+    println("\n--- Test 10: Find Max Value ---");
+    Box<int>[5] max_boxes;
+    
+    max_boxes[0].value = 30;
+    max_boxes[1].value = 10;
+    max_boxes[2].value = 50;
+    max_boxes[3].value = 20;
+    max_boxes[4].value = 40;
+    
+    int max = max_boxes[0].value;
+    for (int i = 1; i < 5; i = i + 1) {
+        if (max_boxes[i].value > max) {
+            max = max_boxes[i].value;
+        }
+    }
+    
+    println("Max value: {max}");
+    assert(max == 50);
+    println("✅ Test 10 passed!");
+    
+    println("\n=== All Array of Generic Structs Tests Passed! ===");
+    println("Total: 10 test sections with multiple assertions");
+}
