@@ -14,7 +14,7 @@
 #include "assign/test_assign.hpp"
 #include "async/test_async.hpp"
 #include "async/test_v0_13_1_bugfix.hpp" // v0.13.1: Async Impl Self & Bug Fixes
-#include "async/test_v0_13_2_async.hpp" // v0.13.2: Async Lambda Support
+#include "async/test_v0_13_2_async.hpp"  // v0.13.2: Async Lambda Support
 #include "basic/test_basic.hpp"
 #include "bitwise/test_bitwise.hpp"
 #include "bool_expr/test_bool_expr.hpp"
@@ -316,7 +316,8 @@ int main() {
     run_test_with_continue(test_integration_async, "Async/Await Tests",
                            failed_tests);
     run_test_with_continue(V0131BugFixTests::run_all_v0_13_1_bugfix_tests,
-                           "v0.13.1 Bug Fix Tests (Async Impl Self)", failed_tests);
+                           "v0.13.1 Bug Fix Tests (Async Impl Self)",
+                           failed_tests);
     run_test_with_continue(V0132AsyncTests::run_all_v0_13_2_async_tests,
                            "v0.13.2 Async Lambda Tests", failed_tests);
     CategoryTimingStats::print_category_summary("v0.12.0 Async");
