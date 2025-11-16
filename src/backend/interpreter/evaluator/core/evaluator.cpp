@@ -1095,6 +1095,22 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
         if (!array_name.empty() && !indices.empty()) {
             Variable *var = interpreter_.find_variable(array_name);
             if (var && var->is_array) {
+                // 構造体配列の場合（ジェネリック型を含む）
+                if (var->is_struct && indices.size() == 1) {
+                    int64_t idx = indices[0];
+                    std::string element_name =
+                        array_name + "[" + std::to_string(idx) + "]";
+                    Variable *element_var =
+                        interpreter_.find_variable(element_name);
+                    if (element_var) {
+                        // 構造体要素の型情報を保持してTypedValueを返す
+                        return TypedValue(
+                            *element_var,
+                            InferredType(TYPE_STRUCT,
+                                         element_var->struct_type_name));
+                    }
+                }
+
                 TypeInfo base_type =
                     (var->type >= TYPE_ARRAY_BASE)
                         ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)

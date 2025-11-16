@@ -11,7 +11,7 @@ echo ""
 # テストディレクトリ
 TEST_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$TEST_DIR/../.." && pwd)"
-MAIN_BINARY="$ROOT_DIR/main"
+MAIN_BINARY="$ROOT_DIR/cb"
 CASES_DIR="$ROOT_DIR/tests/cases"
 INTEGRATION_CASES_DIR="$TEST_DIR/cases"
 

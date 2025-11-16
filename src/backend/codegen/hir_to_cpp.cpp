@@ -117,6 +117,28 @@ void HIRToCpp::decrease_indent() {
     }
 }
 
+// v0.14.0: HIR変数名にプレフィックスを追加して名前衝突を防ぐ
+std::string HIRToCpp::add_hir_prefix(const std::string &name) {
+    // 既にプレフィックスが付いている場合はそのまま返す
+    if (name.find("CB_HIR_") == 0) {
+        return name;
+    }
+    // main関数は特別扱い
+    if (name == "main") {
+        return name;
+    }
+    // 修飾名(::を含む)はそのまま返す
+    if (name.find("::") != std::string::npos) {
+        return name;
+    }
+    // 組み込み関数やC++標準ライブラリの関数はプレフィックスを付けない
+    if (name == "println" || name == "print" || name == "std" ||
+        name == "assert" || name == "sizeof") {
+        return name;
+    }
+    return "CB_HIR_" + name;
+}
+
 // === トップレベル定義の生成 ===
 
 void HIRToCpp::generate_imports(const HIRProgram &program) {
@@ -281,7 +303,7 @@ void HIRToCpp::generate_global_vars(const std::vector<HIRGlobalVar> &globals) {
         if (global.is_const)
             emit("const ");
         emit(generate_type(global.type));
-        emit(" " + global.name);
+        emit(" " + add_hir_prefix(global.name));
 
         if (global.init_expr) {
             emit(" = ");
@@ -382,7 +404,7 @@ void HIRToCpp::generate_function(const HIRFunction &func) {
     // 戻り値の型
     emit_indent();
     emit(generate_type(func.return_type));
-    emit(" " + func.name + "(");
+    emit(" " + add_hir_prefix(func.name) + "(");
 
     // パラメータ
     for (size_t i = 0; i < func.parameters.size(); i++) {
@@ -392,7 +414,7 @@ void HIRToCpp::generate_function(const HIRFunction &func) {
         if (param.is_const)
             emit("const ");
         emit(generate_type(param.type));
-        emit(" " + param.name);
+        emit(" " + add_hir_prefix(param.name));
     }
 
     emit(") {\n");
@@ -531,7 +553,7 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
         emit("const ");
     }
     emit(generate_type(stmt.var_type));
-    emit(" " + stmt.var_name);
+    emit(" " + add_hir_prefix(stmt.var_name));
 
     if (stmt.init_expr) {
         emit(" = ");
@@ -597,7 +619,7 @@ void HIRToCpp::generate_for(const HIRStmt &stmt) {
             if (stmt.init->is_const)
                 emit("const ");
             emit(generate_type(stmt.init->var_type));
-            emit(" " + stmt.init->var_name);
+            emit(" " + add_hir_prefix(stmt.init->var_name));
             if (stmt.init->init_expr) {
                 emit(" = ");
                 emit(generate_expr(*stmt.init->init_expr));
@@ -833,7 +855,7 @@ std::string HIRToCpp::generate_literal(const HIRExpr &expr) {
 }
 
 std::string HIRToCpp::generate_variable(const HIRExpr &expr) {
-    return expr.var_name;
+    return add_hir_prefix(expr.var_name);
 }
 
 std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
@@ -854,7 +876,7 @@ std::string HIRToCpp::generate_unary_op(const HIRExpr &expr) {
 }
 
 std::string HIRToCpp::generate_function_call(const HIRExpr &expr) {
-    std::string result = expr.func_name + "(";
+    std::string result = add_hir_prefix(expr.func_name) + "(";
 
     for (size_t i = 0; i < expr.arguments.size(); i++) {
         if (i > 0)
@@ -926,7 +948,7 @@ std::string HIRToCpp::generate_lambda(const HIRExpr &expr) {
         if (param.is_const)
             result += "const ";
         result += generate_type(param.type);
-        result += " " + param.name;
+        result += " " + add_hir_prefix(param.name);
     }
 
     result += ") -> ";

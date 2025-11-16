@@ -1,0 +1,29 @@
+// Test: Comprehensive HIR variable prefix test
+// Testing name collision prevention with CB_HIR_ prefix
+
+int add(int a, int b) {
+    int result = a + b;
+    return result;
+}
+
+int main() {
+    // Test basic variables
+    int vector = 10;
+    int map = 20;
+    int set = 30;
+    
+    // Test function call with potentially conflicting names
+    int sum = add(vector, map);
+    
+    // Test with loop variable
+    for (int i = 0; i < 3; i = i + 1) {
+        int count = i * 10;
+        println("count:", count);
+    }
+    
+    println("vector:", vector);
+    println("map:", map);
+    println("sum:", sum);
+    
+    return 0;
+}

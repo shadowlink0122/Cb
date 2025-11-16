@@ -104,6 +104,8 @@ class HIRToCpp {
     std::string
     mangle_generic_name(const std::string &base_name,
                         const std::vector<ir::hir::HIRType> &generic_args);
+    std::string add_hir_prefix(
+        const std::string &name); // v0.14.0: HIR変数名にプレフィックス追加
 };
 
 } // namespace codegen

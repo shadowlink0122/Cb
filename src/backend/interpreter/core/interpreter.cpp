@@ -2191,9 +2191,15 @@ void Interpreter::assign_struct_to_array_element(const std::string &array_name,
         }
     }
 
-    // 構造体データをコピー
+    // 構造体データをコピー（enumフラグを含む）
     element_var->struct_members = struct_value.struct_members;
     element_var->is_assigned = true;
+    element_var->is_enum = struct_value.is_enum;
+    element_var->enum_type_name = struct_value.enum_type_name;
+    element_var->enum_variant = struct_value.enum_variant;
+    element_var->has_associated_value = struct_value.has_associated_value;
+    element_var->associated_int_value = struct_value.associated_int_value;
+    element_var->associated_str_value = struct_value.associated_str_value;
 
     // 各メンバー変数も更新（例: tasks[0].task_id）
     for (const auto &member : struct_value.struct_members) {
