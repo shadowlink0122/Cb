@@ -1,0 +1,41 @@
+// Test: Generic配列の基本機能
+
+struct Container<T> {
+    T[5] items;
+    int count;
+};
+
+void main() {
+    println("=== Generic Array Basic Test ===");
+    
+    // Test 1: int配列
+    Container<int> int_container;
+    int_container.count = 3;
+    int_container.items[0] = 10;
+    int_container.items[1] = 20;
+    int_container.items[2] = 30;
+    
+    println("Int container:");
+    println("  items[0] = {int_container.items[0]}");
+    println("  items[1] = {int_container.items[1]}");
+    println("  items[2] = {int_container.items[2]}");
+    println("  count = {int_container.count}");
+    
+    assert(int_container.items[0] == 10);
+    assert(int_container.items[1] == 20);
+    assert(int_container.items[2] == 30);
+    assert(int_container.count == 3);
+    
+    // Test 2: string配列
+    Container<string> str_container;
+    str_container.count = 2;
+    str_container.items[0] = "Hello";
+    str_container.items[1] = "World";
+    
+    println("\nString container:");
+    println("  items[0] = {str_container.items[0]}");
+    println("  items[1] = {str_container.items[1]}");
+    println("  count = {str_container.count}");
+    
+    println("\n✅ All generic array tests passed!");
+}

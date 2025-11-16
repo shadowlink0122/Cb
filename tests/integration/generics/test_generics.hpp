@@ -316,7 +316,101 @@ void run_all_generics_tests() {
         }, execution_time);
     integration_test_passed_with_time("Nested generics with Option/Result", "test_nested_generics_simple.cb", execution_time);
     
-    std::cout << "[integration-test] Generics tests completed (24 tests)" << std::endl;
+    // Test 25: Generic Struct Array Comprehensive
+    run_cb_test_with_output_and_time("../../tests/cases/generics/test_generic_struct_array_comprehensive.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_generic_struct_array_comprehensive.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Comprehensive Generic Struct Array Test ===", "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 1a: Container<int> Basic Operations ---", "Should have Test 1a");
+            INTEGRATION_ASSERT_CONTAINS(output, "int_container.items[0] = 10", "Should set items[0]");
+            INTEGRATION_ASSERT_CONTAINS(output, "int_container.items[4] = 50", "Should set items[4]");
+            INTEGRATION_ASSERT_CONTAINS(output, "✅ Test 1a passed!", "Test 1a should pass");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 1b: Container<long> Operations ---", "Should have Test 1b");
+            INTEGRATION_ASSERT_CONTAINS(output, "long_container.items[0] = 100", "Should set long items");
+            INTEGRATION_ASSERT_CONTAINS(output, "✅ Test 1b passed!", "Test 1b should pass");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 1c: Container<string> Operations ---", "Should have Test 1c");
+            INTEGRATION_ASSERT_CONTAINS(output, "str_container.items[0] = Hello", "Should handle string arrays");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 2: Matrix<int> Operations ---", "Should have Test 2");
+            INTEGRATION_ASSERT_CONTAINS(output, "Matrix row1: [1, 2, 3]", "Should display matrix");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 3: Wrapper<int> with Container ---", "Should have Test 3");
+            INTEGRATION_ASSERT_CONTAINS(output, "Wrapper<int> initialized successfully", "Should initialize wrapper");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 4: Pair<int, long> with Arrays ---", "Should have Test 4");
+            INTEGRATION_ASSERT_CONTAINS(output, "first_pair: [10, 20]", "Should handle multiple type params");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 5: Loop Operations on Container<int> ---", "Should have Test 5");
+            INTEGRATION_ASSERT_CONTAINS(output, "Sum of all items: 100", "Should calculate sum");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 6: Array Element Copy Operations ---", "Should have Test 6");
+            INTEGRATION_ASSERT_CONTAINS(output, "dst_container.items[0] = 777", "Should copy elements");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 7: Multiple Instances ---", "Should have Test 7");
+            INTEGRATION_ASSERT_CONTAINS(output, "c1.items[0] = 11", "Should handle multiple instances");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 8: Zero Initialization ---", "Should have Test 8");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 9: Boundary Access ---", "Should have Test 9");
+            INTEGRATION_ASSERT_CONTAINS(output, "First element: 1", "Should access boundaries");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 10: Update Operations ---", "Should have Test 10");
+            INTEGRATION_ASSERT_CONTAINS(output, "After increment: 250", "Should update values");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Comprehensive Generic Struct Array Tests Passed! ===", "Should pass all tests");
+            INTEGRATION_ASSERT_CONTAINS(output, "Total: 10 test sections", "Should complete 10 sections");
+        }, execution_time);
+    integration_test_passed_with_time("Generic Struct Array Comprehensive", "test_generic_struct_array_comprehensive.cb", execution_time);
+    
+    // Test 26: Array of Generic Structs
+    run_cb_test_with_output_and_time("../../tests/cases/generics/test_array_of_generic_structs.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_array_of_generic_structs.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Array of Generic Structs Test ===", "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 1: Array of Box<int> ---", "Should have Test 1");
+            INTEGRATION_ASSERT_CONTAINS(output, "int_boxes[0].value = 10", "Should handle Box<int> array");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 2: Array of Box<long> ---", "Should have Test 2");
+            INTEGRATION_ASSERT_CONTAINS(output, "long_boxes[0].value = 100", "Should handle Box<long> array");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 3: Array of Box<string> ---", "Should have Test 3");
+            INTEGRATION_ASSERT_CONTAINS(output, "str_boxes[0].value = First", "Should handle Box<string> array");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 4: Array of Pair<int, long> ---", "Should have Test 4");
+            INTEGRATION_ASSERT_CONTAINS(output, "pairs[0]: (10, 100)", "Should handle Pair array");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 5: Loop Operations ---", "Should have Test 5");
+            INTEGRATION_ASSERT_CONTAINS(output, "loop_boxes[0].value = 0", "Should loop over arrays");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 6: Array of Item<int> ---", "Should have Test 6");
+            INTEGRATION_ASSERT_CONTAINS(output, "items[0]: data=42, id=1, name=Item1", "Should handle complex items");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 7: Copy Operations ---", "Should have Test 7");
+            INTEGRATION_ASSERT_CONTAINS(output, "dst_boxes[0].value = 111", "Should copy array elements");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 8: Update Operations ---", "Should have Test 8");
+            INTEGRATION_ASSERT_CONTAINS(output, "After: [100, 200]", "Should update elements");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 9: Swap Elements ---", "Should have Test 9");
+            INTEGRATION_ASSERT_CONTAINS(output, "After swap: [999, 111]", "Should swap elements");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 10: Find Max Value ---", "Should have Test 10");
+            INTEGRATION_ASSERT_CONTAINS(output, "Max value: 50", "Should find max");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Array of Generic Structs Tests Passed! ===", "Should pass all tests");
+        }, execution_time);
+    integration_test_passed_with_time("Array of Generic Structs", "test_array_of_generic_structs.cb", execution_time);
+    
+    // Test 27: Generic Functions with Arrays
+    run_cb_test_with_output_and_time("../../tests/cases/generics/test_generic_functions_with_arrays.cb",
+        [](const std::string& output, int exit_code) {
+            INTEGRATION_ASSERT_EQ(0, exit_code, "test_generic_functions_with_arrays.cb should execute successfully");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== Generic Functions with Arrays Test ===", "Should contain test header");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 1: Identity Function ---", "Should have Test 1");
+            INTEGRATION_ASSERT_CONTAINS(output, "identity<int>(42) = 42", "Should use identity function");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 2: Container<int> Operations ---", "Should have Test 2");
+            INTEGRATION_ASSERT_CONTAINS(output, "items[0] = 111", "Should access container items");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 3: Direct Array Access ---", "Should have Test 3");
+            INTEGRATION_ASSERT_CONTAINS(output, "First element: 777", "Should access arrays directly");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 4: Long Container ---", "Should have Test 4");
+            INTEGRATION_ASSERT_CONTAINS(output, "First long element: 999", "Should handle long containers");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 5: Make Box from Array Element ---", "Should have Test 5");
+            INTEGRATION_ASSERT_CONTAINS(output, "box1.value = 42", "Should make boxes from array elements");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 6: Max with Container Elements ---", "Should have Test 6");
+            INTEGRATION_ASSERT_CONTAINS(output, "Max value: 50", "Should find max value");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 7: Multiple Container Types ---", "Should have Test 7");
+            INTEGRATION_ASSERT_CONTAINS(output, "c1 first: 100", "Should handle multiple types");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 8: Chained Operations ---", "Should have Test 8");
+            INTEGRATION_ASSERT_CONTAINS(output, "In box: 1", "Should chain operations");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 9: Array Loop with Generic Functions ---", "Should have Test 9");
+            INTEGRATION_ASSERT_CONTAINS(output, "Sum of all items: 100", "Should loop with generics");
+            INTEGRATION_ASSERT_CONTAINS(output, "--- Test 10: Complex Scenario ---", "Should have Test 10");
+            INTEGRATION_ASSERT_CONTAINS(output, "Result in box: 40", "Should handle complex scenarios");
+            INTEGRATION_ASSERT_CONTAINS(output, "=== All Generic Functions with Arrays Tests Passed! ===", "Should pass all tests");
+        }, execution_time);
+    integration_test_passed_with_time("Generic Functions with Arrays", "test_generic_functions_with_arrays.cb", execution_time);
+    
+    std::cout << "[integration-test] Generics tests completed (27 tests)" << std::endl;
 }
 
 } // namespace GenericsTests

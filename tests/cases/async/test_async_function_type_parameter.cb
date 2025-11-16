@@ -1,0 +1,27 @@
+// Test: Async関数型をパラメータとして受け取る
+// 複数のasync関数をパラメータとして渡す
+
+async int add_async(int a, int b) {
+    return a + b;
+}
+
+async int multiply_async(int x, int y) {
+    return x * y;
+}
+
+void execute_operation(async int* operation, int a, int b) {
+    int result = await operation(a, b);
+    println("Operation result: {result}");
+}
+
+void main() {
+    println("=== Async Function Type Parameter Test ===");
+    
+    // add_asyncを渡す
+    execute_operation(&add_async, 10, 5);
+    
+    // multiply_asyncを渡す
+    execute_operation(&multiply_async, 10, 5);
+    
+    println("=== Test Complete ===");
+}

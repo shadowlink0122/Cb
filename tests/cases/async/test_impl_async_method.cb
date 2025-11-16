@@ -1,0 +1,51 @@
+// Test: Basic async method implementation
+// 基本的なasyncメソッド実装
+
+interface Counter {
+    async int get();
+    async void increment();
+    async void set(int value);
+};
+
+struct SimpleCounter {
+    int value;
+};
+
+impl Counter for SimpleCounter {
+    async int get() {
+        return self.value;
+    }
+
+    async void increment() {
+        self.value = self.value + 1;
+    }
+
+    async void set(int value) {
+        self.value = value;
+    }
+}
+
+void main() {
+    println("=== Impl Async Method Test ===");
+
+    SimpleCounter counter;
+    counter.value = 10;
+
+    int result = await counter.get();
+    println("Initial: {result}");
+    assert(result == 10);
+
+    await counter.increment();
+
+    int result2 = await counter.get();
+    println("After increment: {result2}");
+    assert(result2 == 11);
+
+    await counter.set(100);
+
+    int result3 = await counter.get();
+    println("After set: {result3}");
+    assert(result3 == 100);
+
+    println("=== Test Complete ===");
+}

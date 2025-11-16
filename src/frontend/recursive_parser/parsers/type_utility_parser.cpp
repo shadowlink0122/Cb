@@ -63,6 +63,14 @@ std::string TypeUtilityParser::parseType() {
     std::string original_type;
     bool saw_unsigned = false;
     bool saw_const = false;
+    bool saw_async = false; // v0.13.1: async修飾子
+
+    // v0.13.1: Check for async qualifier (for async function types)
+    if (parser_->check(TokenType::TOK_ASYNC)) {
+        saw_async = true;
+        parsed.is_async = true;
+        parser_->advance();
+    }
 
     // Check for const qualifier
     if (parser_->check(TokenType::TOK_CONST)) {
@@ -348,6 +356,120 @@ std::string TypeUtilityParser::parseType() {
     parsed.original_type = original_type;
     parsed.base_type_info = getTypeInfoFromString(base_type);
 
+    // 関数型（例: int()）のチェック
+    // NOTE: 次のトークンが型キーワードまたは )の場合のみ関数型と判断
+    // 識別子が続く場合は関数宣言の可能性があるため、関数型としては扱わない
+    std::vector<std::string> function_param_type_names;
+    std::vector<TypeInfo> function_param_type_infos;
+    std::vector<std::string> function_param_names;
+
+    if (parser_->check(TokenType::TOK_LPAREN)) {
+        // 次のトークンを先読み (peek ahead)
+        Token next_token = parser_->peek();
+        bool is_likely_function_type = false;
+
+        // ) で閉じる場合 (例: int()) は関数型
+        if (next_token.type == TokenType::TOK_RPAREN) {
+            is_likely_function_type = true;
+        }
+        // 次が型キーワードの場合は関数型 (例: int(int, string))
+        else if (next_token.type == TokenType::TOK_INT ||
+                 next_token.type == TokenType::TOK_LONG ||
+                 next_token.type == TokenType::TOK_SHORT ||
+                 next_token.type == TokenType::TOK_TINY ||
+                 next_token.type == TokenType::TOK_VOID ||
+                 next_token.type == TokenType::TOK_BOOL ||
+                 next_token.type == TokenType::TOK_FLOAT ||
+                 next_token.type == TokenType::TOK_DOUBLE ||
+                 next_token.type == TokenType::TOK_BIG ||
+                 next_token.type == TokenType::TOK_QUAD ||
+                 next_token.type == TokenType::TOK_STRING_TYPE ||
+                 next_token.type == TokenType::TOK_CHAR_TYPE ||
+                 next_token.type == TokenType::TOK_STRUCT ||
+                 next_token.type == TokenType::TOK_CONST ||
+                 next_token.type == TokenType::TOK_UNSIGNED ||
+                 next_token.type == TokenType::TOK_ASYNC) {
+            is_likely_function_type = true;
+        }
+        // 次がIDENTIFIERで、それが既知の型名の場合も関数型
+        else if (next_token.type == TokenType::TOK_IDENTIFIER) {
+            const std::string &next_id = next_token.value;
+            if (parser_->typedef_map_.find(next_id) !=
+                    parser_->typedef_map_.end() ||
+                parser_->struct_definitions_.find(next_id) !=
+                    parser_->struct_definitions_.end() ||
+                parser_->enum_definitions_.find(next_id) !=
+                    parser_->enum_definitions_.end() ||
+                parser_->interface_definitions_.find(next_id) !=
+                    parser_->interface_definitions_.end() ||
+                parser_->union_definitions_.find(next_id) !=
+                    parser_->union_definitions_.end()) {
+                is_likely_function_type = true;
+            }
+            // 型パラメータの場合も関数型
+            else if (!parser_->type_parameter_stack_.empty()) {
+                const auto &current_type_params =
+                    parser_->type_parameter_stack_.back();
+                if (std::find(current_type_params.begin(),
+                              current_type_params.end(),
+                              next_id) != current_type_params.end()) {
+                    is_likely_function_type = true;
+                }
+            }
+        }
+
+        if (is_likely_function_type) {
+            // '(' を消費してパラメータリストを解析
+            Token lparen_token = parser_->advance();
+            std::ostringstream signature;
+            signature << base_type << "(";
+
+            if (!parser_->check(TokenType::TOK_RPAREN)) {
+                int param_index = 0;
+                do {
+                    std::string param_type = parser_->parseType();
+                    ParsedTypeInfo param_parsed =
+                        parser_->getLastParsedTypeInfo();
+                    function_param_type_names.push_back(param_parsed.full_type);
+                    function_param_type_infos.push_back(
+                        parser_->resolveParsedTypeInfo(param_parsed));
+
+                    function_param_names.push_back(""); // パラメータ名は省略
+
+                    if (param_index > 0) {
+                        signature << ", ";
+                    }
+                    signature << param_parsed.full_type;
+                    param_index++;
+
+                    if (parser_->check(TokenType::TOK_COMMA)) {
+                        parser_->advance();
+                    } else {
+                        break;
+                    }
+                } while (true);
+            }
+
+            parser_->consume(TokenType::TOK_RPAREN,
+                             "Expected ')' after function type parameter list");
+            signature << ")";
+
+            parsed.is_function_type = true;
+            parsed.function_is_async = saw_async;
+            parsed.function_return_type_name = base_type;
+            parsed.function_return_type_info = parsed.base_type_info;
+            parsed.function_param_type_names = function_param_type_names;
+            parsed.function_param_type_infos = function_param_type_infos;
+            parsed.function_param_names = function_param_names;
+
+            parsed.base_type = signature.str();
+            if (parsed.original_type.empty()) {
+                parsed.original_type = signature.str();
+            }
+            parsed.base_type_info = TYPE_FUNCTION_POINTER;
+        }
+    }
+
     if (saw_unsigned) {
         switch (parsed.base_type_info) {
         case TYPE_TINY:
@@ -468,6 +590,11 @@ std::string TypeUtilityParser::parseType() {
         full_type = "const " + full_type;
     }
 
+    // v0.13.1: async修飾子を型文字列に追加
+    if (saw_async) {
+        full_type = "async " + full_type;
+    }
+
     parsed.full_type = full_type;
 
     parser_->last_parsed_type_info_ = parsed;
@@ -481,10 +608,141 @@ TypeUtilityParser::getTypeInfoFromString(const std::string &type_name) {
     }
 
     std::string working = type_name;
+    auto trim = [](const std::string &value) {
+        size_t start = value.find_first_not_of(' ');
+        if (start == std::string::npos) {
+            return std::string();
+        }
+        size_t end = value.find_last_not_of(' ');
+        return value.substr(start, end - start + 1);
+    };
     // bool is_unsigned = false;  // 将来の拡張用に保持
     if (working.rfind("unsigned ", 0) == 0) {
         // is_unsigned = true;
         working = working.substr(9);
+    }
+
+    std::string trimmed = trim(working);
+    if (trimmed.rfind("async ", 0) == 0) {
+        trimmed = trim(trimmed.substr(6));
+    }
+
+    size_t paren_pos = trimmed.find('(');
+    size_t closing_pos = trimmed.rfind(')');
+    if (paren_pos != std::string::npos && closing_pos != std::string::npos &&
+        closing_pos > paren_pos) {
+        return TYPE_FUNCTION_POINTER;
+    }
+
+    if (working.find('*') != std::string::npos) {
+        return TYPE_POINTER;
+    }
+
+    // 配列型のチェック（1次元・多次元両対応）
+    if (working.find('[') != std::string::npos) {
+        std::string base_type = working.substr(0, working.find('['));
+        if (base_type == "int") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_INT);
+        } else if (base_type == "string") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_STRING);
+        } else if (base_type == "bool") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_BOOL);
+        } else if (base_type == "long") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_LONG);
+        } else if (base_type == "short") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_SHORT);
+        } else if (base_type == "tiny") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_TINY);
+        } else if (base_type == "char") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_CHAR);
+        } else if (base_type == "float") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_FLOAT);
+        } else if (base_type == "double") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_DOUBLE);
+        } else if (base_type == "big") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_BIG);
+        } else if (base_type == "quad") {
+            return static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_QUAD);
+        } else {
+            return TYPE_UNKNOWN;
+        }
+    }
+
+    if (working == "int") {
+        return TYPE_INT;
+    } else if (working == "long") {
+        return TYPE_LONG;
+    } else if (working == "short") {
+        return TYPE_SHORT;
+    } else if (working == "tiny") {
+        return TYPE_TINY;
+    } else if (working == "bool") {
+        return TYPE_BOOL;
+    } else if (working == "string") {
+        return TYPE_STRING;
+    } else if (working == "char") {
+        return TYPE_CHAR;
+    } else if (working == "float") {
+        return TYPE_FLOAT;
+    } else if (working == "double") {
+        return TYPE_DOUBLE;
+    } else if (working == "big") {
+        return TYPE_BIG;
+    } else if (working == "quad") {
+        return TYPE_QUAD;
+    } else if (working == "void") {
+        return TYPE_VOID;
+    } else if (working.substr(0, 7) == "struct " ||
+               parser_->struct_definitions_.find(working) !=
+                   parser_->struct_definitions_.end()) {
+        return TYPE_STRUCT;
+    } else if (working.substr(0, 5) == "enum " ||
+               parser_->enum_definitions_.find(working) !=
+                   parser_->enum_definitions_.end()) {
+        return TYPE_ENUM;
+    } else if (working.substr(0, 10) == "interface " ||
+               parser_->interface_definitions_.find(working) !=
+                   parser_->interface_definitions_.end()) {
+        return TYPE_INTERFACE;
+    } else if (parser_->union_definitions_.find(working) !=
+               parser_->union_definitions_.end()) {
+        return TYPE_UNION;
+    } else {
+        return TYPE_UNKNOWN;
+    }
+}
+
+TypeInfo
+TypeUtilityParser::getTypeInfoFromString(const std::string &type_name) const {
+    if (type_name == "nullptr") {
+        return TYPE_NULLPTR;
+    }
+
+    std::string working = type_name;
+    auto trim = [](const std::string &value) {
+        size_t start = value.find_first_not_of(' ');
+        if (start == std::string::npos) {
+            return std::string();
+        }
+        size_t end = value.find_last_not_of(' ');
+        return value.substr(start, end - start + 1);
+    };
+    // bool is_unsigned = false;  // 将来の拡張用に保持
+    if (working.rfind("unsigned ", 0) == 0) {
+        // is_unsigned = true;
+        working = working.substr(9);
+    }
+
+    std::string trimmed = trim(working);
+    if (trimmed.rfind("async ", 0) == 0) {
+        trimmed = trim(trimmed.substr(6));
+    }
+
+    size_t paren_pos = trimmed.find('(');
+    size_t closing_pos = trimmed.rfind(')');
+    if (paren_pos != std::string::npos && closing_pos != std::string::npos &&
+        closing_pos > paren_pos) {
+        return TYPE_FUNCTION_POINTER;
     }
 
     if (working.find('*') != std::string::npos) {

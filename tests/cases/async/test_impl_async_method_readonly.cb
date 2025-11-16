@@ -1,0 +1,38 @@
+// Test: Async method reading self
+// selfを読み取るasyncメソッド
+
+interface Calculator {
+    async int add(int x);
+    async int multiply(int x);
+}
+
+struct Value {
+    int num;
+};
+
+impl Calculator for Value {
+    async int add(int x) {
+        return self.num + x;
+    }
+
+    async int multiply(int x) {
+        return self.num * x;
+    }
+}
+
+void main() {
+    println("=== Impl Async Method Readonly Test ===");
+
+    Value v;
+    v.num = 5;
+
+    int result1 = await v.add(10);
+    println("5 + 10 = {result1}");
+    assert(result1 == 15);
+
+    int result2 = await v.multiply(7);
+    println("5 * 7 = {result2}");
+    assert(result2 == 35);
+
+    println("=== Test Complete ===");
+}

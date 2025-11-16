@@ -1,0 +1,27 @@
+// Test: Async関数型のエッジケース
+
+async int return_zero() {
+    return 0;
+}
+
+async int return_negative() {
+    return -100;
+}
+
+void test_edge_case(async int* callback, int expected) {
+    int result = await callback();
+    if (result == expected) {
+        println("PASS: Got expected value {expected}");
+    } else {
+        println("FAIL: Expected {expected}, got {result}");
+    }
+}
+
+void main() {
+    println("=== Async Function Type Edge Cases Test ===");
+    
+    test_edge_case(&return_zero, 0);
+    test_edge_case(&return_negative, -100);
+    
+    println("=== Test Complete ===");
+}

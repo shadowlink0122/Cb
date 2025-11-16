@@ -1,0 +1,21 @@
+// Test: Async関数型をコールバックとして使用
+
+async int fetch_data(int id) {
+    return id * 10;
+}
+
+void process_with_callback(int id, async int* callback) {
+    println("Processing ID: {id}");
+    int data = await callback(id);
+    println("Fetched data: {data}");
+}
+
+void main() {
+    println("=== Async Function Type Callback Test ===");
+    
+    process_with_callback(1, &fetch_data);
+    process_with_callback(2, &fetch_data);
+    process_with_callback(3, &fetch_data);
+    
+    println("=== Test Complete ===");
+}

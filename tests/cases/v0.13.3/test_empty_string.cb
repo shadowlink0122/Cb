@@ -1,0 +1,82 @@
+// Test for empty string display issue (v0.13.3)
+// Issue: Empty strings display as "0" instead of ""
+
+struct Container {
+    string value;
+};
+
+struct Box<T> {
+    T value;
+};
+
+void main() {
+    println("=== v0.13.3: Testing Empty String Display ===\n");
+    
+    int failed = 0;
+    
+    // Test 1: Empty string literal
+    println("[Test 1] Empty string literal");
+    string empty = "";
+    println("  Empty string: '{empty}'");
+    if (empty != "") {
+        println("  ❌ FAIL: Empty string should be empty");
+        failed = failed + 1;
+    } else {
+        println("  ✅ PASS");
+    }
+    
+    // Test 2: Empty string in struct
+    println("\n[Test 2] Empty string in struct");
+    Container c;
+    c.value = "";
+    println("  Container with empty: '{c.value}'");
+    if (c.value != "") {
+        println("  ❌ FAIL: Struct member empty string");
+        failed = failed + 1;
+    } else {
+        println("  ✅ PASS");
+    }
+    
+    // Test 3: Empty string in array
+    println("\n[Test 3] Empty string in array");
+    string[3] arr;
+    arr[0] = "";
+    arr[1] = "Hello";
+    arr[2] = "";
+    println("  Array[0] (empty): '{arr[0]}'");
+    println("  Array[1] (hello): '{arr[1]}'");
+    println("  Array[2] (empty): '{arr[2]}'");
+    
+    if (arr[0] != "") {
+        println("  ❌ FAIL: Array[0] should be empty");
+        failed = failed + 1;
+    } else if (arr[1] != "Hello") {
+        println("  ❌ FAIL: Array[1] should be 'Hello'");
+        failed = failed + 1;
+    } else if (arr[2] != "") {
+        println("  ❌ FAIL: Array[2] should be empty");
+        failed = failed + 1;
+    } else {
+        println("  ✅ PASS");
+    }
+    
+    // Test 4: Generic container with empty string
+    println("\n[Test 4] Generic container with empty string");
+    Box<string> bs;
+    bs.value = "";
+    println("  Box<string> with empty: '{bs.value}'");
+    if (bs.value != "") {
+        println("  ❌ FAIL: Generic box empty string");
+        failed = failed + 1;
+    } else {
+        println("  ✅ PASS");
+    }
+    
+    // Summary
+    println("\n=== Test Summary ===");
+    if (failed == 0) {
+        println("✅ All Empty String Tests Passed!");
+    } else {
+        println("❌ {failed} test(s) failed");
+    }
+}

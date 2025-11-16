@@ -13,6 +13,8 @@
 #include "assert/assert_tests.hpp"
 #include "assign/test_assign.hpp"
 #include "async/test_async.hpp"
+#include "async/test_v0_13_1_bugfix.hpp" // v0.13.1: Async Impl Self & Bug Fixes
+#include "async/test_v0_13_2_async.hpp"  // v0.13.2: Async Lambda Support
 #include "basic/test_basic.hpp"
 #include "bitwise/test_bitwise.hpp"
 #include "bool_expr/test_bool_expr.hpp"
@@ -44,6 +46,7 @@
 #include "func_type_check/test_func_type_check.hpp"
 #include "generic_constructor/test_generic_constructor.hpp"
 #include "generics/test_generics.hpp"
+#include "generics/test_v0_13_2_generics.hpp" // v0.13.2: Generic String Array Fix
 #include "global_array/test_global_array.hpp"
 #include "global_vars/test_global_vars.hpp"
 #include "if/test_if.hpp"
@@ -89,6 +92,7 @@
 #include "sizeof_array/test_sizeof_array.hpp"
 #include "static_variables/test_static_variables.hpp"
 #include "string/test_string.hpp"
+#include "string_array/test_string_array.hpp"
 #include "string_interpolation/test_string_interpolation.hpp"
 #include "struct/basic_struct_tests.hpp"
 #include "struct/struct_tests.hpp"
@@ -266,6 +270,8 @@ int main() {
     CategoryTimingStats::set_current_category("String & I/O");
     run_test_with_continue(test_integration_string, "String Tests",
                            failed_tests);
+    run_test_with_continue(StringArrayTests::run_all_string_array_tests,
+                           "String Array Tests (v0.13.1)", failed_tests);
     run_test_with_continue(test_integration_string_interpolation,
                            "String Interpolation Tests", failed_tests);
     run_test_with_continue(test_printf_all, "Printf Tests", failed_tests);
@@ -309,6 +315,11 @@ int main() {
     CategoryTimingStats::set_current_category("v0.12.0 Async");
     run_test_with_continue(test_integration_async, "Async/Await Tests",
                            failed_tests);
+    run_test_with_continue(V0131BugFixTests::run_all_v0_13_1_bugfix_tests,
+                           "v0.13.1 Bug Fix Tests (Async Impl Self)",
+                           failed_tests);
+    run_test_with_continue(V0132AsyncTests::run_all_v0_13_2_async_tests,
+                           "v0.13.2 Async Lambda Tests", failed_tests);
     CategoryTimingStats::print_category_summary("v0.12.0 Async");
 
     // v0.10.0 新機能テスト群
@@ -327,6 +338,9 @@ int main() {
     CategoryTimingStats::set_current_category("v0.11.0 Generics");
     run_test_with_continue(GenericsTests::run_all_generics_tests,
                            "Generic Struct Tests (Phase 0)", failed_tests);
+    run_test_with_continue(V0132GenericsTests::run_all_v0_13_2_generics_tests,
+                           "v0.13.2 Generic String Array Tests",
+                           failed_tests); // v0.13.2
     CategoryTimingStats::print_category_summary("v0.11.0 Generics");
 
     // 構造体・インターフェーステスト群

@@ -1,0 +1,50 @@
+// v0.13.1: try式 / checked式 の基本テスト
+
+Result<int, RuntimeError> safe_divide(int lhs, int rhs) {
+    return try (lhs / rhs);
+}
+
+Result<int, RuntimeError> safe_index(int[] values, int size, int idx) {
+    return checked values[idx];
+}
+
+void expect_ok(Result<int, RuntimeError> result, int expected, string label) {
+    match (result) {
+        Ok(value) => {
+            println("{label}: Ok -> {value}");
+            assert(value == expected);
+        }
+        Err(err) => {
+            println("{label}: Unexpected Err -> {err}");
+            assert(false);
+        }
+    }
+}
+
+void expect_err(Result<int, RuntimeError> result, string label) {
+    match (result) {
+        Ok(value) => {
+            println("{label}: Unexpected Ok -> {value}");
+            assert(false);
+        }
+        Err(err) => {
+            println("{label}: Err -> {err}");
+        }
+    }
+}
+
+void main() {
+    println("=== try & checked expression tests ===");
+
+    expect_ok(safe_divide(24, 3), 8, "safe_divide ok");
+    expect_err(safe_divide(10, 0), "safe_divide err");
+
+    int[2] data;
+    data[0] = 5;
+    data[1] = 15;
+
+    expect_ok(safe_index(data, 2, 1), 15, "safe_index ok");
+    expect_err(safe_index(data, 2, 5), "safe_index err");
+
+    println("try & checked expression tests passed");
+}

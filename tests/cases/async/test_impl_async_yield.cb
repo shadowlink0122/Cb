@@ -1,0 +1,37 @@
+// Test: Async method with yield
+// yieldを使うasyncメソッド
+
+interface Worker {
+    async int process(int n);
+}
+
+struct Calculator {
+    int base;
+};
+
+impl Worker for Calculator {
+    async int process(int n) {
+        int sum = 0;
+        int i = 0;
+        while (i < n) {
+            sum = sum + self.base + i;
+            yield;
+            i = i + 1;
+        }
+        return sum;
+    }
+}
+
+void main() {
+    println("=== Impl Async Method with Yield Test ===");
+
+    Calculator calc;
+    calc.base = 10;
+
+    int result = await calc.process(5);
+    println("Result: {result}");
+    // sum = (10+0) + (10+1) + (10+2) + (10+3) + (10+4) = 10+11+12+13+14 = 60
+    assert(result == 60);
+
+    println("=== Test Complete ===");
+}

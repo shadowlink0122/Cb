@@ -294,14 +294,6 @@ void StructOperations::sync_struct_definitions_from_parser(
         // Interpreterのstruct_definitions_に登録
         interpreter_->struct_definitions_[struct_name] = struct_def;
 
-        if (interpreter_->is_debug_mode()) {
-            std::cerr << "[SYNC_STRUCT] " << struct_name
-                      << ": has_default_member="
-                      << struct_def.has_default_member
-                      << ", default_member_name="
-                      << struct_def.default_member_name << std::endl;
-        }
-
         debug_msg(DebugMsgId::INTERPRETER_STRUCT_SYNCED, struct_name.c_str(),
                   struct_def.members.size());
     }
@@ -842,6 +834,11 @@ std::string StructOperations::get_struct_member_array_string_element(
         }
 
         if (var->array_type_info.base_type == TYPE_STRING) {
+            return true;
+        }
+
+        // v0.13.2: Also check if array_strings has actual data
+        if (!var->array_strings.empty()) {
             return true;
         }
 

@@ -16,6 +16,7 @@ class TypeUtilityParser {
     // 型文字列の解析と処理
     std::string parseType();
     TypeInfo getTypeInfoFromString(const std::string &type_name);
+    TypeInfo getTypeInfoFromString(const std::string &type_name) const;
     std::string resolveTypedefChain(const std::string &typedef_name);
     std::string extractBaseType(const std::string &type_name);
     bool detectCircularReference(const std::string &struct_name,

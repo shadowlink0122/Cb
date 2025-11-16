@@ -1,0 +1,42 @@
+// Test: Basic async method in struct
+// 構造体内の基本的なasyncメソッド
+
+interface CounterMethods {
+    async int get();
+    async int add(int delta);
+}
+
+struct Counter {
+    int value;
+};
+
+impl CounterMethods for Counter {
+    async int get() {
+        return self.value;
+    }
+
+    async int add(int delta) {
+        return self.value + delta;
+    }
+}
+
+void main() {
+    println("=== Struct Async Method Basic Test ===");
+
+    Counter c;
+    c.value = 10;
+
+    int base = await c.get();
+    println("Initial value: {base}");
+    assert(base == 10);
+
+    int plus_one = await c.add(1);
+    println("Add 1 result: {plus_one}");
+    assert(plus_one == 11);
+
+    int plus_five = await c.add(5);
+    println("Add 5 result: {plus_five}");
+    assert(plus_five == 15);
+
+    println("=== Test Complete ===");
+}

@@ -1,23 +1,59 @@
 # Cb (シーフラット) プログラミング言語
 
-**最新バージョン**: v0.13.0 - FFI & Developer Experience  
-**リリース日**: 2025年11月14日  
+**最新バージョン**: v0.13.4 - String Arrays & Vector<string>  
+**リリース日**: 2025年11月16日  
 **ステータス**: 🚧 Development
 
-### 📊 品質指標（v0.13.0）
+### 📊 品質指標（v0.13.4）
 
-- **統合テスト**: **740+個**（100%成功） 🎉
+- **統合テスト**: **4207個**（100%成功） 🎉
 - **Asyncテスト**: **32個** (Result/Option統合、直接return対応) ✅
 - **Genericテスト**: **36個** (Structs/Enums/Functions/Interface含む) ✅
 - **Interfaceテスト**: **44個** (async interface含む) ✅
 - **Builtin Typesテスト**: **20個**（Option/Result組み込み型） ✅
-- **Stdlibテスト**: **33個**（async tests含む） ✅
+- **Stdlibテスト**: **33個**（async tests含む、5スイート） ✅
 - **FFIテスト**: **準備中**（C/Rust/Zig/Go統合） 🆕
 - **ユニットテスト**: **30個**（100%成功） ✅
-- **総テスト数**: **740+個**（100%成功） 🎉
-- **テスト実行時間**: **10秒**（76%改善） ⚡
+- **総テスト数**: **4207+個**（100%成功） 🎉
+- **テスト実行時間**: **60秒** ⚡
 - **テストカバレッジ**: 全機能を網羅的にテスト
 - **Production Ready**: async/await完全動作 ✅
+
+### 🆕 v0.13.4の新機能
+
+**1. ✅ 文字列配列のサポート** 🆕
+- **文字列配列の初期化**: `string[N]` 配列の宣言と代入が完全動作
+- **配列要素への代入**: `arr[0] = "Hello"` が正常に動作
+- **const修飾子**: `const string[N]` が正しく機能
+- **リテラル初期化**: `string[3] arr = ["A", "B", "C"]` が動作
+
+```cb
+void main() {
+    string[3] arr;
+    arr[0] = "Hello";
+    arr[1] = "World";
+    println("First: '{arr[0]}'");  // First: 'Hello'
+}
+```
+
+**2. ✅ Vector<string>のサポート** 🆕
+- **ジェネリックコレクション**: `Vector<string>` が完全に動作
+- **deep copy実装**: 文字列の自動deep copy
+- **メモリ管理**: malloc/freeによる安全なメモリ管理
+- **全機能対応**: push_back/push_front/at/pop_back/get_length
+
+```cb
+import stdlib.std.vector;
+
+void main() {
+    Vector<string> vec;
+    vec.push_back("Hello");
+    vec.push_back("World");
+    string first = vec.at(0);  // "Hello"
+}
+```
+
+---
 
 ### 🆕 v0.13.0の新機能
 

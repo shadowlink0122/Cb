@@ -1,0 +1,40 @@
+// Test: Async lambda with complex logic
+// 複雑なロジックを持つasyncラムダ式
+
+void main() {
+    println("=== Async Lambda Complex Test ===");
+
+    // Test: Multiple statements in async lambda
+    auto compute = async int func(int n) {
+        int sum = 0;
+        int i = 1;
+        while (i <= n) {
+            sum = sum + i;
+            i = i + 1;
+        }
+        return sum;
+    };
+
+    int result = await compute(10);
+    println("Sum 1-10: {result}");
+    assert(result == 55);
+
+    // Test: Async lambda with conditional logic
+    auto check_even = async int func(int x) {
+        if (x % 2 == 0) {
+            return 1;
+        } else {
+            return 0;
+        }
+    };
+
+    int even_result = await check_even(42);
+    println("42 is even: {even_result}");
+    assert(even_result == 1);
+
+    int odd_result = await check_even(43);
+    println("43 is even: {odd_result}");
+    assert(odd_result == 0);
+
+    println("=== Test Complete ===");
+}

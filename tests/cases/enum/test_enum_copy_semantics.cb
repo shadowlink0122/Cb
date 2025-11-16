@@ -1,0 +1,72 @@
+// Test: Enum associated value copy semantics
+// enum関連値のコピーセマンティクスのテスト
+
+enum Container<T> {
+    Value(T),
+    Empty
+};
+
+struct Data {
+    int x;
+    int y;
+};
+
+void main() {
+    println("=== Enum Associated Value Copy Test ===");
+    
+    // Test 1: Copy enum with simple associated value
+    Container<int> c1 = Container<int>::Value(42);
+    Container<int> c2 = c1;  // deep copy should occur
+    
+    match (c1) {
+        Value(v) => {
+            println("Test 1 - c1.value: {v}");
+            assert(v == 42);
+        }
+        Empty => {
+            assert(false);
+        }
+    }
+    
+    match (c2) {
+        Value(v) => {
+            println("Test 1 - c2.value: {v}");
+            assert(v == 42);
+        }
+        Empty => {
+            assert(false);
+        }
+    }
+    
+    // Test 2: Copy enum with struct associated value
+    Data d;
+    d.x = 10;
+    d.y = 20;
+    
+    Container<Data> c3 = Container<Data>::Value(d);
+    Container<Data> c4 = c3;  // deep copy should occur
+    
+    match (c3) {
+        Value(data) => {
+            println("Test 2 - c3.data: x={data.x}, y={data.y}");
+            assert(data.x == 10);
+            assert(data.y == 20);
+        }
+        Empty => {
+            assert(false);
+        }
+    }
+    
+    match (c4) {
+        Value(data) => {
+            println("Test 2 - c4.data: x={data.x}, y={data.y}");
+            assert(data.x == 10);
+            assert(data.y == 20);
+        }
+        Empty => {
+            assert(false);
+        }
+    }
+    
+    println("=== All Tests Passed ===");
+}

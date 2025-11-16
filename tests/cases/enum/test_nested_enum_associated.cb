@@ -1,0 +1,80 @@
+// Test: Nested enum with associated values
+// ネストしたenum型の関連値テスト（deep copy確認）
+
+void main() {
+    println("=== Nested Enum Associated Value Test ===");
+    
+    // Test 1: Option<Result<int, string>>
+    Result<int, string> inner_ok = Result<int, string>::Ok(42);
+    Option<Result<int, string> > outer = Option<Result<int, string> >::Some(inner_ok);
+    
+    match (outer) {
+        Some(result) => {
+            println("Test 1 - Outer: Some");
+            match (result) {
+                Ok(value) => {
+                    println("  Inner: Ok({value})");
+                    assert(value == 42);
+                }
+                Err(error) => {
+                    println("  Inner: Err({error})");
+                    assert(false);  // Should not reach here
+                }
+            }
+        }
+        None => {
+            println("Test 1 - Outer: None");
+            assert(false);  // Should not reach here
+        }
+    }
+    
+    // Test 2: Option<Result<string, int>>
+    Result<string, int> inner_err = Result<string, int>::Err(404);
+    Option<Result<string, int> > outer2 = Option<Result<string, int> >::Some(inner_err);
+    
+    match (outer2) {
+        Some(result) => {
+            println("Test 2 - Outer: Some");
+            match (result) {
+                Ok(value) => {
+                    println("  Inner: Ok({value})");
+                    assert(false);  // Should not reach here
+                }
+                Err(code) => {
+                    println("  Inner: Err({code})");
+                    assert(code == 404);
+                }
+            }
+        }
+        None => {
+            println("Test 2 - Outer: None");
+            assert(false);  // Should not reach here
+        }
+    }
+    
+    // Test 3: Option<Option<int>>
+    Option<int> inner_some = Option<int>::Some(99);
+    Option<Option<int> > nested = Option<Option<int> >::Some(inner_some);
+    
+    match (nested) {
+        Some(opt) => {
+            println("Test 3 - Outer: Some");
+            match (opt) {
+                Some(val) => {
+                    println("  Inner: Some({val})");
+                    assert(val == 99);
+                }
+                None => {
+                    println("  Inner: None");
+                    assert(false);  // Should not reach here
+                }
+            }
+        }
+        None => {
+            println("Test 3 - Outer: None");
+            assert(false);  // Should not reach here
+        }
+    }
+    
+    println("=== All Tests Passed ===");
+}

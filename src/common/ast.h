@@ -492,16 +492,18 @@ struct FunctionPointerTypeInfo {
     std::vector<std::string>
         param_type_names; // パラメータ型名（カスタム型対応）
     std::vector<std::string> param_names; // パラメータ名（オプション）
+    bool is_async = false;                // async関数型かどうか
 
-    FunctionPointerTypeInfo() : return_type(TYPE_UNKNOWN) {}
+    FunctionPointerTypeInfo() : return_type(TYPE_UNKNOWN), is_async(false) {}
 
     FunctionPointerTypeInfo(TypeInfo ret_type, const std::string &ret_type_name,
                             const std::vector<TypeInfo> &p_types,
                             const std::vector<std::string> &p_type_names,
-                            const std::vector<std::string> &p_names = {})
+                            const std::vector<std::string> &p_names = {},
+                            bool async_flag = false)
         : return_type(ret_type), return_type_name(ret_type_name),
           param_types(p_types), param_type_names(p_type_names),
-          param_names(p_names) {}
+          param_names(p_names), is_async(async_flag) {}
 
     // 型情報文字列を生成（例: "int (*)(int, int)"）
     std::string to_string() const;
@@ -510,6 +512,10 @@ struct FunctionPointerTypeInfo {
     bool is_compatible_with(const FunctionPointerTypeInfo &other) const {
         // 戻り値型が一致するかチェック
         if (return_type != other.return_type) {
+            return false;
+        }
+
+        if (is_async != other.is_async) {
             return false;
         }
 

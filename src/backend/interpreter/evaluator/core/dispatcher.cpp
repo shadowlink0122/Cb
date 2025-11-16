@@ -28,6 +28,7 @@
 #include "../literals/eval.h"
 #include "../operators/assignment.h"
 #include "../operators/binary_unary.h"
+#include "../operators/error_handling.h"
 #include "../operators/incdec.h"
 #include "../operators/ternary.h"
 #include "evaluator.h"
@@ -144,6 +145,14 @@ int64_t ExpressionDispatcher::dispatch_expression(const ASTNode *node) {
         // v0.12.1: エラー伝播演算子 expr?
         return expression_evaluator_.evaluate_error_propagation(node);
     }
+
+    case ASTNodeType::AST_TRY_EXPR:
+        return ErrorHandlingOperators::evaluate_try_expression(
+            node, expression_evaluator_, interpreter_);
+
+    case ASTNodeType::AST_CHECKED_EXPR:
+        return ErrorHandlingOperators::evaluate_checked_expression(
+            node, expression_evaluator_, interpreter_);
 
     case ASTNodeType::AST_UNARY_OP: {
         debug_msg(DebugMsgId::UNARY_OP_DEBUG, node->op.c_str());

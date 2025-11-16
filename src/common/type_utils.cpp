@@ -135,15 +135,24 @@ const char *type_info_to_string_basic(TypeInfo type) {
 
 // FunctionPointerTypeInfo::to_string() の実装
 std::string FunctionPointerTypeInfo::to_string() const {
-    std::string result = type_info_to_string_basic(return_type);
-    result += " (*)(";
+    std::string result;
+    if (is_async) {
+        result += "async ";
+    }
+
+    if (!return_type_name.empty()) {
+        result += return_type_name;
+    } else {
+        result += type_info_to_string_basic(return_type);
+    }
+
+    result += "(";
 
     for (size_t i = 0; i < param_types.size(); ++i) {
         if (i > 0) {
             result += ", ";
         }
 
-        // カスタム型名があればそれを使用、なければ基本型名を使用
         if (i < param_type_names.size() && !param_type_names[i].empty()) {
             result += param_type_names[i];
         } else {

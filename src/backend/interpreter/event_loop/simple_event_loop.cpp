@@ -3,6 +3,7 @@
 #include "../../../common/debug_messages.h"
 #include "../core/interpreter.h"
 #include <iostream>
+#include <string>
 
 // プラットフォーム固有のヘッダー (sleep_task用)
 #ifdef _WIN32
@@ -91,6 +92,7 @@ void SimpleEventLoop::run() {
             task_queue_.push_back(task_id);
         } else {
             // タスク完了
+            finalize_task_if_needed(task_id);
             debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETED, task_id);
         }
     }
@@ -125,6 +127,7 @@ void SimpleEventLoop::run_one_cycle() {
         task_queue_.push_back(task_id);
     } else {
         // タスク完了
+        finalize_task_if_needed(task_id);
         debug_msg(DebugMsgId::EVENT_LOOP_TASK_COMPLETED, task_id);
     }
 }
@@ -324,6 +327,16 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
 
     // 新しいスコープをpush
     interpreter_.push_scope();
+    auto resume_positions = task.statement_positions
+                                ? task.statement_positions
+                                : task_scope_copy.statement_positions;
+    if (resume_positions) {
+        interpreter_.set_current_statement_positions(resume_positions);
+    } else {
+        resume_positions = interpreter_.current_statement_positions();
+    }
+    task.statement_positions = resume_positions;
+    task_scope_copy.statement_positions = resume_positions;
 
     // pushされたスコープにタスクスコープの変数をコピー
     // (上書きではなく、変数だけをコピー)
@@ -358,7 +371,10 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
 
     try {
         // トップレベルのステートメントを1つ実行
-        const ASTNode *body = task.function_node->body.get();
+        // v0.13.1: ラムダの場合はlambda_bodyを、通常の関数の場合はbodyを使用
+        const ASTNode *body = task.function_node->lambda_body
+                                  ? task.function_node->lambda_body.get()
+                                  : task.function_node->body.get();
 
         if (body->node_type == ASTNodeType::AST_STMT_LIST) {
             if (task.current_statement_index < body->statements.size()) {
@@ -373,6 +389,8 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
 
                 // タスクスコープを保存
                 *task.task_scope = interpreter_.current_scope();
+                task.statement_positions =
+                    interpreter_.current_statement_positions();
 
                 // スコープをpopして元のサイズに戻す
                 while (interpreter_.get_scope_stack().size() >
@@ -455,6 +473,7 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
 
         // タスクスコープを保存
         *task.task_scope = interpreter_.current_scope();
+        task.statement_positions = interpreter_.current_statement_positions();
 
         // スコープをpopして元のサイズに戻す
         interpreter_.set_auto_yield_mode(prev_auto_yield_mode);
@@ -475,6 +494,10 @@ bool SimpleEventLoop::execute_one_step(int task_id) {
         return true; // キューに戻す
     } catch (const ReturnException &e) {
         // return文で完了
+        if (task.task_scope) {
+            *task.task_scope = interpreter_.current_scope();
+        }
+        task.statement_positions = interpreter_.current_statement_positions();
         task.is_executed = true;
         task.has_return_value = true;
         task.return_type = e.type;
@@ -703,6 +726,92 @@ void SimpleEventLoop::initialize_task_scope(AsyncTask &task) {
             static_cast<int>(task.self_value.type),
             task.self_value.struct_type_name.c_str());
     }
+
+    if (task.has_self_receiver && !task.self_receiver_name.empty()) {
+        Variable receiver_info;
+        receiver_info.type = TYPE_STRING;
+        receiver_info.str_value = task.self_receiver_name;
+        receiver_info.is_assigned = true;
+        task.task_scope->variables["__self_receiver__"] = receiver_info;
+    }
+}
+
+void SimpleEventLoop::finalize_task_if_needed(int task_id) {
+    auto it = tasks_.find(task_id);
+    if (it == tasks_.end()) {
+        return;
+    }
+
+    AsyncTask &task = it->second;
+    if (!task.is_executed) {
+        return;
+    }
+
+    sync_async_self_receiver(task);
+}
+
+void SimpleEventLoop::sync_async_self_receiver(AsyncTask &task) {
+    if (!task.has_self || !task.has_self_receiver ||
+        task.self_receiver_name.empty() || !task.task_scope) {
+        return;
+    }
+
+    auto &scope_vars = task.task_scope->variables;
+    auto self_it = scope_vars.find("self");
+    if (self_it == scope_vars.end()) {
+        return;
+    }
+
+    Variable updated_self = self_it->second;
+
+    // self.member形式の変数をself.struct_membersに反映
+    for (const auto &var_pair : scope_vars) {
+        const std::string &var_name = var_pair.first;
+        if (var_name.rfind("self.", 0) != 0) {
+            continue;
+        }
+
+        std::string member_path = var_name.substr(5);
+        if (member_path.empty()) {
+            continue;
+        }
+
+        if (member_path.find('.') == std::string::npos) {
+            updated_self.struct_members[member_path] = var_pair.second;
+        }
+    }
+
+    Variable *receiver_var =
+        interpreter_.find_variable(task.self_receiver_name);
+    if (!receiver_var) {
+        return;
+    }
+
+    *receiver_var = updated_self;
+
+    // self.member で保持している変数を元の変数名にも伝搬
+    for (const auto &var_pair : scope_vars) {
+        const std::string &var_name = var_pair.first;
+        if (var_name.rfind("self.", 0) != 0) {
+            continue;
+        }
+
+        std::string member_path = var_name.substr(5);
+        if (member_path.empty()) {
+            continue;
+        }
+
+        std::string receiver_member_name =
+            task.self_receiver_name + "." + member_path;
+        Variable *receiver_member =
+            interpreter_.find_variable(receiver_member_name);
+        if (receiver_member) {
+            *receiver_member = var_pair.second;
+        }
+    }
+
+    // 二重同期を防ぐ
+    task.has_self_receiver = false;
 }
 
 bool SimpleEventLoop::is_empty() const { return task_queue_.empty(); }

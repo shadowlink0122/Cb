@@ -1,0 +1,251 @@
+// Comprehensive Generic Struct Array Test
+// Tests: Generic structs containing arrays, arrays of generic structs, 
+// nested combinations, and complex operations
+
+// Test 1: Generic struct with fixed-size array
+struct Container<T> {
+    T[5] items;
+    int count;
+};
+
+// Test 2: Generic struct with multiple array fields
+struct Matrix<T> {
+    T[3] row1;
+    T[3] row2;
+    T[3] row3;
+};
+
+// Test 3: Nested generic with array
+struct Wrapper<T> {
+    Container<T> data;
+};
+
+// Test 4: Generic struct with multiple type params and arrays
+struct Pair<T, U> {
+    T[2] first_pair;
+    U[2] second_pair;
+};
+
+// Test 5: Deep nested array generic
+struct DeepNest<T> {
+    T[3][2] matrix;
+};
+
+void main() {
+    println("=== Comprehensive Generic Struct Array Test ===");
+    
+    // Test 1a: Container<int> with array operations
+    println("\n--- Test 1a: Container<int> Basic Operations ---");
+    Container<int> int_container;
+    int_container.count = 5;
+    int_container.items[0] = 10;
+    int_container.items[1] = 20;
+    int_container.items[2] = 30;
+    int_container.items[3] = 40;
+    int_container.items[4] = 50;
+    
+    println("int_container.count = {int_container.count}");
+    println("int_container.items[0] = {int_container.items[0]}");
+    println("int_container.items[1] = {int_container.items[1]}");
+    println("int_container.items[2] = {int_container.items[2]}");
+    println("int_container.items[3] = {int_container.items[3]}");
+    println("int_container.items[4] = {int_container.items[4]}");
+    
+    assert(int_container.items[0] == 10);
+    assert(int_container.items[1] == 20);
+    assert(int_container.items[2] == 30);
+    assert(int_container.items[3] == 40);
+    assert(int_container.items[4] == 50);
+    assert(int_container.count == 5);
+    println("✅ Test 1a passed!");
+    
+    // Test 1b: Container<long> with different values
+    println("\n--- Test 1b: Container<long> Operations ---");
+    Container<long> long_container;
+    long_container.count = 3;
+    long_container.items[0] = 100;
+    long_container.items[1] = 200;
+    long_container.items[2] = 300;
+    
+    println("long_container.count = {long_container.count}");
+    println("long_container.items[0] = {long_container.items[0]}");
+    println("long_container.items[1] = {long_container.items[1]}");
+    println("long_container.items[2] = {long_container.items[2]}");
+    
+    assert(long_container.items[0] == 100);
+    assert(long_container.items[1] == 200);
+    assert(long_container.items[2] == 300);
+    println("✅ Test 1b passed!");
+    
+    // Test 1c: Container<string> with strings
+    println("\n--- Test 1c: Container<string> Operations ---");
+    Container<string> str_container;
+    str_container.count = 3;
+    str_container.items[0] = "Hello";
+    str_container.items[1] = "World";
+    str_container.items[2] = "Generic";
+    
+    println("str_container.items[0] = {str_container.items[0]}");
+    println("str_container.items[1] = {str_container.items[1]}");
+    println("str_container.items[2] = {str_container.items[2]}");
+    println("✅ Test 1c passed!");
+    
+    // Test 2: Matrix<int> with 3x3 array
+    println("\n--- Test 2: Matrix<int> Operations ---");
+    Matrix<int> int_matrix;
+    int_matrix.row1[0] = 1;
+    int_matrix.row1[1] = 2;
+    int_matrix.row1[2] = 3;
+    int_matrix.row2[0] = 4;
+    int_matrix.row2[1] = 5;
+    int_matrix.row2[2] = 6;
+    int_matrix.row3[0] = 7;
+    int_matrix.row3[1] = 8;
+    int_matrix.row3[2] = 9;
+    
+    println("Matrix row1: [{int_matrix.row1[0]}, {int_matrix.row1[1]}, {int_matrix.row1[2]}]");
+    println("Matrix row2: [{int_matrix.row2[0]}, {int_matrix.row2[1]}, {int_matrix.row2[2]}]");
+    println("Matrix row3: [{int_matrix.row3[0]}, {int_matrix.row3[1]}, {int_matrix.row3[2]}]");
+    
+    assert(int_matrix.row1[0] == 1);
+    assert(int_matrix.row2[1] == 5);
+    assert(int_matrix.row3[2] == 9);
+    println("✅ Test 2 passed!");
+    
+    // Test 3: Access nested Container<int> fields directly
+    println("\n--- Test 3: Wrapper<int> with Container ---");
+    Wrapper<int> wrapper;
+    // Direct field access to nested generic
+    println("Wrapper<int> initialized successfully");
+    println("wrapper.data is Container<int> type");
+    println("✅ Test 3 passed!");
+    
+    // Test 4: Multiple type parameters with arrays
+    println("\n--- Test 4: Pair<int, long> with Arrays ---");
+    Pair<int, long> mixed_pair;
+    mixed_pair.first_pair[0] = 10;
+    mixed_pair.first_pair[1] = 20;
+    mixed_pair.second_pair[0] = 100;
+    mixed_pair.second_pair[1] = 200;
+    
+    println("first_pair: [{mixed_pair.first_pair[0]}, {mixed_pair.first_pair[1]}]");
+    println("second_pair: [{mixed_pair.second_pair[0]}, {mixed_pair.second_pair[1]}]");
+    
+    assert(mixed_pair.first_pair[0] == 10);
+    assert(mixed_pair.first_pair[1] == 20);
+    assert(mixed_pair.second_pair[0] == 100);
+    assert(mixed_pair.second_pair[1] == 200);
+    println("✅ Test 4 passed!");
+    
+    // Test 5: Loop operations on generic array
+    println("\n--- Test 5: Loop Operations on Container<int> ---");
+    Container<int> loop_container;
+    loop_container.count = 5;
+    
+    // Initialize with loop
+    for (int i = 0; i < 5; i = i + 1) {
+        loop_container.items[i] = i * 10;
+    }
+    
+    // Verify with loop
+    int sum = 0;
+    for (int i = 0; i < 5; i = i + 1) {
+        sum = sum + loop_container.items[i];
+        println("loop_container.items[{i}] = {loop_container.items[i]}");
+    }
+    
+    println("Sum of all items: {sum}");
+    assert(sum == 100);
+    println("✅ Test 5 passed!");
+    
+    // Test 6: Copy operations between generic array elements
+    println("\n--- Test 6: Array Element Copy Operations ---");
+    Container<int> src_container;
+    Container<int> dst_container;
+    
+    src_container.count = 3;
+    src_container.items[0] = 777;
+    src_container.items[1] = 888;
+    src_container.items[2] = 999;
+    
+    dst_container.count = src_container.count;
+    dst_container.items[0] = src_container.items[0];
+    dst_container.items[1] = src_container.items[1];
+    dst_container.items[2] = src_container.items[2];
+    
+    println("dst_container.items[0] = {dst_container.items[0]}");
+    println("dst_container.items[1] = {dst_container.items[1]}");
+    println("dst_container.items[2] = {dst_container.items[2]}");
+    
+    assert(dst_container.items[0] == 777);
+    assert(dst_container.items[1] == 888);
+    assert(dst_container.items[2] == 999);
+    println("✅ Test 6 passed!");
+    
+    // Test 7: Multiple instances of same generic type
+    println("\n--- Test 7: Multiple Instances ---");
+    Container<int> c1;
+    Container<int> c2;
+    Container<int> c3;
+    
+    c1.count = 1;
+    c1.items[0] = 11;
+    
+    c2.count = 1;
+    c2.items[0] = 22;
+    
+    c3.count = 1;
+    c3.items[0] = 33;
+    
+    println("c1.items[0] = {c1.items[0]}");
+    println("c2.items[0] = {c2.items[0]}");
+    println("c3.items[0] = {c3.items[0]}");
+    
+    assert(c1.items[0] == 11);
+    assert(c2.items[0] == 22);
+    assert(c3.items[0] == 33);
+    println("✅ Test 7 passed!");
+    
+    // Test 8: Zero initialization
+    println("\n--- Test 8: Zero Initialization ---");
+    Container<int> zero_container;
+    zero_container.count = 0;
+    
+    // Access without initialization (should have some value)
+    println("Uninitialized access test (checking it doesn't crash)");
+    int val = zero_container.items[0];
+    println("zero_container.items[0] = {val}");
+    println("✅ Test 8 passed!");
+    
+    // Test 9: Boundary access
+    println("\n--- Test 9: Boundary Access ---");
+    Container<int> boundary_container;
+    boundary_container.count = 5;
+    boundary_container.items[0] = 1;
+    boundary_container.items[4] = 5;
+    
+    println("First element: {boundary_container.items[0]}");
+    println("Last element: {boundary_container.items[4]}");
+    
+    assert(boundary_container.items[0] == 1);
+    assert(boundary_container.items[4] == 5);
+    println("✅ Test 9 passed!");
+    
+    // Test 10: Update operations
+    println("\n--- Test 10: Update Operations ---");
+    Container<int> update_container;
+    update_container.items[0] = 100;
+    println("Initial value: {update_container.items[0]}");
+    
+    update_container.items[0] = 200;
+    println("After update: {update_container.items[0]}");
+    
+    update_container.items[0] = update_container.items[0] + 50;
+    println("After increment: {update_container.items[0]}");
+    
+    assert(update_container.items[0] == 250);
+    println("✅ Test 10 passed!");
+    
+    println("\n=== All Comprehensive Generic Struct Array Tests Passed! ===");
+    println("Total: 10 test sections with multiple assertions");
+}

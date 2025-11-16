@@ -7,35 +7,44 @@
 ```
 release_notes/
 ├── README.md           # このファイル
-├── v0.12.1.md          # 最新リリース（Async/Await改善・バグ修正）
+├── v0.13.1.md          # 最新リリース（統合版: Async/String/Match拡張）
+├── v0.13.0.md          # Generics完全実装
+├── v0.12.1.md          # Async/Await改善・バグ修正
 ├── v0.12.0.md          # Async/Await完全実装
 ├── v0.11.0.md          # ジェネリクス基礎実装
 ├── v0.10.1.md          # バグ修正
 ├── v0.10.0.md          # 右辺値参照・ムーブセマンティクス
 └── archive/            # 過去のリリースノート
+    └── v0.13.x/        # v0.13.1-v0.13.4の個別リリースノート
 ```
 
 ---
 
 ## 🎯 最新リリース
 
-### v0.12.1 (2025-11-11) 🐛 **Async/Await Improvements and Bug Fixes**
+### v0.13.1 (2025-11-16) 🚀 **Async/String/Match Comprehensive Update**
 
-**主要な改善**:
-- ✅ **簡潔なasync構文**: `async T`で`Future<T>`の記述が不要に
-- ✅ **enum型の直接return**: `Option::None`や`Result::Err()`を直接return可能
-- ✅ **テストカバレッジ拡充**: 32個のasync integration tests追加
-- ✅ **バグ修正**: enum情報の保持、ジェネリックインターフェースの型解決
+**主要な新機能**:
+- ✅ **Async Implメソッド**: Interface/Impl内のasyncメソッドが完全に動作、selfの自動同期
+- ✅ **文字列配列**: `string[N]`型の配列が完全サポート
+- ✅ **Vector<string>**: 文字列のVectorが動的配列として動作
+- ✅ **ネストしたmatch式**: `Option<Result<T, E>>`のような複雑な型のパターンマッチング
+- ✅ **try/checked式**: Result型ベースのエラーハンドリング
+- ✅ **Generic配列の修正**: すべての型でGeneric配列が正しく動作
 
 **品質指標**:
-- 統合テスト: 3,805個 + 32個のasync tests（100%成功）
-- 単体テスト: 30個（100%成功）
-- Stdlib tests: 54個（100%成功）
-- 総テスト数: 740+個
+- 統合テスト: 4,217個（100%成功）
+- 単体テスト: 100%成功
+- Stdlib tests: 33個（100%成功）
+- テストスイート: 4/4成功
 
-**互換性**: 破壊的変更なし。`async Future<T>`と`async T`の両方の構文をサポート。
+**修正されたバグ**: 9件（Async self同期、Generic配列、文字列処理、メモリ管理）
 
-詳細は [v0.12.1.md](v0.12.1.md) を参照してください。
+**互換性**: v0.13.0から完全に後方互換性あり。
+
+詳細は [v0.13.1.md](v0.13.1.md) を参照してください。
+
+> **Note**: v0.13.1は、v0.13.1～v0.13.4の段階的な改善を統合したリリースです。個別のリリースノートは`archive/v0.13.x/`に保存されています。
 
 ---
 

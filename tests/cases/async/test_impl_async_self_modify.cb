@@ -1,0 +1,72 @@
+// Test: Async impl method with self modification and yield
+// ASYNC-172, ASYNC-173, ASYNC-174, ASYNC-176のバグ修正テスト
+
+interface Counter {
+    async int increment(int amount);
+    async int accumulate(int times, int amount);
+}
+
+struct MyCounter {
+    int count;
+};
+
+impl Counter for MyCounter {
+    async int increment(int amount) {
+        self.count = self.count + amount;
+        yield;  // 処理を中断
+        return self.count;  // 自動的に元の構造体に反映される
+    }
+    
+    async int accumulate(int times, int amount) {
+        int i = 0;
+        while (i < times) {
+            self.count = self.count + amount;
+            yield;  // 各反復でyield
+            i = i + 1;
+        }
+        return self.count;
+    }
+}
+
+void main() {
+    println("=== Async Impl Self Modification Test ===");
+    
+    // Test 1: Basic self modification with yield
+    MyCounter c1;
+    c1.count = 10;
+    
+    int result1 = await c1.increment(5);
+    println("Test 1 - After increment(5): {result1}");
+    assert(result1 == 15);
+    assert(c1.count == 15);
+    
+    // Test 2: Multiple yields in loop
+    MyCounter c2;
+    c2.count = 0;
+    
+    int result2 = await c2.accumulate(5, 3);
+    println("Test 2 - After accumulate(5, 3): {result2}");
+    assert(result2 == 15);  // 0 + 3*5 = 15
+    assert(c2.count == 15);
+    
+    // Test 3: Concurrent async calls (state should be maintained)
+    MyCounter c3;
+    c3.count = 100;
+    
+    Future<int> f1 = c3.increment(10);
+    Future<int> f2 = c3.increment(20);
+    
+    int r1 = await f1;
+    int r2 = await f2;
+    
+    println("Test 3 - Concurrent increments: r1={r1}, r2={r2}, final={c3.count}");
+    // Note: 並行実行では、各awaitの結果は中間値を返す可能性がある
+    // 重要なのは、最終的な状態が一貫していること
+    // r1とr2の順序は不定だが、両方の変更が反映される
+    int expected_min = 100 + 10;  // 少なくとも1回は実行された
+    int expected_max = 100 + 10 + 20;  // 両方実行された
+    assert(c3.count >= expected_min);
+    assert(c3.count <= expected_max);
+    
+    println("=== All Tests Passed ===");
+}

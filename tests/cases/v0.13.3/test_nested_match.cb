@@ -1,0 +1,188 @@
+// Test for nested match expressions (v0.13.3)
+// Issue: Nested match loses type information in inner match
+
+void main() {
+    println("=== v0.13.3: Testing Nested Match Expressions ===\n");
+    
+    int failed = 0;
+    
+    // Test 1: Option<Result<int, string>>
+    println("[Test 1] Option<Result<int, string>> with Ok");
+    Option<Result<int, string> > outer1 = Option<Result<int, string> >::Some(
+        Result<int, string>::Ok(42)
+    );
+    
+    match (outer1) {
+        Some(inner) => {
+            println("  Outer is Some");
+            match (inner) {
+                Ok(value) => {
+                    println("    Inner is Ok: {value}");
+                    if (value != 42) {
+                        println("    ❌ FAIL: Nested Ok value should be 42");
+                        failed = failed + 1;
+                    }
+                }
+                Err(error) => {
+                    println("    ❌ FAIL: Inner should be Ok");
+                    failed = failed + 1;
+                }
+            }
+        }
+        None => {
+            println("  ❌ FAIL: Outer should be Some");
+            failed = failed + 1;
+        }
+    }
+    
+    if (failed == 0) {
+        println("  ✅ PASS");
+    }
+    
+    // Test 2: Option<Result<int, string>> with Err
+    println("\n[Test 2] Option<Result<int, string>> with Err");
+    Option<Result<int, string> > outer2 = Option<Result<int, string> >::Some(
+        Result<int, string>::Err("error message")
+    );
+    
+    match (outer2) {
+        Some(inner) => {
+            println("  Outer is Some");
+            match (inner) {
+                Ok(value) => {
+                    println("    ❌ FAIL: Inner should be Err");
+                    failed = failed + 1;
+                }
+                Err(error) => {
+                    println("    Inner is Err: {error}");
+                    if (error != "error message") {
+                        println("    ❌ FAIL: Error message should match");
+                        failed = failed + 1;
+                    }
+                }
+            }
+        }
+        None => {
+            println("  ❌ FAIL: Outer should be Some");
+            failed = failed + 1;
+        }
+    }
+    
+    if (failed == 0) {
+        println("  ✅ PASS");
+    }
+    
+    // Test 3: Option<Option<int>>
+    println("\n[Test 3] Option<Option<int>> with Some(Some(100))");
+    Option<Option<int> > nested1 = Option<Option<int> >::Some(
+        Option<int>::Some(100)
+    );
+    
+    match (nested1) {
+        Some(inner) => {
+            println("  Outer Option is Some");
+            match (inner) {
+                Some(value) => {
+                    println("    Inner Option is Some: {value}");
+                    if (value != 100) {
+                        println("    ❌ FAIL: Nested Some value should be 100");
+                        failed = failed + 1;
+                    }
+                }
+                None => {
+                    println("    ❌ FAIL: Inner should be Some");
+                    failed = failed + 1;
+                }
+            }
+        }
+        None => {
+            println("  ❌ FAIL: Outer should be Some");
+            failed = failed + 1;
+        }
+    }
+    
+    if (failed == 0) {
+        println("  ✅ PASS");
+    }
+    
+    // Test 4: Option<Option<int>> with None
+    println("\n[Test 4] Option<Option<int>> with Some(None)");
+    Option<Option<int> > nested2 = Option<Option<int> >::Some(
+        Option<int>::None()
+    );
+    
+    match (nested2) {
+        Some(inner) => {
+            println("  Outer Option is Some");
+            match (inner) {
+                Some(value) => {
+                    println("    ❌ FAIL: Inner should be None");
+                    failed = failed + 1;
+                }
+                None => {
+                    println("    Inner Option is None");
+                }
+            }
+        }
+        None => {
+            println("  ❌ FAIL: Outer should be Some");
+            failed = failed + 1;
+        }
+    }
+    
+    if (failed == 0) {
+        println("  ✅ PASS");
+    }
+    
+    // Test 5: Triple nested
+    println("\n[Test 5] Triple nested Option<Option<Option<int>>>");
+    Option<Option<Option<int> > > triple = Option<Option<Option<int> > >::Some(
+        Option<Option<int> >::Some(
+            Option<int>::Some(999)
+        )
+    );
+    
+    match (triple) {
+        Some(level2) => {
+            println("  Level 1 is Some");
+            match (level2) {
+                Some(level3) => {
+                    println("    Level 2 is Some");
+                    match (level3) {
+                        Some(value) => {
+                            println("      Level 3 is Some: {value}");
+                            if (value != 999) {
+                                println("      ❌ FAIL: Triple nested value should be 999");
+                                failed = failed + 1;
+                            }
+                        }
+                        None => {
+                            println("      ❌ FAIL: Level 3 should be Some");
+                            failed = failed + 1;
+                        }
+                    }
+                }
+                None => {
+                    println("    ❌ FAIL: Level 2 should be Some");
+                    failed = failed + 1;
+                }
+            }
+        }
+        None => {
+            println("  ❌ FAIL: Level 1 should be Some");
+            failed = failed + 1;
+        }
+    }
+    
+    if (failed == 0) {
+        println("  ✅ PASS");
+    }
+    
+    // Summary
+    println("\n=== Test Summary ===");
+    if (failed == 0) {
+        println("✅ All Nested Match Tests Passed!");
+    } else {
+        println("❌ {failed} test(s) failed");
+    }
+}

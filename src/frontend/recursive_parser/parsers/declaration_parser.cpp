@@ -324,7 +324,10 @@ ASTNode *DeclarationParser::parseFunctionDeclarationAfterName(
             // パラメータノードを作成
             ASTNode *param = new ASTNode(ASTNodeType::AST_PARAM_DECL);
             param->name = param_name.value;
-            param->type_name = param_type;
+            param->type_name = param_parsed.full_type;
+            param->original_type_name = param_parsed.original_type.empty()
+                                            ? param_parsed.full_type
+                                            : param_parsed.original_type;
 
             // 配列パラメータかチェック
             param->is_array = (param_type.find("[") != std::string::npos);
@@ -426,6 +429,10 @@ ASTNode *DeclarationParser::parseFunctionDeclarationAfterName(
 
             if (param->type_info == TYPE_UNKNOWN) {
                 param->type_info = parser_->getTypeInfoFromString(param_type);
+            }
+
+            if (param_parsed.is_function_type) {
+                parser_->applyFunctionPointerTypeInfo(param, param_parsed);
             }
 
             // デフォルト引数の解析（v0.10.0新機能）

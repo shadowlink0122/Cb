@@ -1,0 +1,27 @@
+// Test: Async関数型の合成
+
+async int add_ten(int x) {
+    return x + 10;
+}
+
+async int multiply_two(int x) {
+    return x * 2;
+}
+
+void apply_twice(int value, async int* func1, async int* func2) {
+    int result1 = await func1(value);
+    int result2 = await func2(result1);
+    println("Final result: {result2}");
+}
+
+void main() {
+    println("=== Async Function Type Composition Test ===");
+    
+    // (5 + 10) * 2 = 30
+    apply_twice(5, &add_ten, &multiply_two);
+    
+    // (10 * 2) + 10 = 30
+    apply_twice(10, &multiply_two, &add_ten);
+    
+    println("=== Test Complete ===");
+}

@@ -1,0 +1,126 @@
+// Test for generic struct arrays (v0.13.3)
+// Issue: Generic struct arrays like Future<int>[3] lose type information
+
+async int compute(int x) {
+    return x * 2;
+}
+
+void main() {
+    println("=== v0.13.3: Testing Generic Struct Arrays ===\n");
+    
+    int failed = 0;
+    
+    // Test 1: Future array
+    println("[Test 1] Future<int> array");
+    Future<int>[3] futures;
+    
+    futures[0] = compute(10);
+    futures[1] = compute(20);
+    futures[2] = compute(30);
+    
+    int r0 = await futures[0];
+    println("  Future[0] result: {r0}");
+    if (r0 != 20) {
+        println("  ❌ FAIL: Future[0] should return 20");
+        failed = failed + 1;
+    }
+    
+    int r1 = await futures[1];
+    println("  Future[1] result: {r1}");
+    if (r1 != 40) {
+        println("  ❌ FAIL: Future[1] should return 40");
+        failed = failed + 1;
+    }
+    
+    int r2 = await futures[2];
+    println("  Future[2] result: {r2}");
+    if (r2 != 60) {
+        println("  ❌ FAIL: Future[2] should return 60");
+        failed = failed + 1;
+    }
+    
+    if (failed == 0) {
+        println("  ✅ PASS");
+    }
+    
+    // Test 2: Result array
+    println("\n[Test 2] Result<int, string> array");
+    Result<int, string>[2] results;
+    results[0] = Result<int, string>::Ok(42);
+    results[1] = Result<int, string>::Err("error");
+    
+    match (results[0]) {
+        Ok(v) => {
+            println("  Result[0] is Ok: {v}");
+            if (v != 42) {
+                println("  ❌ FAIL: Result[0] value should be 42");
+                failed = failed + 1;
+            }
+        }
+        Err(e) => {
+            println("  ❌ FAIL: Result[0] should be Ok");
+            failed = failed + 1;
+        }
+    }
+    
+    match (results[1]) {
+        Ok(v) => {
+            println("  ❌ FAIL: Result[1] should be Err");
+            failed = failed + 1;
+        }
+        Err(e) => {
+            println("  Result[1] is Err: {e}");
+            if (e != "error") {
+                println("  ❌ FAIL: Result[1] error should be 'error'");
+                failed = failed + 1;
+            }
+        }
+    }
+    
+    if (failed == 0) {
+        println("  ✅ PASS");
+    }
+    
+    // Test 3: Option array
+    println("\n[Test 3] Option<int> array");
+    Option<int>[3] options;
+    options[0] = Option<int>::Some(100);
+    options[1] = Option<int>::None();
+    options[2] = Option<int>::Some(200);
+    
+    match (options[0]) {
+        Some(v) => {
+            println("  Option[0] is Some: {v}");
+            if (v != 100) {
+                println("  ❌ FAIL: Option[0] should be 100");
+                failed = failed + 1;
+            }
+        }
+        None => {
+            println("  ❌ FAIL: Option[0] should be Some");
+            failed = failed + 1;
+        }
+    }
+    
+    match (options[1]) {
+        Some(v) => {
+            println("  ❌ FAIL: Option[1] should be None");
+            failed = failed + 1;
+        }
+        None => {
+            println("  Option[1] is None");
+        }
+    }
+    
+    if (failed == 0) {
+        println("  ✅ PASS");
+    }
+    
+    // Summary
+    println("\n=== Test Summary ===");
+    if (failed == 0) {
+        println("✅ All Generic Array Tests Passed!");
+    } else {
+        println("❌ {failed} test(s) failed");
+    }
+}

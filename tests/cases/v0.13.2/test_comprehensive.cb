@@ -1,0 +1,161 @@
+// Comprehensive test suite for v0.13.2
+// Tests: Async lambda, Generic string arrays, Function types
+
+struct Container<T> {
+    T[5] items;
+};
+
+struct Pair<T, U> {
+    T first;
+    U second;
+};
+
+struct Box<T> {
+    T[3] values;
+};
+
+void main() {
+    println("=== Cb v0.13.2 Comprehensive Test Suite ===\n");
+    
+    test_async_lambda();
+    test_generic_string_arrays();
+    test_generic_int_arrays();
+    test_generic_mixed_types();
+    test_async_lambda_with_generics();
+    
+    println("\n=== All v0.13.2 Tests Passed! ✅ ===");
+}
+
+// Test 1: Async Lambda Basic Functionality
+void test_async_lambda() {
+    println("Test 1: Async Lambda");
+    
+    // Basic async lambda
+    auto add = async int func(int a, int b) {
+        return a + b;
+    };
+    
+    int result = await add(10, 20);
+    assert(result == 30);
+    println("  ✓ Basic async lambda: {result}");
+    
+    // Async lambda with string
+    auto greet = async string func(string name) {
+        return "Hello, " + name;
+    };
+    
+    string greeting = await greet("World");
+    assert(greeting == "Hello, World");
+    println("  ✓ Async lambda with string: {greeting}");
+    
+    // Async lambda with complex logic
+    auto factorial = async int func(int n) {
+        if (n <= 1) {
+            return 1;
+        }
+        int result = 1;
+        int i = 2;
+        while (i <= n) {
+            result = result * i;
+            i = i + 1;
+        }
+        return result;
+    };
+    
+    int fact5 = await factorial(5);
+    assert(fact5 == 120);
+    println("  ✓ Async lambda factorial(5): {fact5}");
+}
+
+// Test 2: Generic String Arrays
+void test_generic_string_arrays() {
+    println("\nTest 2: Generic String Arrays");
+    
+    Container<string> cs;
+    cs.items[0] = "Alpha";
+    cs.items[1] = "Beta";
+    cs.items[2] = "Gamma";
+    
+    assert(cs.items[0] == "Alpha");
+    assert(cs.items[1] == "Beta");
+    assert(cs.items[2] == "Gamma");
+    
+    println("  ✓ items[0]: {cs.items[0]}");
+    println("  ✓ items[1]: {cs.items[1]}");
+    println("  ✓ items[2]: {cs.items[2]}");
+}
+
+// Test 3: Generic Int Arrays
+void test_generic_int_arrays() {
+    println("\nTest 3: Generic Int Arrays");
+    
+    Container<int> ci;
+    ci.items[0] = 100;
+    ci.items[1] = 200;
+    ci.items[2] = 300;
+    
+    assert(ci.items[0] == 100);
+    assert(ci.items[1] == 200);
+    assert(ci.items[2] == 300);
+    
+    println("  ✓ items[0]: {ci.items[0]}");
+    println("  ✓ items[1]: {ci.items[1]}");
+    println("  ✓ items[2]: {ci.items[2]}");
+}
+
+// Test 4: Generic Mixed Types
+void test_generic_mixed_types() {
+    println("\nTest 4: Generic Mixed Types");
+    
+    Pair<int, string> p1;
+    p1.first = 42;
+    p1.second = "Answer";
+    
+    assert(p1.first == 42);
+    assert(p1.second == "Answer");
+    
+    println("  ✓ Pair<int, string>: ({p1.first}, {p1.second})");
+    
+    Pair<string, int> p2;
+    p2.first = "Count";
+    p2.second = 100;
+    
+    assert(p2.first == "Count");
+    assert(p2.second == 100);
+    
+    println("  ✓ Pair<string, int>: ({p2.first}, {p2.second})");
+}
+
+// Test 5: Async Lambda with Generics
+void test_async_lambda_with_generics() {
+    println("\nTest 5: Async Lambda with Generics");
+    
+    // Async lambda that processes generic container
+    auto sum_box = async int func() {
+        Box<int> box;
+        box.values[0] = 1;
+        box.values[1] = 2;
+        box.values[2] = 3;
+        
+        int sum = box.values[0] + box.values[1] + box.values[2];
+        return sum;
+    };
+    
+    int total = await sum_box();
+    assert(total == 6);
+    println("  ✓ Async lambda with generic Box: sum = {total}");
+    
+    // Async lambda that returns string from generic container
+    auto concat_box = async string func() {
+        Box<string> box;
+        box.values[0] = "Cb";
+        box.values[1] = "v0.13";
+        box.values[2] = ".2";
+        
+        return box.values[0] + box.values[1] + box.values[2];
+    };
+    
+    string version = await concat_box();
+    assert(version == "Cbv0.13.2");
+    println("  ✓ Async lambda with string Box: {version}");
+}

@@ -1,0 +1,208 @@
+// Generic Functions with Arrays Test
+// Tests: Generic functions that work with containers and arrays,
+// generic operations, complex scenarios
+
+// Generic struct with array
+struct Container<T> {
+    T[5] items;
+    int size;
+};
+
+// Generic box
+struct Box<T> {
+    T value;
+};
+
+// Generic function to return identity
+T identity<T>(T value) {
+    return value;
+}
+
+// Generic function to create a box
+Box<T> make_box<T>(T value) {
+    Box<T> result;
+    result.value = value;
+    return result;
+}
+
+// Generic comparison
+T max<T>(T a, T b) {
+    if (a > b) {
+        return a;
+    }
+    return b;
+}
+
+void main() {
+    println("=== Generic Functions with Arrays Test ===");
+    
+    // Test 1: Generic identity with arrays
+    println("\n--- Test 1: Identity Function ---");
+    int x = identity<int>(42);
+    long y = identity<long>(100);
+    
+    println("identity<int>(42) = {x}");
+    println("identity<long>(100) = {y}");
+    
+    assert(x == 42);
+    assert(y == 100);
+    println("✅ Test 1 passed!");
+    
+    // Test 2: Container with items
+    println("\n--- Test 2: Container<int> Operations ---");
+    Container<int> int_container;
+    int_container.size = 3;
+    int_container.items[0] = 111;
+    int_container.items[1] = 222;
+    int_container.items[2] = 333;
+    
+    println("Container items:");
+    for (int i = 0; i < 3; i = i + 1) {
+        println("  items[{i}] = {int_container.items[i]}");
+    }
+    
+    assert(int_container.items[0] == 111);
+    println("✅ Test 2 passed!");
+    
+    // Test 3: Direct array access
+    println("\n--- Test 3: Direct Array Access ---");
+    Container<int> test_container;
+    test_container.size = 3;
+    test_container.items[0] = 777;
+    test_container.items[1] = 888;
+    test_container.items[2] = 999;
+    
+    int first = test_container.items[0];
+    println("First element: {first}");
+    assert(first == 777);
+    println("✅ Test 3 passed!");
+    
+    // Test 4: Long container
+    println("\n--- Test 4: Long Container ---");
+    Container<long> long_container;
+    long_container.size = 2;
+    long_container.items[0] = 999;
+    long_container.items[1] = 888;
+    
+    long first_long = long_container.items[0];
+    println("First long element: {first_long}");
+    assert(first_long == 999);
+    println("✅ Test 4 passed!");
+    
+    // Test 5: Make box from array element
+    println("\n--- Test 5: Make Box from Array Element ---");
+    Container<int> src_container;
+    src_container.items[0] = 42;
+    src_container.items[1] = 84;
+    
+    Box<int> box1 = make_box<int>(src_container.items[0]);
+    Box<int> box2 = make_box<int>(src_container.items[1]);
+    
+    println("box1.value = {box1.value}");
+    println("box2.value = {box2.value}");
+    
+    assert(box1.value == 42);
+    assert(box2.value == 84);
+    println("✅ Test 5 passed!");
+    
+    // Test 6: Max function with container elements
+    println("\n--- Test 6: Max with Container Elements ---");
+    Container<int> max_container;
+    max_container.items[0] = 10;
+    max_container.items[1] = 50;
+    max_container.items[2] = 30;
+    
+    int max_val = max<int>(max_container.items[0], max_container.items[1]);
+    max_val = max<int>(max_val, max_container.items[2]);
+    
+    println("Max value: {max_val}");
+    assert(max_val == 50);
+    println("✅ Test 6 passed!");
+    
+    // Test 7: Multiple containers with different types
+    println("\n--- Test 7: Multiple Container Types ---");
+    Container<int> c1;
+    Container<long> c2;
+    
+    c1.items[0] = 100;
+    c2.items[0] = 200;
+    
+    int f1 = c1.items[0];
+    long f2 = c2.items[0];
+    
+    println("c1 first: {f1}");
+    println("c2 first: {f2}");
+    
+    assert(f1 == 100);
+    assert(f2 == 200);
+    println("✅ Test 7 passed!");
+    
+    // Test 8: Chained operations
+    println("\n--- Test 8: Chained Operations ---");
+    Container<int> chain_container;
+    chain_container.items[0] = 1;
+    chain_container.items[1] = 2;
+    chain_container.items[2] = 3;
+    
+    int val1 = chain_container.items[0];
+    int val2 = identity<int>(val1);
+    Box<int> box = make_box<int>(val2);
+    
+    println("Original first: {val1}");
+    println("After identity: {val2}");
+    println("In box: {box.value}");
+    
+    assert(val1 == val2);
+    assert(val2 == box.value);
+    assert(box.value == 1);
+    println("✅ Test 8 passed!");
+    
+    // Test 9: Array loop with generic functions
+    println("\n--- Test 9: Array Loop with Generic Functions ---");
+    Container<int> loop_container;
+    loop_container.size = 5;
+    
+    for (int i = 0; i < 5; i = i + 1) {
+        loop_container.items[i] = i * 10;
+    }
+    
+    int sum = 0;
+    for (int i = 0; i < 5; i = i + 1) {
+        int val = identity<int>(loop_container.items[i]);
+        sum = sum + val;
+    }
+    
+    println("Sum of all items: {sum}");
+    assert(sum == 100);
+    println("✅ Test 9 passed!");
+    
+    // Test 10: Complex scenario
+    println("\n--- Test 10: Complex Scenario ---");
+    Container<int> complex1;
+    Container<int> complex2;
+    
+    complex1.items[0] = 30;
+    complex1.items[1] = 10;
+    complex1.items[2] = 20;
+    
+    complex2.items[0] = 40;
+    complex2.items[1] = 50;
+    complex2.items[2] = 60;
+    
+    int first1 = complex1.items[0];
+    int first2 = complex2.items[0];
+    
+    int max_first = max<int>(first1, first2);
+    Box<int> result_box = make_box<int>(max_first);
+    
+    println("First from complex1: {first1}");
+    println("First from complex2: {first2}");
+    println("Max of firsts: {max_first}");
+    println("Result in box: {result_box.value}");
+    
+    assert(result_box.value == 40);
+    println("✅ Test 10 passed!");
+    
+    println("\n=== All Generic Functions with Arrays Tests Passed! ===");
+    println("Total: 10 test sections");
+}

@@ -78,6 +78,7 @@ INTERPRETER_EVALUATOR_OBJS = \
 	$(INTERPRETER_EVALUATOR)/operators/assignment.o \
 	$(INTERPRETER_EVALUATOR)/operators/incdec.o \
 	$(INTERPRETER_EVALUATOR)/operators/ternary.o \
+	$(INTERPRETER_EVALUATOR)/operators/error_handling.o \
 	$(INTERPRETER_EVALUATOR)/operators/memory_operators.o \
 	$(INTERPRETER_EVALUATOR)/access/array.o \
 	$(INTERPRETER_EVALUATOR)/access/member.o \

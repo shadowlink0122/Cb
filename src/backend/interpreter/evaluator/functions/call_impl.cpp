@@ -55,6 +55,117 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                           << std::endl;
             }
 
+            // v0.13.1: asyncラムダのチェック
+            bool is_async_lambda = lambda_node->is_async_function;
+
+            // v0.13.1: asyncラムダの場合、EventLoopに登録して即座にFutureを返す
+            if (is_async_lambda) {
+                if (interpreter_.is_debug_mode()) {
+                    std::cerr << "[ASYNC_LAMBDA] Async lambda call detected"
+                              << std::endl;
+                }
+
+                // 新しいスコープを作成してパラメータをバインド
+                interpreter_.push_interpreter_scope();
+
+                // パラメータをバインド
+                if (node->arguments.size() != lambda_node->parameters.size()) {
+                    std::cerr << "Error: Async lambda call argument count "
+                                 "mismatch: expected "
+                              << lambda_node->parameters.size() << ", got "
+                              << node->arguments.size() << std::endl;
+                    std::exit(1);
+                }
+
+                for (size_t i = 0; i < lambda_node->parameters.size(); ++i) {
+                    const ASTNode *param = lambda_node->parameters[i].get();
+                    int64_t arg_value =
+                        evaluate_expression(node->arguments[i].get());
+
+                    Variable var;
+                    var.type = param->type_info;
+                    var.value = arg_value;
+                    var.is_const = param->is_const;
+
+                    interpreter_.current_scope().variables[param->name] = var;
+                }
+
+                // Future構造体を作成
+                Variable future_var;
+                future_var.is_struct = true;
+                future_var.struct_type_name = "Future";
+                future_var.type = TYPE_STRUCT;
+
+                // Future.is_ready = false (まだ未完了)
+                Variable is_ready_field;
+                is_ready_field.type = TYPE_INT;
+                is_ready_field.value = 0; // false
+                is_ready_field.is_assigned = true;
+                future_var.struct_members["is_ready"] = is_ready_field;
+
+                // Future.value の初期値
+                Variable value_field;
+                value_field.type = TYPE_UNKNOWN;
+                value_field.value = 0;
+                value_field.is_assigned = true;
+                future_var.struct_members["value"] = value_field;
+
+                // AsyncTaskを作成
+                AsyncTask task;
+                task.function_name = lambda_node->internal_name;
+                task.function_node = lambda_node;
+
+                // 引数をコピー
+                for (const auto &param : lambda_node->parameters) {
+                    if (interpreter_.current_scope().variables.find(
+                            param->name) !=
+                        interpreter_.current_scope().variables.end()) {
+                        task.args.push_back(interpreter_.current_scope()
+                                                .variables[param->name]);
+                    }
+                }
+
+                // internal_futureに設定
+                task.internal_future.is_struct = true;
+                task.internal_future.struct_type_name =
+                    future_var.struct_type_name;
+                task.internal_future.type = TYPE_STRUCT;
+                for (const auto &[key, val] : future_var.struct_members) {
+                    task.internal_future.struct_members[key] = val;
+                }
+                task.use_internal_future = true;
+
+                // SimpleEventLoopに登録
+                int task_id =
+                    interpreter_.get_simple_event_loop().register_task(task);
+
+                // Future.task_id を設定
+                Variable task_id_field;
+                task_id_field.type = TYPE_INT;
+                task_id_field.value = task_id;
+                task_id_field.is_assigned = true;
+                future_var.struct_members["task_id"] = task_id_field;
+
+                // internal_future にも task_id を設定
+                AsyncTask *registered_task =
+                    interpreter_.get_simple_event_loop().get_task(task_id);
+                if (registered_task) {
+                    registered_task->internal_future.struct_members["task_id"] =
+                        task_id_field;
+                }
+
+                interpreter_.pop_interpreter_scope();
+
+                // ReturnExceptionでFutureを返す
+                ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
+                ret.is_struct = true;
+                ret.struct_value = future_var;
+                ret.struct_value.type = TYPE_STRUCT;
+                ret.struct_value.is_struct = true;
+                throw ret;
+            }
+
+            // 通常のラムダ処理（非async）
             // ラムダを一時的に関数ポインタとして登録
             std::string temp_lambda_name = lambda_node->internal_name;
 
@@ -216,6 +327,9 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         }
                     }
 
+                    // v0.13.1: async関数ポインタのチェック
+                    bool is_async_func_ptr = func_node->is_async_function;
+
                     // 関数を呼び出し
                     interpreter_.push_interpreter_scope();
 
@@ -248,6 +362,88 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                         }
 
                         param_idx++;
+                    }
+
+                    // v0.13.1:
+                    // async関数ポインタの場合、EventLoopに登録して即座にFutureを返す
+                    if (is_async_func_ptr) {
+                        // Future構造体を作成
+                        Variable future_var;
+                        future_var.is_struct = true;
+                        future_var.struct_type_name = "Future";
+                        future_var.type = TYPE_STRUCT;
+
+                        // Future.is_ready = false (まだ未完了)
+                        Variable is_ready_field;
+                        is_ready_field.type = TYPE_INT;
+                        is_ready_field.value = 0; // false
+                        is_ready_field.is_assigned = true;
+                        future_var.struct_members["is_ready"] = is_ready_field;
+
+                        // Future.value の初期値
+                        Variable value_field;
+                        value_field.type = TYPE_UNKNOWN;
+                        value_field.value = 0;
+                        value_field.is_assigned = true;
+                        future_var.struct_members["value"] = value_field;
+
+                        // AsyncTaskを作成
+                        AsyncTask task;
+                        task.function_name = fp->function_name;
+                        task.function_node = func_node;
+
+                        // 引数をコピー
+                        for (const auto &param : func_node->parameters) {
+                            if (interpreter_.current_scope().variables.find(
+                                    param->name) !=
+                                interpreter_.current_scope().variables.end()) {
+                                task.args.push_back(
+                                    interpreter_.current_scope()
+                                        .variables[param->name]);
+                            }
+                        }
+
+                        // internal_futureに設定
+                        task.internal_future.is_struct = true;
+                        task.internal_future.struct_type_name =
+                            future_var.struct_type_name;
+                        task.internal_future.type = TYPE_STRUCT;
+                        for (const auto &[key, val] :
+                             future_var.struct_members) {
+                            task.internal_future.struct_members[key] = val;
+                        }
+                        task.use_internal_future = true;
+
+                        // SimpleEventLoopに登録
+                        int task_id =
+                            interpreter_.get_simple_event_loop().register_task(
+                                task);
+
+                        // Future.task_id を設定
+                        Variable task_id_field;
+                        task_id_field.type = TYPE_INT;
+                        task_id_field.value = task_id;
+                        task_id_field.is_assigned = true;
+                        future_var.struct_members["task_id"] = task_id_field;
+
+                        // internal_future にも task_id を設定
+                        AsyncTask *registered_task =
+                            interpreter_.get_simple_event_loop().get_task(
+                                task_id);
+                        if (registered_task) {
+                            registered_task->internal_future
+                                .struct_members["task_id"] = task_id_field;
+                        }
+
+                        interpreter_.pop_interpreter_scope();
+
+                        // ReturnExceptionでFutureを返す
+                        ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
+                        ret.is_struct = true;
+                        ret.struct_value = future_var;
+                        ret.struct_value.type = TYPE_STRUCT;
+                        ret.struct_value.is_struct = true;
+                        throw ret;
                     }
 
                     // 関数本体を実行
@@ -335,6 +531,87 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 }
 
                 param_idx++;
+            }
+
+            // v0.13.1: async関数ポインタのチェック (form 2)
+            bool is_async_func_ptr2 = func_node->is_async_function;
+
+            // v0.13.1:
+            // async関数ポインタの場合、EventLoopに登録して即座にFutureを返す
+            if (is_async_func_ptr2) {
+                // Future構造体を作成
+                Variable future_var;
+                future_var.is_struct = true;
+                future_var.struct_type_name = "Future";
+                future_var.type = TYPE_STRUCT;
+
+                // Future.is_ready = false (まだ未完了)
+                Variable is_ready_field;
+                is_ready_field.type = TYPE_INT;
+                is_ready_field.value = 0; // false
+                is_ready_field.is_assigned = true;
+                future_var.struct_members["is_ready"] = is_ready_field;
+
+                // Future.value の初期値
+                Variable value_field;
+                value_field.type = TYPE_UNKNOWN;
+                value_field.value = 0;
+                value_field.is_assigned = true;
+                future_var.struct_members["value"] = value_field;
+
+                // AsyncTaskを作成
+                AsyncTask task;
+                task.function_name = func_ptr.function_name;
+                task.function_node = func_node;
+
+                // 引数をコピー
+                for (const auto &param : func_node->parameters) {
+                    if (interpreter_.current_scope().variables.find(
+                            param->name) !=
+                        interpreter_.current_scope().variables.end()) {
+                        task.args.push_back(interpreter_.current_scope()
+                                                .variables[param->name]);
+                    }
+                }
+
+                // internal_futureに設定
+                task.internal_future.is_struct = true;
+                task.internal_future.struct_type_name =
+                    future_var.struct_type_name;
+                task.internal_future.type = TYPE_STRUCT;
+                for (const auto &[key, val] : future_var.struct_members) {
+                    task.internal_future.struct_members[key] = val;
+                }
+                task.use_internal_future = true;
+
+                // SimpleEventLoopに登録
+                int task_id =
+                    interpreter_.get_simple_event_loop().register_task(task);
+
+                // Future.task_id を設定
+                Variable task_id_field;
+                task_id_field.type = TYPE_INT;
+                task_id_field.value = task_id;
+                task_id_field.is_assigned = true;
+                future_var.struct_members["task_id"] = task_id_field;
+
+                // internal_future にも task_id を設定
+                AsyncTask *registered_task =
+                    interpreter_.get_simple_event_loop().get_task(task_id);
+                if (registered_task) {
+                    registered_task->internal_future.struct_members["task_id"] =
+                        task_id_field;
+                }
+
+                interpreter_.pop_interpreter_scope();
+
+                // ReturnExceptionでFutureを返す
+                ReturnException ret(static_cast<int64_t>(0), TYPE_INT);
+                ret.is_struct = true;
+                ret.struct_value = future_var;
+                ret.struct_value.type = TYPE_STRUCT;
+                ret.struct_value.is_struct = true;
+                throw ret;
             }
 
             // 関数本体を実行
@@ -1977,6 +2254,17 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 } else if (actual_type == "char") {
                     char *arr = reinterpret_cast<char *>(ptr_value);
                     return static_cast<int64_t>(arr[index]);
+                } else if (actual_type == "string") {
+                    // v0.13.4: 文字列配列のサポート
+                    // メモリレイアウト: char*ポインタの配列
+                    char **arr = reinterpret_cast<char **>(ptr_value);
+                    char *str = arr[index];
+                    if (str == nullptr) {
+                        // 空文字列を返す
+                        throw ReturnException(std::string(""));
+                    }
+                    // char*をstd::stringに変換して返す
+                    throw ReturnException(std::string(str));
                 }
                 // int, その他はデフォルトのint扱い
             } else {
@@ -2415,6 +2703,54 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 } else if (actual_type == "char") {
                     char *arr = reinterpret_cast<char *>(ptr_value);
                     arr[index] = static_cast<char>(value);
+                    return 0;
+                } else if (actual_type == "string") {
+                    // v0.13.4: 文字列配列のサポート
+                    // 第3引数は文字列値
+                    const ASTNode *value_node = node->arguments[2].get();
+
+                    // 文字列リテラルまたは文字列変数を評価
+                    std::string str_value;
+                    if (value_node->node_type ==
+                        ASTNodeType::AST_STRING_LITERAL) {
+                        str_value = value_node->str_value;
+                    } else if (value_node->node_type ==
+                               ASTNodeType::AST_VARIABLE) {
+                        Variable *var =
+                            interpreter_.find_variable(value_node->name);
+                        if (var && var->type == TYPE_STRING) {
+                            str_value = var->str_value;
+                        } else {
+                            throw std::runtime_error(
+                                "array_set: string variable not found or not a "
+                                "string");
+                        }
+                    } else {
+                        throw std::runtime_error(
+                            "array_set: unsupported value type for string");
+                    }
+
+                    // メモリレイアウト: char*ポインタの配列
+                    // 文字列のdeep copyを作成
+                    char *str_copy = (char *)malloc(str_value.size() + 1);
+                    strcpy(str_copy, str_value.c_str());
+
+                    // 配列内のポインタを更新
+                    char **arr = reinterpret_cast<char **>(ptr_value);
+
+                    // 既存の文字列があれば解放
+                    if (arr[index] != nullptr) {
+                        free(arr[index]);
+                    }
+
+                    arr[index] = str_copy;
+
+                    if (interpreter_.is_debug_mode()) {
+                        std::cerr << "[array_set] String set at index " << index
+                                  << ": '" << str_value << "' at "
+                                  << (void *)str_copy << "\n";
+                    }
+
                     return 0;
                 }
                 // int, その他はデフォルトのint扱い
@@ -5463,6 +5799,18 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                                   << ", struct_type="
                                   << task.self_value.struct_type_name
                                   << std::endl;
+                    }
+                }
+
+                if (is_method_call && has_receiver) {
+                    std::string receiver_identifier = receiver_name;
+                    if (receiver_identifier.empty()) {
+                        receiver_identifier =
+                            receiver_resolution.canonical_name;
+                    }
+                    if (!receiver_identifier.empty()) {
+                        task.has_self_receiver = true;
+                        task.self_receiver_name = receiver_identifier;
                     }
                 }
 

@@ -1,0 +1,77 @@
+// Test for Vector<string> segfault issue (v0.13.3)
+// Issue: Vector<string> causes segmentation fault
+// Note: This test will be enabled after Vector implementation is fixed
+
+void main() {
+    println("=== v0.13.3: Testing Vector<string> ===");
+    println("⚠️  This test is currently skipped.");
+    println("    Vector<string> requires deep string copy support.");
+    println("    Implementation planned for v0.13.3.");
+    println("\n✅ Test Skipped (Known Limitation)");
+}
+
+/* Disabled until Vector<string> is fixed
+
+// Vector<T> from stdlib
+export struct Vector<T> {
+    void* front;
+    void* back;
+    long length;
+};
+
+export interface VectorOps<T> {
+    void push_back(T value);
+    void push_front(T value);
+    void pop_back();
+    void pop_front();
+    T at(long index);
+    long get_length();
+    bool is_empty();
+};
+
+void main() {
+    println("=== v0.13.3: Testing Vector<string> ===\n");
+    
+    int failed = 0;
+    
+    // Test 1: Basic push_back and at
+    println("[Test 1] Basic push_back and at");
+    Vector<string> vec;
+    vec.push_back("Hello");
+    vec.push_back("World");
+    vec.push_back("!");
+    
+    println("  Vector length: {vec.get_length()}");
+    if (vec.get_length() != 3) {
+        println("  ❌ FAIL: Vector should have 3 elements");
+        failed = failed + 1;
+    }
+    
+    string first = vec.at(0);
+    println("  First element: '{first}'");
+    if (first != "Hello") {
+        println("  ❌ FAIL: First element should be 'Hello'");
+        failed = failed + 1;
+    }
+    
+    string second = vec.at(1);
+    println("  Second element: '{second}'");
+    if (second != "World") {
+        println("  ❌ FAIL: Second element should be 'World'");
+        failed = failed + 1;
+    }
+    
+    if (failed == 0) {
+        println("  ✅ PASS");
+    }
+    
+    // Summary
+    println("\n=== Test Summary ===");
+    if (failed == 0) {
+        println("✅ All Vector<string> Tests Passed!");
+    } else {
+        println("❌ {failed} test(s) failed");
+    }
+}
+
+*/

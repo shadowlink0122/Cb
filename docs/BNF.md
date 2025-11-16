@@ -1,7 +1,7 @@
 # Cb言語 BNF文法定義
 
-**バージョン**: v0.13.0  
-**最終更新**: 2025年11月14日
+**バージョン**: v0.13.1  
+**最終更新**: 2025年11月19日
 
 ## 概要
 
@@ -465,6 +465,8 @@ async int task() {
                      | '--' <unary_expression>
                      | <unary_operator> <unary_expression>
                      | 'await' <unary_expression>
+                     | 'try' <unary_expression>            // v0.13.1
+                     | 'checked' <unary_expression>        // v0.13.1
 
 <unary_operator> ::= '&'    // アドレス演算子
                    | '*'    // デリファレンス
