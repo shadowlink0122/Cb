@@ -36,6 +36,7 @@
 *.exe
 *.out
 *.app
+cb
 main
 main-asan
 cgen_main
@@ -61,3 +62,4 @@ parser.output
 
 # debug information files
 *.dwo
+tmp/

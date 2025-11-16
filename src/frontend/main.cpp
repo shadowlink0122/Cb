@@ -11,6 +11,9 @@
 // Preprocessor (v0.13.0)
 #include "preprocessor/preprocessor.h"
 
+// Help messages
+#include "help_messages.h"
+
 #include <cstdarg>
 #include <cstdlib>
 #include <fstream>
@@ -21,6 +24,7 @@
 #include <vector>
 
 using namespace RecursiveParserNS;
+using namespace HelpMessages;
 
 // エラー表示用のグローバル変数
 const char *current_filename = nullptr;
@@ -28,43 +32,74 @@ std::vector<std::string> file_lines;
 
 int main(int argc, char **argv) {
     if (argc < 2) {
-        std::cerr << "使用法: " << argv[0]
-                  << " <ファイル名> [-c|--compile] [-d|--debug] [--debug-ja]"
-                  << std::endl;
-        std::cerr << "オプション:" << std::endl;
-        std::cerr << "  -c, --compile    コンパイルのみ（IR生成して終了）"
-                  << std::endl;
-        std::cerr << "  -d, --debug      デバッグモード" << std::endl;
-        std::cerr << "  --debug-ja       日本語デバッグモード" << std::endl;
-        std::cerr << "  --no-preprocess  プリプロセッサを無効化" << std::endl;
-        std::cerr << "  -D<macro>[=val]  マクロを定義" << std::endl;
+        print_usage(argv[0]);
         return 1;
     }
 
-    // コマンドライン引数の解析
+    // Parse command
+    std::string command = argv[1];
+    bool compile_only = false;
+    int arg_start = 2;
+
+    // Handle version and help
+    if (command == "--version" || command == "-v") {
+        print_version();
+        return 0;
+    } else if (command == "--help" || command == "-h") {
+        print_usage(argv[0]);
+        return 0;
+    }
+
+    // Parse command with short options
+    if (command == "run" || command == "-r") {
+        compile_only = false;
+    } else if (command == "compile" || command == "-c") {
+        compile_only = true;
+    } else {
+        // Backward compatibility: assume 'run' if no command
+        compile_only = false;
+        arg_start = 1;
+    }
+
+    // Check for command-specific help
+    if (argc > 2 &&
+        (std::string(argv[2]) == "--help" || std::string(argv[2]) == "-h")) {
+        if (compile_only) {
+            print_compile_help(argv[0]);
+        } else {
+            print_run_help(argv[0]);
+        }
+        return 0;
+    }
+
+    // Parse arguments
     std::string filename;
+    std::string output_file;
     debug_mode = false;
     debug_language = DebugLanguage::ENGLISH;
     bool enable_preprocessor = true;
-    bool compile_only = false; // v0.14.0: コンパイルのみモード
     PreprocessorNS::Preprocessor preprocessor;
 
-    for (int i = 1; i < argc; ++i) {
-        if (std::string(argv[i]) == "--debug" || std::string(argv[i]) == "-d") {
+    for (int i = arg_start; i < argc; ++i) {
+        std::string arg = argv[i];
+
+        if (arg == "--debug" || arg == "-d") {
             debug_mode = true;
             debug_language = DebugLanguage::ENGLISH;
-        } else if (std::string(argv[i]) == "--debug-ja") {
+        } else if (arg == "--debug-ja") {
             debug_mode = true;
             debug_language = DebugLanguage::JAPANESE;
-        } else if (std::string(argv[i]) == "-c" ||
-                   std::string(argv[i]) == "--compile") {
-            // v0.14.0: コンパイルのみモード（IR生成して終了）
-            compile_only = true;
-        } else if (std::string(argv[i]) == "--no-preprocess") {
+        } else if (arg == "--no-preprocess") {
             enable_preprocessor = false;
-        } else if (std::string(argv[i]).substr(0, 2) == "-D") {
-            // -Dマクロ定義（例: -DDEBUG, -DVERSION=123）
-            std::string define_str = std::string(argv[i]).substr(2);
+        } else if (arg == "-o") {
+            if (i + 1 < argc) {
+                output_file = argv[++i];
+            } else {
+                std::cerr << "Error: -o requires an output filename\n";
+                return 1;
+            }
+        } else if (arg.substr(0, 2) == "-D") {
+            std::string define_str = arg.substr(2);
             size_t eq_pos = define_str.find('=');
             if (eq_pos != std::string::npos) {
                 std::string name = define_str.substr(0, eq_pos);
@@ -73,13 +108,18 @@ int main(int argc, char **argv) {
             } else {
                 preprocessor.define(define_str, "1");
             }
+        } else if (arg[0] != '-') {
+            filename = arg;
         } else {
-            filename = argv[i];
+            std::cerr << "Error: Unknown option '" << arg << "'\n";
+            print_usage(argv[0]);
+            return 1;
         }
     }
 
     if (filename.empty()) {
-        std::fprintf(stderr, "Error: No input file specified\n");
+        std::cerr << "Error: No input file specified\n";
+        print_usage(argv[0]);
         return 1;
     }
 
@@ -166,37 +206,50 @@ int main(int argc, char **argv) {
             cb::codegen::HIRToCpp transpiler;
             std::string cpp_code = transpiler.generate(*hir_program);
 
+            // tmpディレクトリを作成
+            system("mkdir -p ./tmp");
+
             // 一時C++ファイルに保存
             std::string temp_cpp =
-                "/tmp/cb_compiled_" + std::to_string(getpid()) + ".cpp";
+                "./tmp/cb_compiled_" + std::to_string(getpid()) + ".cpp";
             std::ofstream cpp_out(temp_cpp);
             cpp_out << cpp_code;
             cpp_out.close();
 
-            std::cout << "C++ code generated: " << temp_cpp << std::endl;
-
-            // デバッグモードの場合、C++コードを保存
             if (debug_mode) {
-                std::string debug_cpp = filename + ".generated.cpp";
+                std::cout << "C++ code generated: " << temp_cpp << std::endl;
+            }
+
+            // デバッグモードの場合、追加で読みやすい名前でも保存
+            if (debug_mode) {
+                // 入力ファイル名ベースの名前で保存
+                std::string base_name = filename;
+                size_t last_slash = base_name.find_last_of("/\\");
+                if (last_slash != std::string::npos) {
+                    base_name = base_name.substr(last_slash + 1);
+                }
+                size_t dot_pos = base_name.find_last_of('.');
+                if (dot_pos != std::string::npos) {
+                    base_name = base_name.substr(0, dot_pos);
+                }
+
+                std::string debug_cpp = "./tmp/" + base_name + ".generated.cpp";
                 std::ofstream debug_out(debug_cpp);
                 debug_out << cpp_code;
                 debug_out.close();
-                std::cout << "Debug: C++ code saved to " << debug_cpp
+                std::cout << "Debug: C++ code also saved to " << debug_cpp
                           << std::endl;
             }
 
             // 出力ファイル名を決定
-            std::string output_binary = filename;
-            size_t dot_pos = output_binary.find_last_of('.');
-            if (dot_pos != std::string::npos) {
-                output_binary = output_binary.substr(0, dot_pos);
-            }
-
-            // コマンドライン引数から出力ファイル名を取得
-            for (int i = 1; i < argc - 1; ++i) {
-                if (std::string(argv[i]) == "-o") {
-                    output_binary = argv[i + 1];
-                    break;
+            std::string output_binary;
+            if (!output_file.empty()) {
+                output_binary = output_file;
+            } else {
+                output_binary = filename;
+                size_t dot_pos = output_binary.find_last_of('.');
+                if (dot_pos != std::string::npos) {
+                    output_binary = output_binary.substr(0, dot_pos);
                 }
             }
 

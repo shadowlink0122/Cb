@@ -192,7 +192,7 @@ PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uar
 COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(COMMON_DIR)/ast.o $(PLATFORM_OBJS)
 
 # 実行ファイル
-MAIN_TARGET=main
+MAIN_TARGET=cb
 CGEN_TARGET=cgen_main
 
 # OSごとのライブラリ拡張子
@@ -217,7 +217,7 @@ endif
 FFI_LIBS=$(STDLIB_FOREIGN_DIR)/libcppexample.$(LIB_EXT) \
          $(STDLIB_FOREIGN_DIR)/libadvanced.$(LIB_EXT)
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose hir-integration-test integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version ffi-libs clean-ffi test-ffi
+.PHONY: all clean lint fmt unit-test integration-test integration-test-interpreter integration-test-compiler integration-test-verbose hir-integration-test integration-test-old test test-interpreter test-compiler test-all debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version ffi-libs clean-ffi test-ffi stdlib-test stdlib-cpp-test stdlib-cb-test stdlib-cb-test-interpreter stdlib-cb-test-compiler
 
 all: setup-dirs $(MAIN_TARGET) ffi-libs
 
@@ -353,14 +353,31 @@ unit-test: $(TESTS_DIR)/unit/test_main
 $(TESTS_DIR)/integration/test_main: $(TESTS_DIR)/integration/main.cpp $(MAIN_TARGET)
 	@cd tests/integration && $(CC) $(CFLAGS) -I. -o test_main main.cpp
 
-integration-test: $(TESTS_DIR)/integration/test_main
+# Integration test - Interpreter mode only
+integration-test-interpreter: $(TESTS_DIR)/integration/test_main
 	@echo "============================================================="
-	@echo "Running Cb Integration Test Suite"
+	@echo "Running Cb Integration Test Suite (INTERPRETER MODE)"
 	@echo "============================================================="
-	@bash -c "set -o pipefail; cd tests/integration && ./test_main 2>&1 | tee /tmp/cb_integration_raw.log | fold -s -w 80"; \
-	if grep -q "^Failed: [1-9]" /tmp/cb_integration_raw.log; then \
+	@bash -c "set -o pipefail; cd tests/integration && ./test_main 2>&1 | tee /tmp/cb_integration_interpreter.log | fold -s -w 80"; \
+	if grep -q "^Failed: [1-9]" /tmp/cb_integration_interpreter.log; then \
 		exit 1; \
 	fi
+
+# Integration test - Compiler mode only
+integration-test-compiler: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Cb Integration Test Suite (COMPILER MODE)"
+	@echo "============================================================="
+	@echo "Testing all integration test cases via compilation..."
+	@bash tests/integration/run_compiler_tests.sh 2>&1 | tee /tmp/cb_integration_compiler.log | fold -s -w 80; \
+	if grep -q "FAILED" /tmp/cb_integration_compiler.log; then \
+		exit 1; \
+	fi
+
+# Integration test - Both modes (default)
+integration-test: integration-test-interpreter integration-test-compiler
+	@echo ""
+	@echo "✅ Integration tests completed for both INTERPRETER and COMPILER modes"
 
 # より詳細な出力が必要な場合の統合テスト（フル出力）
 integration-test-verbose: $(TESTS_DIR)/integration/test_main
@@ -390,13 +407,28 @@ stdlib-cpp-test: $(TESTS_DIR)/stdlib/test_main
 	@echo "============================================================="
 	@cd tests/stdlib && ./test_main
 
-# Stdlib tests (Cb language tests) - 1つのファイルで全テスト実行
-stdlib-cb-test: $(MAIN_TARGET)
+# Stdlib tests (Cb language tests) - Interpreter mode
+stdlib-cb-test-interpreter: $(MAIN_TARGET)
 	@echo "============================================================="
-	@echo "[2/4] Running Standard Library Tests (Cb Language)"
+	@echo "Running Standard Library Tests (Cb Language - INTERPRETER)"
 	@echo "Testing stdlib modules written in Cb"
 	@echo "============================================================="
-	@./$(MAIN_TARGET) tests/cases/stdlib/test_stdlib_all.cb || exit 1
+	@./$(MAIN_TARGET) run tests/cases/stdlib/test_stdlib_all.cb || exit 1
+
+# Stdlib tests (Cb language tests) - Compiler mode
+stdlib-cb-test-compiler: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Standard Library Tests (Cb Language - COMPILER)"
+	@echo "Testing stdlib modules written in Cb"
+	@echo "============================================================="
+	@./$(MAIN_TARGET) compile tests/cases/stdlib/test_stdlib_all.cb -o /tmp/cb_stdlib_test && \
+	/tmp/cb_stdlib_test && \
+	rm -f /tmp/cb_stdlib_test || exit 1
+
+# Stdlib tests (Cb language tests) - Both modes
+stdlib-cb-test: stdlib-cb-test-interpreter stdlib-cb-test-compiler
+	@echo ""
+	@echo "✅ Stdlib Cb tests completed for both INTERPRETER and COMPILER modes"
 
 # Run both C++ and Cb stdlib tests
 stdlib-test:
