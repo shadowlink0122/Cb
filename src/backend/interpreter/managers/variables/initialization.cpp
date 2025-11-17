@@ -11,6 +11,7 @@
 #include "managers/variables/manager.h"
 #include <algorithm>
 #include <cstdio>
+#include <inttypes.h>
 #include <numeric>
 #include <utility>
 
@@ -321,7 +322,8 @@ void VariableManager::assign_union_value(Variable &var,
                     char dbg_buf[512];
                     snprintf(
                         dbg_buf, sizeof(dbg_buf),
-                        "UNION_DEBUG: Assigned %s value %lld to union variable",
+                        "UNION_DEBUG: Assigned %s value %" PRId64
+                        " to union variable",
                         (var.current_type == TYPE_CHAR ? "char" : "integer"),
                         int_value);
                     debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);

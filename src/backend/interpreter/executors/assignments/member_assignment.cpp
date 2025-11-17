@@ -8,6 +8,7 @@
 #include "managers/variables/manager.h"
 #include "recursive_member_resolver.h"
 #include <cstring> // for strdup
+#include <inttypes.h>
 
 namespace AssignmentHandlers {
 
@@ -257,7 +258,7 @@ void execute_member_assignment(StatementExecutor *executor,
         {
             char dbg_buf[512];
             snprintf(dbg_buf, sizeof(dbg_buf),
-                     "DEBUG: Nested member assignment completed: %s = %lld",
+                     "DEBUG: Nested member assignment completed: %s = %" PRId64,
                      final_member.c_str(), member_ref.value);
             debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
         }
@@ -304,7 +305,7 @@ void execute_member_assignment(StatementExecutor *executor,
                 {
                     char dbg_buf[512];
                     snprintf(dbg_buf, sizeof(dbg_buf),
-                             "DEBUG: Synced individual variable: %s = %lld",
+                             "DEBUG: Synced individual variable: %s = %" PRId64,
                              full_member_path.c_str(), individual_var->value);
                     debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
                 }

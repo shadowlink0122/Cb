@@ -874,17 +874,6 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
                             bool expected_return_unsigned =
                                 interface_method.return_is_unsigned;
 
-                            TypeInfo actual_return_type_info = TYPE_UNKNOWN;
-                            if (!method_impl->return_types.empty()) {
-                                actual_return_type_info =
-                                    method_impl->return_types[0];
-                            } else {
-                                actual_return_type_info =
-                                    parser_->getTypeInfoFromString(return_type);
-                            }
-                            bool actual_return_unsigned =
-                                method_impl->is_unsigned;
-
                             // v0.13.0 Phase 2.0: asyncフラグのチェック
                             bool expected_is_async = interface_method.is_async;
                             bool actual_is_async = method_impl->is_async;

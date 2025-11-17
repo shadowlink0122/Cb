@@ -3,6 +3,7 @@
 
 #include "../debug.h"
 #include "../debug_messages.h"
+#include <vector>
 
 namespace DebugMessages {
 namespace AST {
