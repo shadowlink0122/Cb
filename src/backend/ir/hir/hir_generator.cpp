@@ -1786,7 +1786,7 @@ HIRType HIRGenerator::convert_array_type(const ArrayTypeInfo &array_info) {
         *hir_type.inner_type = convert_type(array_info.base_type);
     }
 
-    // 配列サイズ（1次元目のみ対応）
+    // 多次元配列のサポート
     if (!array_info.dimensions.empty()) {
         const auto &first_dim = array_info.dimensions[0];
         if (!first_dim.is_dynamic && first_dim.size > 0) {
@@ -1799,12 +1799,27 @@ HIRType HIRGenerator::convert_array_type(const ArrayTypeInfo &array_info) {
             hir_type.name = first_dim.size_expr; // Store size expression
         }
 
+        // 2次元目以降を処理（再帰的にinner_typeを配列型にする）
+        if (array_info.dimensions.size() > 1) {
+            // 残りの次元で新しいArrayTypeInfoを作成
+            ArrayTypeInfo inner_array_info;
+            inner_array_info.base_type = array_info.base_type;
+            inner_array_info.dimensions.assign(
+                array_info.dimensions.begin() + 1, array_info.dimensions.end());
+
+            // 既存のinner_typeを置き換え
+            hir_type.inner_type = std::make_unique<HIRType>();
+            *hir_type.inner_type = convert_array_type(inner_array_info);
+        }
+
         if (debug_mode) {
             std::cerr << "[HIR_ARRAY_TYPE] is_dynamic=" << first_dim.is_dynamic
                       << ", size=" << first_dim.size
                       << ", size_expr=" << first_dim.size_expr
                       << ", array_size=" << hir_type.array_size
-                      << ", name=" << hir_type.name << std::endl;
+                      << ", name=" << hir_type.name
+                      << ", dimensions=" << array_info.dimensions.size()
+                      << std::endl;
         }
     }
 

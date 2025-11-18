@@ -171,6 +171,43 @@ std::string HIRToCpp::add_hir_prefix(const std::string &name) {
     return "CB_HIR_" + name;
 }
 
+// 多次元配列のベース型と次元を取得
+void HIRToCpp::get_array_base_type_and_dimensions(
+    const HIRType &type, const HIRType **base_type,
+    std::vector<int> &dimensions) {
+    if (type.kind == HIRType::TypeKind::Array) {
+        dimensions.push_back(type.array_size);
+        if (type.inner_type &&
+            type.inner_type->kind == HIRType::TypeKind::Array) {
+            // 再帰的に内側の配列を処理
+            get_array_base_type_and_dimensions(*type.inner_type, base_type,
+                                               dimensions);
+        } else if (type.inner_type) {
+            *base_type = type.inner_type.get();
+        }
+    } else {
+        *base_type = &type;
+    }
+}
+
+// 多次元配列の次元文字列を生成（例: "[2][3][4]"）
+std::string HIRToCpp::generate_array_dimensions(const HIRType &type) {
+    const HIRType *base_type = nullptr;
+    std::vector<int> dimensions;
+    get_array_base_type_and_dimensions(type, &base_type, dimensions);
+
+    std::string result;
+    for (int dim : dimensions) {
+        if (dim > 0) {
+            result += "[" + std::to_string(dim) + "]";
+        } else if (dim == -1) {
+            // VLA - use the name stored in the type
+            result += "[" + add_hir_prefix(type.name) + "]";
+        }
+    }
+    return result;
+}
+
 // === トップレベル定義の生成 ===
 
 void HIRToCpp::generate_imports(const HIRProgram &program) {
@@ -212,7 +249,8 @@ void HIRToCpp::generate_foreign_functions(
     for (const auto &ffi : foreign_funcs) {
         emit_indent();
         emit(generate_type(ffi.return_type));
-        emit(" " + ffi.function_name + "(");
+        // FFI関数にプレフィックスを追加して衝突を回避
+        emit(" CB_FFI_" + ffi.module_name + "_" + ffi.function_name + "(");
 
         for (size_t i = 0; i < ffi.parameters.size(); i++) {
             if (i > 0)
@@ -247,7 +285,9 @@ void HIRToCpp::generate_foreign_functions(
             emit(" " + param.name);
         }
 
-        emit(") { return " + ffi.function_name + "(");
+        // ラッパーはCB_FFI_付きの関数を呼び出す
+        emit(") { return CB_FFI_" + ffi.module_name + "_" + ffi.function_name +
+             "(");
 
         for (size_t i = 0; i < ffi.parameters.size(); i++) {
             if (i > 0)
@@ -895,18 +935,49 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
         emit("const ");
     }
 
-    // Special handling for variable-length arrays (VLA)
+    // Special handling for arrays (including multidimensional)
     if (stmt.var_type.kind == HIRType::TypeKind::Array) {
-        if (stmt.var_type.array_size == -1 && !stmt.var_type.name.empty()) {
+        // Get base type and all dimensions
+        const HIRType *base_type = nullptr;
+        std::vector<int> dimensions;
+        get_array_base_type_and_dimensions(stmt.var_type, &base_type,
+                                           dimensions);
+
+        // Check if we're in a function that returns an array
+        // OR if initializer is a function call that returns array
+        bool use_std_array =
+            (current_function_return_type.kind == HIRType::TypeKind::Array) ||
+            (stmt.init_expr &&
+             stmt.init_expr->kind == HIRExpr::ExprKind::FunctionCall);
+
+        if (!dimensions.empty() && dimensions[0] > 0 && !use_std_array) {
+            // Fixed-size C array (possibly multidimensional)
+            // Example: int[2][3] arr -> int arr[2][3]
+            if (base_type) {
+                emit(generate_type(*base_type));
+            } else {
+                emit("int"); // fallback
+            }
+            emit(" " + add_hir_prefix(stmt.var_name));
+            // Add all dimensions
+            for (int dim : dimensions) {
+                emit("[" + std::to_string(dim) + "]");
+            }
+        } else if (use_std_array && !dimensions.empty() && dimensions[0] > 0) {
+            // Use std::array when in a function returning array or initialized
+            // by function call
+            emit(generate_type(stmt.var_type));
+            emit(" " + add_hir_prefix(stmt.var_name));
+        } else if (stmt.var_type.array_size == -1 &&
+                   !stmt.var_type.name.empty()) {
             // VLA: int[size] -> int array_name[size_expr]
-            emit(generate_type(*stmt.var_type.inner_type));
+            if (stmt.var_type.inner_type) {
+                emit(generate_type(*stmt.var_type.inner_type));
+            } else {
+                emit("int"); // fallback
+            }
             emit(" " + add_hir_prefix(stmt.var_name));
             emit("[" + add_hir_prefix(stmt.var_type.name) + "]");
-        } else if (stmt.var_type.array_size > 0) {
-            // Fixed-size array: int[5] -> int array_name[5]
-            emit(generate_type(*stmt.var_type.inner_type));
-            emit(" " + add_hir_prefix(stmt.var_name));
-            emit("[" + std::to_string(stmt.var_type.array_size) + "]");
         } else {
             // Dynamic array without size - use std::vector
             emit(generate_type(stmt.var_type));
@@ -1504,7 +1575,19 @@ std::string HIRToCpp::generate_function_call(const HIRExpr &expr) {
         return result;
     }
 
-    std::string result = add_hir_prefix(expr.func_name);
+    // FFI関数呼び出しの処理（module.function形式）
+    std::string func_name = expr.func_name;
+    if (func_name.find('.') != std::string::npos) {
+        // module.function -> module_function (ラッパー関数を使用)
+        size_t dot_pos = func_name.find('.');
+        std::string module = func_name.substr(0, dot_pos);
+        std::string function = func_name.substr(dot_pos + 1);
+        func_name = module + "_" + function;
+    } else {
+        func_name = add_hir_prefix(func_name);
+    }
+
+    std::string result = func_name;
 
     // CB_HIR_array_getの場合、ジェネリック型パラメータを明示的に指定
     if (expr.func_name == "array_get" && !current_generic_params.empty()) {
@@ -1524,6 +1607,28 @@ std::string HIRToCpp::generate_function_call(const HIRExpr &expr) {
 }
 
 std::string HIRToCpp::generate_method_call(const HIRExpr &expr) {
+    // FFI module call check: module.function(args)
+    // If receiver is a simple variable (module name), treat as FFI call
+    if (expr.receiver && expr.receiver->kind == HIRExpr::ExprKind::Variable) {
+        // Check if this looks like an FFI call (receiver is module name)
+        // FFI modules are typically short lowercase names like 'm', 'c', etc.
+        std::string receiver_name = expr.receiver->var_name;
+
+        // If the receiver is not prefixed and looks like a module name,
+        // treat as FFI call: module.function -> module_function
+        if (receiver_name.find("CB_HIR_") == std::string::npos &&
+            receiver_name.length() <= 3) { // Short names like 'm', 'c', 'io'
+            std::string result = receiver_name + "_" + expr.method_name + "(";
+            for (size_t i = 0; i < expr.arguments.size(); i++) {
+                if (i > 0)
+                    result += ", ";
+                result += generate_expr(expr.arguments[i]);
+            }
+            result += ")";
+            return result;
+        }
+    }
+
     // Determine if we should use -> or .
     bool use_arrow = expr.is_arrow ||
                      (expr.receiver &&

@@ -119,6 +119,12 @@ class HIRToCpp {
                         const std::vector<ir::hir::HIRType> &generic_args);
     std::string add_hir_prefix(
         const std::string &name); // v0.14.0: HIR変数名にプレフィックス追加
+
+    // Helper for multidimensional arrays
+    std::string generate_array_dimensions(const ir::hir::HIRType &type);
+    void get_array_base_type_and_dimensions(const ir::hir::HIRType &type,
+                                            const ir::hir::HIRType **base_type,
+                                            std::vector<int> &dimensions);
 };
 
 } // namespace codegen
