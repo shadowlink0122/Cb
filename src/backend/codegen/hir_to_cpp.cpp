@@ -76,6 +76,16 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     emit_line("    return ((T*)ptr)[index];");
     emit_line("}");
     emit_line("");
+    emit_line("// Helper for string interpolation - converts value to string");
+    emit_line("template<typename T>");
+    emit_line("std::string CB_HIR_to_string_helper(const T& value) {");
+    emit_line("    if constexpr (std::is_same_v<T, std::string>) {");
+    emit_line("        return value;");
+    emit_line("    } else {");
+    emit_line("        return std::to_string(value);");
+    emit_line("    }");
+    emit_line("}");
+    emit_line("");
 
     // インポート処理
     generate_imports(program);
@@ -469,6 +479,43 @@ void HIRToCpp::generate_struct(const HIRStruct &struct_def) {
             emit(" " + field.name + ";\n");
         }
     }
+
+    // Add default constructor to initialize fields
+    emit_line("");
+    emit_line("// Default constructor");
+    emit_indent();
+    emit(struct_def.name + "() {");
+    if (!struct_def.fields.empty()) {
+        emit("\n");
+        for (const auto &field : struct_def.fields) {
+            emit_indent();
+            emit_indent();
+            emit(field.name + " = ");
+            // Initialize based on type
+            if (field.type.kind == HIRType::TypeKind::Pointer ||
+                field.type.kind == HIRType::TypeKind::Nullptr) {
+                emit("nullptr");
+            } else if (field.type.kind == HIRType::TypeKind::Int ||
+                       field.type.kind == HIRType::TypeKind::Long ||
+                       field.type.kind == HIRType::TypeKind::Short ||
+                       field.type.kind == HIRType::TypeKind::Tiny) {
+                emit("0");
+            } else if (field.type.kind == HIRType::TypeKind::Float ||
+                       field.type.kind == HIRType::TypeKind::Double) {
+                emit("0.0");
+            } else if (field.type.kind == HIRType::TypeKind::Bool) {
+                emit("false");
+            } else if (field.type.kind == HIRType::TypeKind::String) {
+                emit("\"\"");
+            } else {
+                // For structs and other types, use default initialization
+                emit("{}");
+            }
+            emit(";\n");
+        }
+        emit_indent();
+    }
+    emit("}\n");
 
     // Add method declarations from impls
     std::set<std::string>
@@ -869,6 +916,10 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
         }
 
         emit(init_expr_str);
+    } else {
+        // No initializer - use default initialization {}
+        // This ensures zero-initialization for built-in types
+        emit("{}");
     }
 
     emit(";\n");
@@ -885,7 +936,7 @@ void HIRToCpp::generate_assignment(const HIRStmt &stmt) {
 void HIRToCpp::generate_if(const HIRStmt &stmt) {
     emit_indent();
     emit("if (");
-    emit(generate_expr(*stmt.condition));
+    emit(remove_outer_parens(generate_expr(*stmt.condition)));
     emit(") {\n");
 
     increase_indent();
@@ -907,7 +958,7 @@ void HIRToCpp::generate_if(const HIRStmt &stmt) {
 void HIRToCpp::generate_while(const HIRStmt &stmt) {
     emit_indent();
     emit("while (");
-    emit(generate_expr(*stmt.condition));
+    emit(remove_outer_parens(generate_expr(*stmt.condition)));
     emit(") {\n");
 
     increase_indent();
@@ -951,7 +1002,7 @@ void HIRToCpp::generate_for(const HIRStmt &stmt) {
 
     // condition
     if (stmt.condition) {
-        emit(generate_expr(*stmt.condition));
+        emit(remove_outer_parens(generate_expr(*stmt.condition)));
     }
     emit("; ");
 
@@ -1221,48 +1272,91 @@ std::string HIRToCpp::generate_variable(const HIRExpr &expr) {
 std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
     // ポインタ演算の特殊処理: + or - は全てchar*経由で行う（void*対応のため）
     // 型情報が不完全な場合があるため、全ての+/-に適用
+    // ポインタ演算の特別処理
     if ((expr.op == "+" || expr.op == "-") && expr.left && expr.right) {
-        // 右辺が数値リテラルっぽい場合はポインタ演算と判断
-        // （完全な判定は難しいが、sizeof等の結果もカバーするため広めに適用）
-        std::string left_expr = generate_expr(*expr.left);
-        std::string right_expr = generate_expr(*expr.right);
+        // 型情報ベースの判定を最優先
+        bool is_pointer_arithmetic = false;
 
-        // sizeやcountなどの単純な整数変数は除外（ただしキャストが含まれる場合は除外しない）
-        bool has_cast = (left_expr.find("(void*)") != std::string::npos ||
-                         left_expr.find("(char*)") != std::string::npos ||
-                         left_expr.find("static_cast") != std::string::npos);
-        bool is_simple_int_var =
-            !has_cast && (left_expr.find("_size") != std::string::npos ||
-                          left_expr.find("_count") != std::string::npos ||
-                          left_expr.find("sizeof") != std::string::npos);
+        // 1. 左辺の型情報が利用可能な場合
+        if (expr.left->type.kind == HIRType::TypeKind::Pointer) {
+            is_pointer_arithmetic = true;
+        }
+        // 2. MemberAccessの場合、型をチェック
+        else if (expr.left->kind == HIRExpr::ExprKind::MemberAccess) {
+            if (expr.left->type.kind == HIRType::TypeKind::Pointer) {
+                is_pointer_arithmetic = true;
+            }
+        }
 
-        if (!is_simple_int_var) {
-            // leftに ptr, node, current などポインタ関連の名前が含まれる場合
-            // または既にvoid*キャストが含まれる場合（ネストされた演算）
-            bool looks_like_pointer =
-                (left_expr.find("_ptr") != std::string::npos &&
-                 left_expr.find("ptr_") == std::string::npos) ||
-                (left_expr.find("_node") != std::string::npos &&
-                 left_expr.find("node_") == std::string::npos) ||
-                (left_expr.find("_array") != std::string::npos &&
-                 left_expr.find("array_") == std::string::npos) ||
-                left_expr.find("CB_HIR_current") != std::string::npos ||
-                left_expr.find("front") != std::string::npos ||
-                left_expr.find("back") != std::string::npos ||
-                left_expr.find("malloc") != std::string::npos ||
-                // 既にラップされたポインタ式を検出
-                (left_expr.find("(void*)") != std::string::npos &&
-                 left_expr.find("(char*)") != std::string::npos);
+        // 3. 型情報が不十分な場合、名前ベースのヒューリスティック
+        if (!is_pointer_arithmetic) {
+            std::string left_expr_str = generate_expr(*expr.left);
 
-            if (looks_like_pointer) {
-                // ポインタ演算として処理
+            // 関数呼び出しを最初にチェック（最優先で除外）
+            // 括弧があればほぼ関数呼び出し（malloc以外）
+            bool has_paren = left_expr_str.find("(") != std::string::npos;
+            bool is_malloc = left_expr_str.find("malloc") != std::string::npos;
+            bool is_explicit_cast =
+                left_expr_str.find("(void*)") != std::string::npos ||
+                left_expr_str.find("(char*)") != std::string::npos ||
+                left_expr_str.find("(int)") != std::string::npos;
+
+            if (has_paren && !is_malloc && !is_explicit_cast) {
+                // 関数呼び出しまたは(*this)などの式
+                // ただし、.front/.backは明確にポインタメンバー
+                if (left_expr_str.find(".front") != std::string::npos ||
+                    left_expr_str.find(".back") != std::string::npos) {
+                    is_pointer_arithmetic = true;
+                } else {
+                    // 関数呼び出しの結果は整数として扱う
+                    is_pointer_arithmetic = false;
+                }
+            }
+            // mallocやキャストは明確なポインタ
+            else if (is_malloc || is_explicit_cast) {
+                is_pointer_arithmetic = true;
+            }
+            // _ptr, _node, _array などの命名規則
+            else if (left_expr_str.find("CB_HIR_current") !=
+                     std::string::npos) {
+                is_pointer_arithmetic = true;
+            } else if ((left_expr_str.find("_ptr") != std::string::npos &&
+                        left_expr_str.find("ptr_size") == std::string::npos) ||
+                       (left_expr_str.find("_node") != std::string::npos &&
+                        left_expr_str.find("node_count") ==
+                            std::string::npos) ||
+                       (left_expr_str.find("_array") != std::string::npos &&
+                        left_expr_str.find("array_size") ==
+                            std::string::npos)) {
+                is_pointer_arithmetic = true;
+            }
+            // .front, .back などのポインタメンバー（括弧なしの場合）
+            else if (left_expr_str.find(".front") != std::string::npos ||
+                     left_expr_str.find(".back") != std::string::npos) {
+                is_pointer_arithmetic = true;
+            }
+
+            if (is_pointer_arithmetic) {
+                // すでに生成した文字列を再利用
+                std::string right_expr = generate_expr(*expr.right);
                 std::string result = "((void*)((char*)";
-                result += left_expr;
+                result += left_expr_str;
                 result += " " + expr.op + " ";
                 result += right_expr;
                 result += "))";
                 return result;
             }
+        } else {
+            // 型情報から判定した場合は新たに生成
+            std::string left_expr = generate_expr(*expr.left);
+            std::string right_expr = generate_expr(*expr.right);
+
+            std::string result = "((void*)((char*)";
+            result += left_expr;
+            result += " " + expr.op + " ";
+            result += right_expr;
+            result += "))";
+            return result;
         }
     }
 
@@ -1682,6 +1776,28 @@ std::string HIRToCpp::escape_string(const std::string &str) {
         }
     }
     return result;
+}
+
+std::string HIRToCpp::remove_outer_parens(const std::string &expr) {
+    // Remove outermost parentheses if they wrap the entire expression
+    if (expr.size() >= 2 && expr.front() == '(' && expr.back() == ')') {
+        // Check if these are matching outermost parentheses
+        int depth = 0;
+        for (size_t i = 0; i < expr.size() - 1; i++) {
+            if (expr[i] == '(')
+                depth++;
+            else if (expr[i] == ')') {
+                depth--;
+                if (depth == 0) {
+                    // Found closing paren before the end, not outermost
+                    return expr;
+                }
+            }
+        }
+        // These are outermost parentheses
+        return expr.substr(1, expr.size() - 2);
+    }
+    return expr;
 }
 
 std::string

@@ -29,8 +29,9 @@ class HIRToCpp {
         current_function_params;            // 現在の関数パラメータ
     bool current_function_is_async = false; // 現在の関数がasyncかどうか
     ir::hir::HIRType current_function_return_type; // 現在の関数の戻り値型
-    std::vector<std::string> current_generic_params; // 現在のジェネリック型パラメータ
-                                                     // (T, K, V, etc.)
+    std::vector<std::string>
+        current_generic_params; // 現在のジェネリック型パラメータ
+                                // (T, K, V, etc.)
 
     // ヘルパーメソッド
     void emit(const std::string &code);
@@ -110,6 +111,7 @@ class HIRToCpp {
 
     // ユーティリティ
     std::string escape_string(const std::string &str);
+    std::string remove_outer_parens(const std::string &expr);
     std::string
     mangle_generic_name(const std::string &base_name,
                         const std::vector<ir::hir::HIRType> &generic_args);

@@ -684,27 +684,27 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
     // v0.14.0: String interpolation support
     case ASTNodeType::AST_INTERPOLATED_STRING: {
         // 補間文字列は複数のセグメントを連結したBinaryOp(+)として変換
-        if (node->children.empty()) {
+        if (node->interpolation_segments.empty()) {
             expr.kind = HIRExpr::ExprKind::Literal;
             expr.literal_value = "";
             expr.literal_type = convert_type(TYPE_STRING);
             break;
         }
 
-        if (node->children.size() == 1) {
+        if (node->interpolation_segments.size() == 1) {
             // セグメントが1つだけの場合、そのまま返す
-            return convert_expr(node->children[0].get());
+            return convert_expr(node->interpolation_segments[0].get());
         }
 
         // 複数セグメントの場合、順次連結
-        auto result = convert_expr(node->children[0].get());
-        for (size_t i = 1; i < node->children.size(); i++) {
+        auto result = convert_expr(node->interpolation_segments[0].get());
+        for (size_t i = 1; i < node->interpolation_segments.size(); i++) {
             HIRExpr concat;
             concat.kind = HIRExpr::ExprKind::BinaryOp;
             concat.op = "+";
             concat.left = std::make_unique<HIRExpr>(std::move(result));
             concat.right = std::make_unique<HIRExpr>(
-                convert_expr(node->children[i].get()));
+                convert_expr(node->interpolation_segments[i].get()));
             result = std::move(concat);
         }
         return result;
@@ -712,13 +712,38 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
 
     case ASTNodeType::AST_STRING_INTERPOLATION_SEGMENT: {
         // セグメントは文字列リテラルまたは式
-        if (node->left) {
-            // 式セグメント - std::to_string()でラップ
-            expr.kind = HIRExpr::ExprKind::FunctionCall;
-            expr.func_name = "std::to_string";
-            expr.arguments.push_back(convert_expr(node->left.get()));
-        } else {
+        if (node->is_interpolation_expr && node->left) {
+            // 式セグメント - HIRに変換して型チェック
+            auto inner_expr = convert_expr(node->left.get());
+
+            // 内部式の型をチェック
+            bool is_string_type = false;
+            if (inner_expr.kind == HIRExpr::ExprKind::Variable) {
+                // 変数の型を推定（これは不完全なので、安全側に倒す）
+                is_string_type = false; // デフォルトではto_stringを使う
+            } else if (inner_expr.kind == HIRExpr::ExprKind::Literal) {
+                is_string_type =
+                    (inner_expr.literal_type.kind == HIRType::TypeKind::String);
+            }
+
+            if (is_string_type) {
+                // 既に文字列型の場合はそのまま返す
+                return inner_expr;
+            } else {
+                // 数値型などの場合はto_stringでラップするが、
+                // C++では+演算子がstringとの結合を自動処理するので
+                // 実際にはstd::to_stringヘルパー関数を使う
+                expr.kind = HIRExpr::ExprKind::FunctionCall;
+                expr.func_name = "CB_HIR_to_string_helper";
+                expr.arguments.push_back(std::move(inner_expr));
+            }
+        } else if (node->is_interpolation_text) {
             // 文字列リテラルセグメント
+            expr.kind = HIRExpr::ExprKind::Literal;
+            expr.literal_value = node->str_value;
+            expr.literal_type = convert_type(TYPE_STRING);
+        } else {
+            // Fallback: use str_value
             expr.kind = HIRExpr::ExprKind::Literal;
             expr.literal_value = node->str_value;
             expr.literal_type = convert_type(TYPE_STRING);
@@ -888,8 +913,58 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
         if (node->left) {
             expr.sizeof_expr =
                 std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+        } else if (node->sizeof_expr) {
+            expr.sizeof_expr = std::make_unique<HIRExpr>(
+                convert_expr(node->sizeof_expr.get()));
         } else {
-            expr.sizeof_type = convert_type(node->type_info, node->type_name);
+            // Use sizeof_type_name if available, fallback to type_name
+            std::string type_name_to_use = !node->sizeof_type_name.empty()
+                                               ? node->sizeof_type_name
+                                               : node->type_name;
+
+            // Check if this is a generic type parameter (single uppercase
+            // letter or known generic)
+            bool is_generic = false;
+            if (type_name_to_use.length() == 1 &&
+                std::isupper(type_name_to_use[0])) {
+                is_generic = true;
+            } else if (type_name_to_use == "T" || type_name_to_use == "K" ||
+                       type_name_to_use == "V" || type_name_to_use == "U" ||
+                       type_name_to_use == "E") {
+                is_generic = true;
+            }
+
+            // For sizeof, we want to preserve the exact type name from the
+            // source So we create a HIRType with the appropriate kind but keep
+            // the original name
+            if (is_generic) {
+                expr.sizeof_type = convert_type(TYPE_GENERIC, type_name_to_use);
+            } else {
+                // Determine type kind from type name for sizeof
+                TypeInfo inferred_type = TYPE_UNKNOWN;
+                if (type_name_to_use.find('*') != std::string::npos) {
+                    inferred_type = TYPE_POINTER;
+                } else if (type_name_to_use == "int") {
+                    inferred_type = TYPE_INT;
+                } else if (type_name_to_use == "void") {
+                    inferred_type = TYPE_VOID;
+                } else if (type_name_to_use == "long") {
+                    inferred_type = TYPE_LONG;
+                } else if (type_name_to_use == "char") {
+                    inferred_type = TYPE_CHAR;
+                } else if (type_name_to_use == "float") {
+                    inferred_type = TYPE_FLOAT;
+                } else if (type_name_to_use == "double") {
+                    inferred_type = TYPE_DOUBLE;
+                } else if (type_name_to_use == "bool") {
+                    inferred_type = TYPE_BOOL;
+                } else {
+                    // Assume it's a struct or unknown type, preserve the name
+                    inferred_type = TYPE_STRUCT;
+                }
+                expr.sizeof_type =
+                    convert_type(inferred_type, type_name_to_use);
+            }
         }
         break;
     }
