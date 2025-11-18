@@ -95,7 +95,8 @@ struct HIRExpr {
         New,         // new Type - メモリ確保
         Await,       // await expr - async/await
         PreIncDec,   // ++i, --i
-        PostIncDec   // i++, i--
+        PostIncDec,  // i++, i--
+        Range        // start...end - 範囲式
     };
 
     ExprKind kind;
@@ -172,6 +173,10 @@ struct HIRExpr {
     // new
     HIRType new_type;
     std::vector<HIRExpr> new_args; // コンストラクタ引数
+
+    // range (start...end)
+    std::unique_ptr<HIRExpr> range_start;
+    std::unique_ptr<HIRExpr> range_end;
 };
 
 // HIR文

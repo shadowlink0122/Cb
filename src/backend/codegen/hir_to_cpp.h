@@ -71,6 +71,8 @@ class HIRToCpp {
     void generate_return(const ir::hir::HIRStmt &stmt);
     void generate_block(const ir::hir::HIRStmt &stmt);
     void generate_switch(const ir::hir::HIRStmt &stmt);
+    void collect_or_values(const ir::hir::HIRExpr *expr,
+                           std::vector<const ir::hir::HIRExpr *> &values);
     void generate_defer(const ir::hir::HIRStmt &stmt);
     void generate_delete(const ir::hir::HIRStmt &stmt);
     void generate_try_catch(const ir::hir::HIRStmt &stmt);

@@ -758,6 +758,14 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
         break;
     }
 
+    // v0.14.0: enum値アクセス (EnumName::member)
+    case ASTNodeType::AST_ENUM_ACCESS: {
+        expr.kind = HIRExpr::ExprKind::Variable;
+        // EnumName::member 形式の変数名として扱う
+        expr.var_name = node->enum_name + "::" + node->enum_member;
+        break;
+    }
+
     case ASTNodeType::AST_BINARY_OP: {
         expr.kind = HIRExpr::ExprKind::BinaryOp;
         expr.op = node->op;
@@ -857,12 +865,28 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
 
     case ASTNodeType::AST_TERNARY_OP: {
         expr.kind = HIRExpr::ExprKind::Ternary;
+        // パーサーは left=condition, right=true_expr, third=false_expr
+        // として格納
         expr.condition =
-            std::make_unique<HIRExpr>(convert_expr(node->condition.get()));
-        expr.then_expr =
             std::make_unique<HIRExpr>(convert_expr(node->left.get()));
-        expr.else_expr =
+        expr.then_expr =
             std::make_unique<HIRExpr>(convert_expr(node->right.get()));
+        expr.else_expr =
+            std::make_unique<HIRExpr>(convert_expr(node->third.get()));
+        break;
+    }
+
+    // v0.14.0: 範囲式 (start...end)
+    case ASTNodeType::AST_RANGE_EXPR: {
+        expr.kind = HIRExpr::ExprKind::Range;
+        if (node->range_start) {
+            expr.range_start = std::make_unique<HIRExpr>(
+                convert_expr(node->range_start.get()));
+        }
+        if (node->range_end) {
+            expr.range_end =
+                std::make_unique<HIRExpr>(convert_expr(node->range_end.get()));
+        }
         break;
     }
 
@@ -880,7 +904,9 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
 
     case ASTNodeType::AST_ARRAY_LITERAL: {
         expr.kind = HIRExpr::ExprKind::ArrayLiteral;
-        for (const auto &element : node->children) {
+        // Array literal elements are stored in the arguments field, not
+        // children
+        for (const auto &element : node->arguments) {
             expr.array_elements.push_back(convert_expr(element.get()));
         }
         break;
@@ -1130,6 +1156,32 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
         break;
     }
 
+    case ASTNodeType::AST_ARRAY_DECL: {
+        stmt.kind = HIRStmt::StmtKind::VarDecl;
+        stmt.var_name = node->name;
+
+        // Use array_type_info if available
+        if (node->array_type_info.is_array()) {
+            stmt.var_type = convert_array_type(node->array_type_info);
+        } else {
+            stmt.var_type = convert_type(node->type_info, node->type_name);
+        }
+
+        stmt.is_const = node->is_const;
+        if (debug_mode) {
+            DEBUG_PRINT(DebugMsgId::HIR_STMT_VAR_DECL, node->name.c_str());
+        }
+        // Array initialization
+        if (node->init_expr) {
+            stmt.init_expr =
+                std::make_unique<HIRExpr>(convert_expr(node->init_expr.get()));
+        } else if (node->right) {
+            stmt.init_expr =
+                std::make_unique<HIRExpr>(convert_expr(node->right.get()));
+        }
+        break;
+    }
+
     case ASTNodeType::AST_ASSIGN: {
         stmt.kind = HIRStmt::StmtKind::Assignment;
 
@@ -1334,21 +1386,54 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
 
     case ASTNodeType::AST_SWITCH_STMT: {
         stmt.kind = HIRStmt::StmtKind::Switch;
+        // パーサーは switch_expr フィールドを使用
         stmt.switch_expr =
-            std::make_unique<HIRExpr>(convert_expr(node->condition.get()));
+            std::make_unique<HIRExpr>(convert_expr(node->switch_expr.get()));
 
         // caseの変換 (ASTの構造に合わせて修正)
         for (const auto &case_node : node->cases) {
-            HIRStmt::SwitchCase hir_case;
-            // case_valuesの最初の値を使用（複数値は将来対応）
-            if (!case_node->case_values.empty() && case_node->case_values[0]) {
-                hir_case.case_value = std::make_unique<HIRExpr>(
-                    convert_expr(case_node->case_values[0].get()));
+            // v0.14.0:
+            // case_valuesが複数ある場合（OR結合）、各値ごとにHIRCaseを生成
+            if (!case_node->case_values.empty()) {
+                // 最初のcase_valueを使用してHIRCaseを作成
+                HIRStmt::SwitchCase hir_case;
+                if (case_node->case_values[0]) {
+                    hir_case.case_value = std::make_unique<HIRExpr>(
+                        convert_expr(case_node->case_values[0].get()));
+                }
+                // case_bodyを設定
+                if (case_node->case_body &&
+                    !case_node->case_body->statements.empty()) {
+                    for (const auto &case_stmt :
+                         case_node->case_body->statements) {
+                        hir_case.case_body.push_back(
+                            convert_stmt(case_stmt.get()));
+                    }
+                }
+                stmt.switch_cases.push_back(std::move(hir_case));
+
+                // 2番目以降のcase_valuesがある場合、fall-throughケースとして追加
+                for (size_t i = 1; i < case_node->case_values.size(); i++) {
+                    if (case_node->case_values[i]) {
+                        HIRStmt::SwitchCase fallthrough_case;
+                        fallthrough_case.case_value = std::make_unique<HIRExpr>(
+                            convert_expr(case_node->case_values[i].get()));
+                        // bodyは空（fall-through）
+                        stmt.switch_cases.insert(stmt.switch_cases.end() - 1,
+                                                 std::move(fallthrough_case));
+                    }
+                }
             }
-            for (const auto &case_stmt : case_node->statements) {
-                hir_case.case_body.push_back(convert_stmt(case_stmt.get()));
+        }
+
+        // else節（defaultケース）の処理
+        if (node->else_body) {
+            HIRStmt::SwitchCase default_case;
+            // case_valueがnullptrの場合はdefault
+            for (const auto &else_stmt : node->else_body->statements) {
+                default_case.case_body.push_back(convert_stmt(else_stmt.get()));
             }
-            stmt.switch_cases.push_back(std::move(hir_case));
+            stmt.switch_cases.push_back(std::move(default_case));
         }
         break;
     }
@@ -1459,14 +1544,64 @@ HIRFunction HIRGenerator::convert_function(const ASTNode *node) {
             actual_return_type = TYPE_FLOAT;
         } else if (node->return_type_name == "double") {
             actual_return_type = TYPE_DOUBLE;
-        } else if (actual_return_type == TYPE_INT) {
-            // If type_info is INT but type_name is something else, it's likely
-            // a struct
-            actual_return_type = TYPE_STRUCT;
+        } else {
+            // v0.14.0: 配列型のチェック（"int[3]" のような形式）
+            if (node->return_type_name.find('[') != std::string::npos) {
+                // 配列型 - 直接ArrayTypeInfoを構築してconvert_array_typeを使用
+                size_t bracket_pos = node->return_type_name.find('[');
+                std::string element_type_name =
+                    node->return_type_name.substr(0, bracket_pos);
+                size_t close_bracket =
+                    node->return_type_name.find(']', bracket_pos);
+                int size = -1;
+                if (close_bracket != std::string::npos) {
+                    std::string size_str = node->return_type_name.substr(
+                        bracket_pos + 1, close_bracket - bracket_pos - 1);
+                    if (!size_str.empty()) {
+                        size = std::stoi(size_str);
+                    }
+                }
+
+                // ArrayTypeInfoを構築
+                ArrayTypeInfo array_info;
+                if (element_type_name == "int")
+                    array_info.base_type = TYPE_INT;
+                else if (element_type_name == "long")
+                    array_info.base_type = TYPE_LONG;
+                else if (element_type_name == "short")
+                    array_info.base_type = TYPE_SHORT;
+                else if (element_type_name == "tiny")
+                    array_info.base_type = TYPE_TINY;
+                else if (element_type_name == "char")
+                    array_info.base_type = TYPE_CHAR;
+                else if (element_type_name == "bool")
+                    array_info.base_type = TYPE_BOOL;
+                else if (element_type_name == "float")
+                    array_info.base_type = TYPE_FLOAT;
+                else if (element_type_name == "double")
+                    array_info.base_type = TYPE_DOUBLE;
+                else if (element_type_name == "string")
+                    array_info.base_type = TYPE_STRING;
+                else
+                    array_info.base_type = TYPE_STRUCT;
+
+                array_info.dimensions.push_back(ArrayDimension(size, false));
+                func.return_type = convert_array_type(array_info);
+                func.is_async = node->is_async;
+                func.is_exported = node->is_exported;
+
+                // Skip normal conversion
+                goto skip_normal_conversion;
+            } else if (actual_return_type == TYPE_INT) {
+                // If type_info is INT but type_name is something else, it's
+                // likely a struct
+                actual_return_type = TYPE_STRUCT;
+            }
         }
     }
 
     func.return_type = convert_type(actual_return_type, node->return_type_name);
+skip_normal_conversion:
     func.is_async = node->is_async;
     func.is_exported = node->is_exported;
 
@@ -1641,6 +1776,41 @@ HIRImpl HIRGenerator::convert_impl(const ASTNode *node) {
     return impl_def;
 }
 
+HIRType HIRGenerator::convert_array_type(const ArrayTypeInfo &array_info) {
+    HIRType hir_type;
+    hir_type.kind = HIRType::TypeKind::Array;
+
+    // 基底型を変換
+    if (array_info.base_type != TYPE_UNKNOWN) {
+        hir_type.inner_type = std::make_unique<HIRType>();
+        *hir_type.inner_type = convert_type(array_info.base_type);
+    }
+
+    // 配列サイズ（1次元目のみ対応）
+    if (!array_info.dimensions.empty()) {
+        const auto &first_dim = array_info.dimensions[0];
+        if (!first_dim.is_dynamic && first_dim.size > 0) {
+            hir_type.array_size = first_dim.size;
+        } else {
+            hir_type.array_size = -1; // Dynamic/VLA
+        }
+        // サイズ式を保存（変数参照の場合）
+        if (first_dim.is_dynamic && !first_dim.size_expr.empty()) {
+            hir_type.name = first_dim.size_expr; // Store size expression
+        }
+
+        if (debug_mode) {
+            std::cerr << "[HIR_ARRAY_TYPE] is_dynamic=" << first_dim.is_dynamic
+                      << ", size=" << first_dim.size
+                      << ", size_expr=" << first_dim.size_expr
+                      << ", array_size=" << hir_type.array_size
+                      << ", name=" << hir_type.name << std::endl;
+        }
+    }
+
+    return hir_type;
+}
+
 HIRType HIRGenerator::convert_type(TypeInfo type_info,
                                    const std::string &type_name) {
     HIRType hir_type;
@@ -1734,7 +1904,54 @@ HIRType HIRGenerator::convert_type(TypeInfo type_info,
         if (type_info >= TYPE_ARRAY_BASE) {
             hir_type.kind = HIRType::TypeKind::Array;
             hir_type.name = type_name;
-            // TODO: 配列の要素型とサイズの変換
+
+            // v0.14.0: 配列の要素型とサイズの変換
+            // type_nameは "int[3]" のような形式
+            if (!type_name.empty()) {
+                size_t bracket_pos = type_name.find('[');
+                if (bracket_pos != std::string::npos) {
+                    // 要素型の抽出
+                    std::string element_type_name =
+                        type_name.substr(0, bracket_pos);
+
+                    // サイズの抽出
+                    size_t close_bracket = type_name.find(']', bracket_pos);
+                    if (close_bracket != std::string::npos) {
+                        std::string size_str = type_name.substr(
+                            bracket_pos + 1, close_bracket - bracket_pos - 1);
+                        if (!size_str.empty()) {
+                            hir_type.array_size = std::stoi(size_str);
+                        }
+                    }
+
+                    // 要素型をHIRTypeとして設定
+                    hir_type.inner_type = std::make_unique<HIRType>();
+                    // 基本型の判定
+                    if (element_type_name == "int") {
+                        hir_type.inner_type->kind = HIRType::TypeKind::Int;
+                    } else if (element_type_name == "long") {
+                        hir_type.inner_type->kind = HIRType::TypeKind::Long;
+                    } else if (element_type_name == "short") {
+                        hir_type.inner_type->kind = HIRType::TypeKind::Short;
+                    } else if (element_type_name == "tiny") {
+                        hir_type.inner_type->kind = HIRType::TypeKind::Tiny;
+                    } else if (element_type_name == "char") {
+                        hir_type.inner_type->kind = HIRType::TypeKind::Char;
+                    } else if (element_type_name == "bool") {
+                        hir_type.inner_type->kind = HIRType::TypeKind::Bool;
+                    } else if (element_type_name == "float") {
+                        hir_type.inner_type->kind = HIRType::TypeKind::Float;
+                    } else if (element_type_name == "double") {
+                        hir_type.inner_type->kind = HIRType::TypeKind::Double;
+                    } else if (element_type_name == "string") {
+                        hir_type.inner_type->kind = HIRType::TypeKind::String;
+                    } else {
+                        // 構造体として扱う
+                        hir_type.inner_type->kind = HIRType::TypeKind::Struct;
+                        hir_type.inner_type->name = element_type_name;
+                    }
+                }
+            }
         } else {
             hir_type.kind = HIRType::TypeKind::Unknown;
         }

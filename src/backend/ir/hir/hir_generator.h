@@ -58,6 +58,9 @@ class HIRGenerator {
     hir::HIRType convert_type(TypeInfo type_info,
                               const std::string &type_name = "");
 
+    // 配列型情報の変換
+    hir::HIRType convert_array_type(const ArrayTypeInfo &array_info);
+
     // ソース位置情報の変換
     SourceLocation convert_location(const ::SourceLocation &ast_loc);
 

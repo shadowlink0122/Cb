@@ -623,7 +623,8 @@ void HIRToCpp::generate_struct(const HIRStruct &struct_def) {
 
 void HIRToCpp::generate_enum(const HIREnum &enum_def) {
     emit_line("// Enum: " + enum_def.name);
-    emit_line("enum class " + enum_def.name + " {");
+    // v0.14.0: unscopedなenumとして生成（intへの暗黙的変換を許可）
+    emit_line("enum " + enum_def.name + " {");
     increase_indent();
 
     for (size_t i = 0; i < enum_def.variants.size(); i++) {
@@ -893,8 +894,28 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
     if (stmt.is_const) {
         emit("const ");
     }
-    emit(generate_type(stmt.var_type));
-    emit(" " + add_hir_prefix(stmt.var_name));
+
+    // Special handling for variable-length arrays (VLA)
+    if (stmt.var_type.kind == HIRType::TypeKind::Array) {
+        if (stmt.var_type.array_size == -1 && !stmt.var_type.name.empty()) {
+            // VLA: int[size] -> int array_name[size_expr]
+            emit(generate_type(*stmt.var_type.inner_type));
+            emit(" " + add_hir_prefix(stmt.var_name));
+            emit("[" + add_hir_prefix(stmt.var_type.name) + "]");
+        } else if (stmt.var_type.array_size > 0) {
+            // Fixed-size array: int[5] -> int array_name[5]
+            emit(generate_type(*stmt.var_type.inner_type));
+            emit(" " + add_hir_prefix(stmt.var_name));
+            emit("[" + std::to_string(stmt.var_type.array_size) + "]");
+        } else {
+            // Dynamic array without size - use std::vector
+            emit(generate_type(stmt.var_type));
+            emit(" " + add_hir_prefix(stmt.var_name));
+        }
+    } else {
+        emit(generate_type(stmt.var_type));
+        emit(" " + add_hir_prefix(stmt.var_name));
+    }
 
     if (stmt.init_expr) {
         emit(" = ");
@@ -914,11 +935,20 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
             // void*からの変換が必要な場合、明示的にキャスト
             emit("(" + var_type_str + ")");
         }
+        // v0.14.0: enum型への代入で、初期化式が整数リテラルの場合はキャスト
+        else if (stmt.var_type.kind == HIRType::TypeKind::Enum &&
+                 stmt.init_expr->kind == HIRExpr::ExprKind::Literal) {
+            emit("static_cast<" + var_type_str + ">(");
+            emit(init_expr_str);
+            emit(")");
+            goto skip_normal_emit;
+        }
 
         emit(init_expr_str);
-    } else {
-        // No initializer - use default initialization {}
-        // This ensures zero-initialization for built-in types
+    skip_normal_emit:;
+    } else if (stmt.var_type.kind != HIRType::TypeKind::Array) {
+        // No initializer - use default initialization {} (only for non-arrays)
+        // Arrays with VLA or fixed size don't need initialization
         emit("{}");
     }
 
@@ -1125,6 +1155,22 @@ void HIRToCpp::generate_block(const HIRStmt &stmt) {
     }
 }
 
+// v0.14.0: OR式から値を再帰的に収集するヘルパー関数
+void HIRToCpp::collect_or_values(const HIRExpr *expr,
+                                 std::vector<const HIRExpr *> &values) {
+    if (!expr)
+        return;
+
+    // OR演算子の場合は再帰的に左右を収集
+    if (expr->kind == HIRExpr::ExprKind::BinaryOp && expr->op == "||") {
+        collect_or_values(expr->left.get(), values);
+        collect_or_values(expr->right.get(), values);
+    } else {
+        // OR演算子以外は値として追加
+        values.push_back(expr);
+    }
+}
+
 void HIRToCpp::generate_switch(const HIRStmt &stmt) {
     emit_indent();
     emit("switch (");
@@ -1135,10 +1181,42 @@ void HIRToCpp::generate_switch(const HIRStmt &stmt) {
 
     for (const auto &case_item : stmt.switch_cases) {
         if (case_item.case_value) {
-            emit_indent();
-            emit("case ");
-            emit(generate_expr(*case_item.case_value));
-            emit(":\n");
+            // v0.14.0: 範囲式の場合は複数のcaseラベルを生成
+            if (case_item.case_value->kind == HIRExpr::ExprKind::Range) {
+                // 範囲の開始と終了を取得（整数リテラルと仮定）
+                if (case_item.case_value->range_start &&
+                    case_item.case_value->range_end) {
+                    int start = std::stoi(
+                        case_item.case_value->range_start->literal_value);
+                    int end = std::stoi(
+                        case_item.case_value->range_end->literal_value);
+                    // 範囲の各値に対してcaseラベルを生成
+                    for (int i = start; i <= end; i++) {
+                        emit_indent();
+                        emit("case " + std::to_string(i) + ":\n");
+                    }
+                }
+            }
+            // v0.14.0: OR条件の場合は複数のcaseラベルを生成（ネスト対応）
+            else if (case_item.case_value->kind ==
+                         HIRExpr::ExprKind::BinaryOp &&
+                     case_item.case_value->op == "||") {
+                // OR式からすべての値を収集
+                std::vector<const HIRExpr *> or_values;
+                collect_or_values(case_item.case_value.get(), or_values);
+                // 各値に対してcaseラベルを生成
+                for (const auto *val : or_values) {
+                    emit_indent();
+                    emit("case ");
+                    emit(generate_expr(*val));
+                    emit(":\n");
+                }
+            } else {
+                emit_indent();
+                emit("case ");
+                emit(generate_expr(*case_item.case_value));
+                emit(":\n");
+            }
         } else {
             emit_line("default:");
         }
@@ -1147,7 +1225,10 @@ void HIRToCpp::generate_switch(const HIRStmt &stmt) {
         for (const auto &case_stmt : case_item.case_body) {
             generate_stmt(case_stmt);
         }
-        emit_line("break;");
+        // v0.14.0: bodyが空の場合はfall-throughなのでbreakを生成しない
+        if (!case_item.case_body.empty()) {
+            emit_line("break;");
+        }
         decrease_indent();
     }
 

@@ -1353,7 +1353,7 @@ ASTNode *StatementParser::parseArrayDeclaration(
                 dimensions.push_back(ArrayDimension(dim_size, false));
             } else {
                 // 変数または式なので動的サイズとしてマーク
-                dimensions.push_back(ArrayDimension(-1, true));
+                dimensions.push_back(ArrayDimension(-1, true, size));
             }
         } else {
             // 動的サイズ
