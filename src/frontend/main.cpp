@@ -188,8 +188,12 @@ int main(int argc, char **argv) {
                       << std::endl;
 
             // HIRGeneratorを使ってASTからHIRを生成
+            // パーサーの定義情報（インポートされたモジュールを含む）も渡す
             cb::ir::HIRGenerator hir_gen;
-            auto hir_program = hir_gen.generate(root->statements);
+            auto hir_program = hir_gen.generate_with_parser_definitions(
+                root->statements, parser.get_struct_definitions(),
+                parser.get_interface_definitions(),
+                parser.get_impl_definitions());
 
             if (!hir_program) {
                 std::cerr << "Error: HIR generation failed" << std::endl;

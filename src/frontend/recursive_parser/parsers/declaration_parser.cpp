@@ -359,7 +359,12 @@ ASTNode *DeclarationParser::parseFunctionDeclarationAfterName(
             // param->type_name = resolved_param_type;  //
             // この行をコメントアウト
 
-            if (resolved_param_type.find("[") != std::string::npos) {
+            // Use resolveParsedTypeInfo for better type resolution
+            TypeInfo resolved_type_info =
+                parser_->resolveParsedTypeInfo(param_parsed);
+            if (resolved_type_info != TYPE_UNKNOWN) {
+                param->type_info = resolved_type_info;
+            } else if (resolved_param_type.find("[") != std::string::npos) {
                 // 配列パラメータの場合
                 param->is_array = true;
                 std::string base_type = resolved_param_type.substr(

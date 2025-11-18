@@ -129,6 +129,532 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
     return program;
 }
 
+// Generate HIR including imported definitions from parser
+std::unique_ptr<HIRProgram> HIRGenerator::generate_with_parser_definitions(
+    const std::vector<std::unique_ptr<ASTNode>> &ast_nodes,
+    const std::unordered_map<std::string, StructDefinition> &struct_defs,
+    const std::unordered_map<std::string, InterfaceDefinition> &interface_defs,
+    const std::vector<ImplDefinition> &impl_defs) {
+
+    // First generate HIR from AST nodes
+    auto program = generate(ast_nodes);
+
+    if (!program) {
+        return nullptr;
+    }
+
+    // Now add structs from parser definitions (these include imported modules)
+    // Also補完 missing fields for structs from AST
+    for (const auto &pair : struct_defs) {
+        const StructDefinition &def = pair.second;
+
+        // Skip instantiated generic types (like "Vector<int>", "Map<int, int>")
+        // Only include the generic template itself (like "Vector", "Map")
+        // Instantiated types have '<' in their name
+        if (def.name.find('<') != std::string::npos) {
+            continue;
+        }
+
+        // Check if this struct is already in the program (from AST)
+        bool already_exists = false;
+        HIRStruct *existing_struct_ptr = nullptr;
+        for (auto &existing_struct : program->structs) {
+            if (existing_struct.name == def.name) {
+                already_exists = true;
+                existing_struct_ptr = &existing_struct;
+                break;
+            }
+        }
+
+        if (already_exists && existing_struct_ptr) {
+            // Struct exists in AST but may be missing fields
+            // Add fields from parser definition if not present
+            if (existing_struct_ptr->fields.empty() && !def.members.empty()) {
+                for (const auto &field : def.members) {
+                    HIRStruct::Field hir_field;
+                    hir_field.name = field.name;
+
+                    // Check if this field type is a generic parameter
+                    bool is_generic_param = false;
+                    if (!field.type_alias.empty() && def.is_generic) {
+                        for (const auto &param : def.type_parameters) {
+                            if (field.type_alias == param) {
+                                is_generic_param = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (is_generic_param) {
+                        // This is a generic type parameter
+                        hir_field.type =
+                            convert_type(TYPE_GENERIC, field.type_alias);
+                    } else {
+                        hir_field.type =
+                            convert_type(field.type, field.type_alias);
+                    }
+
+                    hir_field.is_private = field.is_private;
+                    existing_struct_ptr->fields.push_back(hir_field);
+                }
+            }
+        } else if (!already_exists) {
+            // Add new struct from parser definitions (imported module)
+            HIRStruct hir_struct;
+            hir_struct.name = def.name;
+
+            // Add generic parameters
+            if (def.is_generic) {
+                hir_struct.generic_params = def.type_parameters;
+            }
+
+            // Add fields
+            for (const auto &field : def.members) {
+                HIRStruct::Field hir_field;
+                hir_field.name = field.name;
+
+                // Check if this field type is a generic parameter
+                bool is_generic_param = false;
+                if (!field.type_alias.empty() && def.is_generic) {
+                    for (const auto &param : def.type_parameters) {
+                        if (field.type_alias == param) {
+                            is_generic_param = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (is_generic_param) {
+                    // This is a generic type parameter
+                    hir_field.type =
+                        convert_type(TYPE_GENERIC, field.type_alias);
+                } else {
+                    hir_field.type = convert_type(field.type, field.type_alias);
+                }
+
+                hir_field.is_private = field.is_private;
+                hir_struct.fields.push_back(hir_field);
+            }
+
+            program->structs.push_back(std::move(hir_struct));
+        }
+    }
+
+    // Add interfaces from parser definitions
+    for (const auto &pair : interface_defs) {
+        const InterfaceDefinition &def = pair.second;
+
+        // Check if this interface is already in the program
+        bool already_exists = false;
+        HIRInterface *existing_interface_ptr = nullptr;
+        for (auto &existing_interface : program->interfaces) {
+            if (existing_interface.name == def.name) {
+                already_exists = true;
+                existing_interface_ptr = &existing_interface;
+                break;
+            }
+        }
+
+        if (already_exists && existing_interface_ptr) {
+            // Interface exists in AST but may be missing methods
+            // Add methods from parser definition if not present
+            if (existing_interface_ptr->methods.empty() &&
+                !def.methods.empty()) {
+                if (def.is_generic) {
+                    existing_interface_ptr->generic_params =
+                        def.type_parameters;
+                }
+
+                for (const auto &method : def.methods) {
+                    HIRInterface::MethodSignature hir_method;
+                    hir_method.name = method.name;
+
+                    // Check if return type is a generic parameter
+                    bool return_is_generic = false;
+                    if (!method.return_type_name.empty() && def.is_generic) {
+                        for (const auto &param : def.type_parameters) {
+                            if (method.return_type_name == param) {
+                                return_is_generic = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (return_is_generic) {
+                        hir_method.return_type =
+                            convert_type(TYPE_GENERIC, method.return_type_name);
+                    } else {
+                        hir_method.return_type = convert_type(
+                            method.return_type, method.return_type_name);
+                    }
+
+                    // Add parameters
+                    for (size_t i = 0; i < method.parameters.size(); i++) {
+                        const auto &param_pair = method.parameters[i];
+                        HIRFunction::Parameter hir_param;
+                        hir_param.name = param_pair.first;
+
+                        std::string param_type_name = "";
+                        if (i < method.parameter_type_names.size()) {
+                            param_type_name = method.parameter_type_names[i];
+                        }
+
+                        TypeInfo param_type = param_pair.second;
+
+                        // Fix parameter type based on type_name
+                        bool param_is_generic = false;
+                        if (!param_type_name.empty() && def.is_generic) {
+                            for (const auto &gp : def.type_parameters) {
+                                if (param_type_name == gp) {
+                                    param_is_generic = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (param_is_generic) {
+                            hir_param.type =
+                                convert_type(TYPE_GENERIC, param_type_name);
+                        } else if (!param_type_name.empty() &&
+                                   param_type == TYPE_INT) {
+                            // Similar logic as return type: check if it's
+                            // actually a different type
+                            if (param_type_name == "void") {
+                                param_type = TYPE_VOID;
+                            } else if (param_type_name == "bool") {
+                                param_type = TYPE_BOOL;
+                            } else if (param_type_name == "int64_t" ||
+                                       param_type_name == "long") {
+                                param_type = TYPE_LONG;
+                            } else if (param_type_name == "int") {
+                                param_type = TYPE_INT;
+                            } else if (param_type_name == "string") {
+                                param_type = TYPE_STRING;
+                            } else {
+                                // It's likely a struct type or pointer to
+                                // struct Check if it contains * (pointer)
+                                if (param_type_name.find('*') !=
+                                    std::string::npos) {
+                                    param_type = TYPE_POINTER;
+                                } else {
+                                    param_type = TYPE_STRUCT;
+                                }
+                            }
+                            hir_param.type =
+                                convert_type(param_type, param_type_name);
+                        } else {
+                            hir_param.type = convert_type(param_pair.second,
+                                                          param_type_name);
+                        }
+
+                        hir_param.is_const = false;
+                        hir_method.parameters.push_back(hir_param);
+                    }
+
+                    existing_interface_ptr->methods.push_back(hir_method);
+                }
+            }
+        } else if (!already_exists) {
+            // Add new interface from parser definitions (imported module)
+            HIRInterface hir_interface;
+            hir_interface.name = def.name;
+
+            // Add generic parameters
+            if (def.is_generic) {
+                hir_interface.generic_params = def.type_parameters;
+            }
+
+            // Add methods
+            for (const auto &method : def.methods) {
+                HIRInterface::MethodSignature hir_method;
+                hir_method.name = method.name;
+
+                // Check if return type is a generic parameter
+                bool return_is_generic = false;
+                if (!method.return_type_name.empty() && def.is_generic) {
+                    for (const auto &param : def.type_parameters) {
+                        if (method.return_type_name == param) {
+                            return_is_generic = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (return_is_generic) {
+                    hir_method.return_type =
+                        convert_type(TYPE_GENERIC, method.return_type_name);
+                } else {
+                    hir_method.return_type = convert_type(
+                        method.return_type, method.return_type_name);
+                }
+
+                // Add parameters
+                for (size_t i = 0; i < method.parameters.size(); i++) {
+                    const auto &param_pair = method.parameters[i];
+                    HIRFunction::Parameter hir_param;
+                    hir_param.name = param_pair.first; // name
+
+                    // Get type name from parameter_type_names if available
+                    std::string param_type_name = "";
+                    if (i < method.parameter_type_names.size()) {
+                        param_type_name = method.parameter_type_names[i];
+                    }
+
+                    // Check if parameter type is a generic parameter
+                    bool param_is_generic = false;
+                    if (!param_type_name.empty() && def.is_generic) {
+                        for (const auto &gp : def.type_parameters) {
+                            if (param_type_name == gp) {
+                                param_is_generic = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (param_is_generic) {
+                        hir_param.type =
+                            convert_type(TYPE_GENERIC, param_type_name);
+                    } else {
+                        hir_param.type = convert_type(param_pair.second,
+                                                      param_type_name); // type
+                    }
+
+                    hir_param.is_const =
+                        false; // InterfaceMember doesn't store this
+                    hir_method.parameters.push_back(hir_param);
+                }
+
+                hir_interface.methods.push_back(hir_method);
+            }
+
+            program->interfaces.push_back(std::move(hir_interface));
+        }
+    }
+
+    // Add impls from parser definitions
+    for (const auto &def : impl_defs) {
+        // Check if this impl is already in the program
+        bool already_exists = false;
+        HIRImpl *existing_impl_ptr = nullptr;
+        for (auto &existing_impl : program->impls) {
+            if (existing_impl.struct_name == def.struct_name &&
+                existing_impl.interface_name == def.interface_name) {
+                already_exists = true;
+                existing_impl_ptr = &existing_impl;
+                break;
+            }
+        }
+
+        if (already_exists && existing_impl_ptr) {
+            // Impl exists but may be missing methods
+            // Add methods from parser definition if not present
+            if (existing_impl_ptr->methods.empty()) {
+                // Find the struct to get its generic parameters if not set
+                if (existing_impl_ptr->generic_params.empty()) {
+                    for (const auto &str : program->structs) {
+                        if (str.name == def.struct_name) {
+                            existing_impl_ptr->generic_params =
+                                str.generic_params;
+                            break;
+                        }
+                    }
+                }
+
+                // Convert methods from impl definition
+                if (def.impl_node && def.impl_node->body) {
+                    if (debug_mode) {
+                        fprintf(stderr,
+                                "补完ing impl for %s using impl_node (methods: "
+                                "%zu)\n",
+                                def.struct_name.c_str(),
+                                def.impl_node->body->statements.size());
+                    }
+                    for (const auto &child : def.impl_node->body->statements) {
+                        if (child &&
+                            child->node_type == ASTNodeType::AST_FUNC_DECL) {
+                            auto hir_method = convert_function(child.get());
+                            existing_impl_ptr->methods.push_back(
+                                std::move(hir_method));
+                            if (debug_mode) {
+                                fprintf(stderr, "  Converted method: %s\n",
+                                        child->name.c_str());
+                            }
+                        }
+                    }
+                } else if (!def.methods.empty()) {
+                    if (debug_mode) {
+                        fprintf(stderr,
+                                "补完ing impl for %s using methods vector "
+                                "(methods: %zu)\n",
+                                def.struct_name.c_str(), def.methods.size());
+                    }
+                    // Convert methods from the methods vector
+                    for (const auto *method_node : def.methods) {
+                        if (method_node && method_node->node_type ==
+                                               ASTNodeType::AST_FUNC_DECL) {
+                            auto hir_method = convert_function(method_node);
+
+                            // Fix parameter types based on struct's generic
+                            // parameters
+                            std::string base_struct_name = def.struct_name;
+                            size_t lt_pos = base_struct_name.find('<');
+                            if (lt_pos != std::string::npos) {
+                                base_struct_name =
+                                    base_struct_name.substr(0, lt_pos);
+                            }
+
+                            std::vector<std::string> struct_generic_params;
+                            for (const auto &str : program->structs) {
+                                if (str.name == base_struct_name) {
+                                    struct_generic_params = str.generic_params;
+                                    break;
+                                }
+                            }
+
+                            // Fix each parameter's type if it matches a generic
+                            // parameter name
+                            for (size_t i = 0;
+                                 i < hir_method.parameters.size() &&
+                                 i < method_node->parameters.size();
+                                 i++) {
+                                const auto &param_node =
+                                    method_node->parameters[i];
+                                auto &hir_param = hir_method.parameters[i];
+
+                                // Check if type_name matches a generic
+                                // parameter
+                                for (const auto &gp : struct_generic_params) {
+                                    if (param_node->type_name == gp) {
+                                        hir_param.type =
+                                            convert_type(TYPE_GENERIC,
+                                                         param_node->type_name);
+                                        break;
+                                    }
+                                }
+                            }
+
+                            existing_impl_ptr->methods.push_back(
+                                std::move(hir_method));
+                            if (debug_mode) {
+                                fprintf(stderr, "  Converted method: %s\n",
+                                        method_node->name.c_str());
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (!already_exists) {
+            // Add new impl from parser definitions (imported module)
+            HIRImpl hir_impl;
+            hir_impl.struct_name = def.struct_name;
+            hir_impl.interface_name = def.interface_name;
+
+            // Find the struct to get its generic parameters
+            for (const auto &str : program->structs) {
+                if (str.name == def.struct_name) {
+                    hir_impl.generic_params = str.generic_params;
+                    break;
+                }
+            }
+
+            // Convert methods from impl definition
+            // Use impl_node if available, otherwise use methods vector
+            if (def.impl_node && def.impl_node->body) {
+                if (debug_mode) {
+                    fprintf(stderr,
+                            "Converting impl for %s using impl_node (methods: "
+                            "%zu)\n",
+                            def.struct_name.c_str(),
+                            def.impl_node->body->statements.size());
+                }
+                // Process impl_node's body which contains method declarations
+                for (const auto &child : def.impl_node->body->statements) {
+                    if (child &&
+                        child->node_type == ASTNodeType::AST_FUNC_DECL) {
+                        auto hir_method = convert_function(child.get());
+                        hir_impl.methods.push_back(std::move(hir_method));
+                        if (debug_mode) {
+                            fprintf(stderr, "  Converted method: %s\n",
+                                    child->name.c_str());
+                        }
+                    }
+                }
+            } else if (!def.methods.empty()) {
+                if (debug_mode) {
+                    fprintf(stderr,
+                            "Converting impl for %s using methods vector "
+                            "(methods: %zu)\n",
+                            def.struct_name.c_str(), def.methods.size());
+                }
+                // Convert methods from the methods vector (for imported
+                // modules)
+                for (const auto *method_node : def.methods) {
+                    if (method_node &&
+                        method_node->node_type == ASTNodeType::AST_FUNC_DECL) {
+                        auto hir_method = convert_function(method_node);
+
+                        // Fix parameter types based on struct's generic
+                        // parameters This is necessary because convert_function
+                        // doesn't have struct context
+                        std::string base_struct_name = def.struct_name;
+                        size_t lt_pos = base_struct_name.find('<');
+                        if (lt_pos != std::string::npos) {
+                            base_struct_name =
+                                base_struct_name.substr(0, lt_pos);
+                        }
+
+                        std::vector<std::string> struct_generic_params;
+                        for (const auto &str : program->structs) {
+                            if (str.name == base_struct_name) {
+                                struct_generic_params = str.generic_params;
+                                break;
+                            }
+                        }
+
+                        // Fix each parameter's type if it matches a generic
+                        // parameter name
+                        for (size_t i = 0; i < hir_method.parameters.size() &&
+                                           i < method_node->parameters.size();
+                             i++) {
+                            const auto &param_node = method_node->parameters[i];
+                            auto &hir_param = hir_method.parameters[i];
+
+                            // Check if type_name matches a generic parameter
+                            for (const auto &gp : struct_generic_params) {
+                                if (param_node->type_name == gp) {
+                                    // It's a generic parameter, make sure HIR
+                                    // reflects this
+                                    hir_param.type = convert_type(
+                                        TYPE_GENERIC, param_node->type_name);
+                                    break;
+                                }
+                            }
+                        }
+
+                        hir_impl.methods.push_back(std::move(hir_method));
+                        if (debug_mode) {
+                            fprintf(stderr, "  Converted method: %s\n",
+                                    method_node->name.c_str());
+                        }
+                    }
+                }
+            }
+
+            program->impls.push_back(std::move(hir_impl));
+        }
+    }
+
+    if (debug_mode) {
+        fprintf(stderr, "HIR generation with parser definitions complete!\n");
+        fprintf(stderr, "  Total Structs: %zu\n", program->structs.size());
+        fprintf(stderr, "  Total Interfaces: %zu\n",
+                program->interfaces.size());
+        fprintf(stderr, "  Total Impls: %zu\n", program->impls.size());
+    }
+
+    return program;
+}
+
 HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
     HIRExpr expr;
 
@@ -216,10 +742,17 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
     }
 
     case ASTNodeType::AST_UNARY_OP: {
-        expr.kind = HIRExpr::ExprKind::UnaryOp;
-        expr.op = node->op;
-        expr.operand =
-            std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+        // Special case: await is treated as Await expr kind
+        if (node->op == "await") {
+            expr.kind = HIRExpr::ExprKind::Await;
+            expr.operand =
+                std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+        } else {
+            expr.kind = HIRExpr::ExprKind::UnaryOp;
+            expr.op = node->op;
+            expr.operand =
+                std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+        }
         break;
     }
 
@@ -279,9 +812,21 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
 
     case ASTNodeType::AST_CAST_EXPR: {
         expr.kind = HIRExpr::ExprKind::Cast;
-        expr.cast_expr =
-            std::make_unique<HIRExpr>(convert_expr(node->left.get()));
-        expr.cast_type = convert_type(node->type_info, node->type_name);
+        // Cast target is in cast_expr field, not left
+        if (node->cast_expr) {
+            expr.cast_expr =
+                std::make_unique<HIRExpr>(convert_expr(node->cast_expr.get()));
+        } else if (debug_mode) {
+            fprintf(stderr, "[HIR_CAST] Warning: Cast expression has no "
+                            "cast_expr (target)\n");
+        }
+        // Use cast_type_info and cast_target_type if available
+        if (node->cast_type_info != TYPE_UNKNOWN) {
+            expr.cast_type =
+                convert_type(node->cast_type_info, node->cast_target_type);
+        } else {
+            expr.cast_type = convert_type(node->type_info, node->type_name);
+        }
         break;
     }
 
@@ -392,12 +937,6 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
         }
         break;
     }
-
-        // case ASTNodeType::AST_AWAIT_EXPR: {
-        //     expr.kind = HIRExpr::ExprKind::Await;
-        //     expr.operand =
-        //     std::make_unique<HIRExpr>(convert_expr(node->left.get())); break;
-        // }
 
         // TODO: メソッド呼び出しは通常の関数呼び出しとして処理されるか、
         // または別のノードタイプで実装される可能性がある
@@ -820,9 +1359,55 @@ HIRFunction HIRGenerator::convert_function(const ASTNode *node) {
 
     func.name = node->name;
     func.location = convert_location(node->location);
-    func.return_type = convert_type(node->type_info, node->return_type_name);
+
+    // Fix: return_type_nameが指定されている場合、適切なTypeInfoを設定
+    TypeInfo actual_return_type = node->type_info;
+    if (!node->return_type_name.empty()) {
+        // Check for known types
+        if (node->return_type_name == "void") {
+            actual_return_type = TYPE_VOID;
+        } else if (node->return_type_name == "int") {
+            actual_return_type = TYPE_INT;
+        } else if (node->return_type_name == "long") {
+            actual_return_type = TYPE_LONG;
+        } else if (node->return_type_name == "short") {
+            actual_return_type = TYPE_SHORT;
+        } else if (node->return_type_name == "tiny") {
+            actual_return_type = TYPE_TINY;
+        } else if (node->return_type_name == "char") {
+            actual_return_type = TYPE_CHAR;
+        } else if (node->return_type_name == "string") {
+            actual_return_type = TYPE_STRING;
+        } else if (node->return_type_name == "bool") {
+            actual_return_type = TYPE_BOOL;
+        } else if (node->return_type_name == "float") {
+            actual_return_type = TYPE_FLOAT;
+        } else if (node->return_type_name == "double") {
+            actual_return_type = TYPE_DOUBLE;
+        } else if (actual_return_type == TYPE_INT) {
+            // If type_info is INT but type_name is something else, it's likely
+            // a struct
+            actual_return_type = TYPE_STRUCT;
+        }
+    }
+
+    func.return_type = convert_type(actual_return_type, node->return_type_name);
     func.is_async = node->is_async;
     func.is_exported = node->is_exported;
+
+    if (debug_mode) {
+        if (node->is_async) {
+            fprintf(stderr,
+                    "  Function %s: ASYNC, return_type_name=%s, type_info=%d\n",
+                    func.name.c_str(), node->return_type_name.c_str(),
+                    actual_return_type);
+        } else if (actual_return_type != TYPE_VOID) {
+            fprintf(stderr,
+                    "  Function %s: type_info=%d->%d, return_type_name=%s\n",
+                    func.name.c_str(), node->type_info, actual_return_type,
+                    node->return_type_name.c_str());
+        }
+    }
 
     // v0.14.0: ジェネリックパラメータ
     if (node->is_generic) {
@@ -960,10 +1545,21 @@ HIRImpl HIRGenerator::convert_impl(const ASTNode *node) {
         impl_def.generic_params = node->type_parameters;
     }
 
+    if (debug_mode) {
+        fprintf(stderr,
+                "Converting impl for %s (interface: %s, children: %zu)\n",
+                impl_def.struct_name.c_str(), impl_def.interface_name.c_str(),
+                node->children.size());
+    }
+
     // メソッドの変換
     for (const auto &child : node->children) {
         if (child->node_type == ASTNodeType::AST_FUNC_DECL) {
             impl_def.methods.push_back(convert_function(child.get()));
+            if (debug_mode) {
+                fprintf(stderr, "  Converted impl method: %s\n",
+                        child->name.c_str());
+            }
         }
     }
 
@@ -1021,7 +1617,32 @@ HIRType HIRGenerator::convert_type(TypeInfo type_info,
     case TYPE_POINTER:
         hir_type.kind = HIRType::TypeKind::Pointer;
         hir_type.name = type_name;
-        // TODO: 内部型の変換
+
+        // 型名から内部型を抽出（"Type*" -> "Type"）
+        if (!type_name.empty() && type_name.back() == '*') {
+            std::string inner_type_name =
+                type_name.substr(0, type_name.length() - 1);
+            // 末尾の空白を削除
+            while (!inner_type_name.empty() && inner_type_name.back() == ' ') {
+                inner_type_name.pop_back();
+            }
+
+            // 内部型を推測して設定
+            hir_type.inner_type = std::make_unique<HIRType>();
+
+            // 基本型か構造体型かを判定
+            if (inner_type_name == "void") {
+                hir_type.inner_type->kind = HIRType::TypeKind::Void;
+            } else if (inner_type_name == "int") {
+                hir_type.inner_type->kind = HIRType::TypeKind::Int;
+            } else if (inner_type_name == "char") {
+                hir_type.inner_type->kind = HIRType::TypeKind::Char;
+            } else {
+                // それ以外は構造体として扱う
+                hir_type.inner_type->kind = HIRType::TypeKind::Struct;
+                hir_type.inner_type->name = inner_type_name;
+            }
+        }
         break;
     case TYPE_NULLPTR:
         hir_type.kind = HIRType::TypeKind::Nullptr;

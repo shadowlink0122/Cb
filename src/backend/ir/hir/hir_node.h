@@ -324,6 +324,7 @@ struct HIRInterface {
 
     std::string name;
     std::vector<MethodSignature> methods;
+    std::vector<std::string> generic_params; // ジェネリックパラメータ
     SourceLocation location;
 };
 

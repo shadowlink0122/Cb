@@ -6,6 +6,7 @@
 #include "../ir/hir/hir_node.h"
 #include <sstream>
 #include <string>
+#include <unordered_map>
 
 namespace cb {
 namespace codegen {
@@ -22,6 +23,14 @@ class HIRToCpp {
   private:
     std::stringstream output;
     int indent_level = 0;
+    const ir::hir::HIRProgram *current_program =
+        nullptr; // 現在のプログラム参照
+    std::unordered_map<std::string, ir::hir::HIRType>
+        current_function_params;            // 現在の関数パラメータ
+    bool current_function_is_async = false; // 現在の関数がasyncかどうか
+    ir::hir::HIRType current_function_return_type; // 現在の関数の戻り値型
+    std::vector<std::string> current_generic_params; // 現在のジェネリック型パラメータ
+                                                     // (T, K, V, etc.)
 
     // ヘルパーメソッド
     void emit(const std::string &code);

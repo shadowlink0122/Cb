@@ -20,6 +20,15 @@ class HIRGenerator {
     std::unique_ptr<hir::HIRProgram>
     generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes);
 
+    // For compile mode: Generate HIR from AST nodes and parser definitions
+    // This includes imported modules' definitions
+    std::unique_ptr<hir::HIRProgram> generate_with_parser_definitions(
+        const std::vector<std::unique_ptr<ASTNode>> &ast_nodes,
+        const std::unordered_map<std::string, StructDefinition> &struct_defs,
+        const std::unordered_map<std::string, InterfaceDefinition>
+            &interface_defs,
+        const std::vector<ImplDefinition> &impl_defs);
+
     // For testing purposes
     friend class HIRGeneratorTest;
 
