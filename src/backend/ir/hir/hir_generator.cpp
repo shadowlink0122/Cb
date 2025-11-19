@@ -2301,29 +2301,71 @@ HIRType HIRGenerator::convert_type(TypeInfo type_info,
 
                     // 要素型をHIRTypeとして設定
                     hir_type.inner_type = std::make_unique<HIRType>();
-                    // 基本型の判定
-                    if (element_type_name == "int") {
-                        hir_type.inner_type->kind = HIRType::TypeKind::Int;
-                    } else if (element_type_name == "long") {
-                        hir_type.inner_type->kind = HIRType::TypeKind::Long;
-                    } else if (element_type_name == "short") {
-                        hir_type.inner_type->kind = HIRType::TypeKind::Short;
-                    } else if (element_type_name == "tiny") {
-                        hir_type.inner_type->kind = HIRType::TypeKind::Tiny;
-                    } else if (element_type_name == "char") {
-                        hir_type.inner_type->kind = HIRType::TypeKind::Char;
-                    } else if (element_type_name == "bool") {
-                        hir_type.inner_type->kind = HIRType::TypeKind::Bool;
-                    } else if (element_type_name == "float") {
-                        hir_type.inner_type->kind = HIRType::TypeKind::Float;
-                    } else if (element_type_name == "double") {
-                        hir_type.inner_type->kind = HIRType::TypeKind::Double;
-                    } else if (element_type_name == "string") {
-                        hir_type.inner_type->kind = HIRType::TypeKind::String;
-                    } else {
-                        // 構造体として扱う
-                        hir_type.inner_type->kind = HIRType::TypeKind::Struct;
+                    
+                    // 要素型がポインタかチェック（例: "int*", "Point*"）
+                    if (!element_type_name.empty() && element_type_name.back() == '*') {
+                        // ポインタ型の場合
+                        std::string base_element_type = element_type_name.substr(0, element_type_name.length() - 1);
+                        // 末尾の空白を削除
+                        while (!base_element_type.empty() && base_element_type.back() == ' ') {
+                            base_element_type.pop_back();
+                        }
+                        
+                        hir_type.inner_type->kind = HIRType::TypeKind::Pointer;
                         hir_type.inner_type->name = element_type_name;
+                        
+                        // ポインタの指す型を設定
+                        hir_type.inner_type->inner_type = std::make_unique<HIRType>();
+                        if (base_element_type == "int") {
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::Int;
+                        } else if (base_element_type == "long") {
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::Long;
+                        } else if (base_element_type == "short") {
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::Short;
+                        } else if (base_element_type == "tiny") {
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::Tiny;
+                        } else if (base_element_type == "char") {
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::Char;
+                        } else if (base_element_type == "bool") {
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::Bool;
+                        } else if (base_element_type == "float") {
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::Float;
+                        } else if (base_element_type == "double") {
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::Double;
+                        } else if (base_element_type == "string") {
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::String;
+                        } else if (base_element_type == "void") {
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::Void;
+                        } else {
+                            // 構造体ポインタ
+                            hir_type.inner_type->inner_type->kind = HIRType::TypeKind::Struct;
+                            hir_type.inner_type->inner_type->name = base_element_type;
+                        }
+                    } else {
+                        // 基本型の判定
+                        if (element_type_name == "int") {
+                            hir_type.inner_type->kind = HIRType::TypeKind::Int;
+                        } else if (element_type_name == "long") {
+                            hir_type.inner_type->kind = HIRType::TypeKind::Long;
+                        } else if (element_type_name == "short") {
+                            hir_type.inner_type->kind = HIRType::TypeKind::Short;
+                        } else if (element_type_name == "tiny") {
+                            hir_type.inner_type->kind = HIRType::TypeKind::Tiny;
+                        } else if (element_type_name == "char") {
+                            hir_type.inner_type->kind = HIRType::TypeKind::Char;
+                        } else if (element_type_name == "bool") {
+                            hir_type.inner_type->kind = HIRType::TypeKind::Bool;
+                        } else if (element_type_name == "float") {
+                            hir_type.inner_type->kind = HIRType::TypeKind::Float;
+                        } else if (element_type_name == "double") {
+                            hir_type.inner_type->kind = HIRType::TypeKind::Double;
+                        } else if (element_type_name == "string") {
+                            hir_type.inner_type->kind = HIRType::TypeKind::String;
+                        } else {
+                            // 構造体として扱う
+                            hir_type.inner_type->kind = HIRType::TypeKind::Struct;
+                            hir_type.inner_type->name = element_type_name;
+                        }
                     }
                 }
             }
