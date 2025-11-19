@@ -489,6 +489,32 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
         //     break;
         // }
 
+    case ASTNodeType::AST_FUNC_PTR_CALL: {
+        // 関数ポインタ呼び出し: (*func_ptr)(args...)
+        expr.kind = HIRExpr::ExprKind::FunctionCall;
+        expr.func_name = "call_function_pointer";
+        
+        if (debug_mode) {
+            std::cerr << "[HIR_EXPR] Function pointer call" << std::endl;
+        }
+        
+        // 関数ポインタ式を最初の引数として追加
+        if (node->left) {
+            expr.arguments.push_back(generator_->convert_expr(node->left.get()));
+        }
+        
+        // 実引数を追加
+        for (const auto &arg : node->arguments) {
+            expr.arguments.push_back(generator_->convert_expr(arg.get()));
+        }
+        
+        if (debug_mode) {
+            std::cerr << "[HIR_EXPR] Function pointer call with " 
+                      << node->arguments.size() << " arguments" << std::endl;
+        }
+        break;
+    }
+
     default: {
         std::string error_msg =
             "Unsupported expression type in HIR generation: AST node type " +

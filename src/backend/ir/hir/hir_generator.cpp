@@ -231,21 +231,39 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
 
         // グローバル変数（トップレベルの変数宣言）
         case ASTNodeType::AST_VAR_DECL: {
-            // トップレベルかどうかは、関数内にいないかで判定
-            // ここではis_staticやis_exportedで判断
-            if (node->is_static || node->is_exported) {
-                HIRGlobalVar global_var;
-                global_var.name = node->name;
-                global_var.type =
-                    convert_type(node->type_info, node->type_name);
-                global_var.is_const = node->is_const;
-                global_var.is_exported = node->is_exported;
-                if (node->right) {
-                    global_var.init_expr = std::make_unique<HIRExpr>(
-                        convert_expr(node->right.get()));
-                }
-                global_var.location = convert_location(node->location);
-                program->global_vars.push_back(std::move(global_var));
+            // トップレベルの変数宣言は全てグローバル変数として扱う
+            HIRGlobalVar global_var;
+            global_var.name = node->name;
+            global_var.type =
+                convert_type(node->type_info, node->type_name);
+            global_var.is_const = node->is_const;
+            global_var.is_exported = node->is_exported;
+            if (node->right) {
+                global_var.init_expr = std::make_unique<HIRExpr>(
+                    convert_expr(node->right.get()));
+            }
+            global_var.location = convert_location(node->location);
+            program->global_vars.push_back(std::move(global_var));
+            
+            if (debug_mode) {
+                std::cerr << "[HIR_GLOBAL] Global variable: " << node->name << std::endl;
+            }
+            break;
+        }
+
+        // グローバル配列宣言
+        case ASTNodeType::AST_ARRAY_DECL: {
+            HIRGlobalVar global_var;
+            global_var.name = node->name;
+            global_var.type = convert_type(node->type_info, node->type_name);
+            global_var.is_const = node->is_const;
+            global_var.is_exported = node->is_exported;
+            // 配列のサイズ情報は型に含まれる
+            global_var.location = convert_location(node->location);
+            program->global_vars.push_back(std::move(global_var));
+            
+            if (debug_mode) {
+                std::cerr << "[HIR_GLOBAL] Global array: " << node->name << std::endl;
             }
             break;
         }

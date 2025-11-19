@@ -831,8 +831,21 @@ void HIRToCpp::generate_global_vars(const std::vector<HIRGlobalVar> &globals) {
     for (const auto &global : globals) {
         if (global.is_const)
             emit("const ");
-        emit(generate_type(global.type));
+        
+        std::string type_str = generate_type(global.type);
+        emit(type_str);
         emit(" " + add_hir_prefix(global.name));
+        
+        // 配列サイズを追加
+        if (!global.type.array_dimensions.empty()) {
+            for (int dim : global.type.array_dimensions) {
+                emit("[");
+                if (dim > 0) {
+                    emit(std::to_string(dim));
+                }
+                emit("]");
+            }
+        }
 
         if (global.init_expr) {
             emit(" = ");

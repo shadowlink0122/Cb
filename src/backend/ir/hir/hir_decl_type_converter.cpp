@@ -425,8 +425,10 @@ HIRType HIRDeclTypeConverter::convert_array_type(const ArrayTypeInfo &array_info
         const auto &first_dim = array_info.dimensions[0];
         if (!first_dim.is_dynamic && first_dim.size > 0) {
             hir_type.array_size = first_dim.size;
+            hir_type.array_dimensions.push_back(first_dim.size);
         } else {
             hir_type.array_size = -1; // Dynamic/VLA
+            hir_type.array_dimensions.push_back(-1);
         }
         // サイズ式を保存（変数参照の場合）
         if (first_dim.is_dynamic && !first_dim.size_expr.empty()) {
@@ -444,6 +446,15 @@ HIRType HIRDeclTypeConverter::convert_array_type(const ArrayTypeInfo &array_info
             // 既存のinner_typeを置き換え
             hir_type.inner_type = std::make_unique<HIRType>();
             *hir_type.inner_type = generator_->convert_array_type(inner_array_info);
+            
+            // 他の次元もarray_dimensionsに追加
+            for (size_t i = 1; i < array_info.dimensions.size(); i++) {
+                if (!array_info.dimensions[i].is_dynamic && array_info.dimensions[i].size > 0) {
+                    hir_type.array_dimensions.push_back(array_info.dimensions[i].size);
+                } else {
+                    hir_type.array_dimensions.push_back(-1);
+                }
+            }
         }
 
         if (debug_mode) {
