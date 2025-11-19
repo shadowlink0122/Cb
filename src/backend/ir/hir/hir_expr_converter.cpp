@@ -414,21 +414,19 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
                       << ", type_info=" << node->type_info << std::endl;
         }
         
-        // 型情報を推測
-        TypeInfo type_info = node->type_info;
-        if (type_info == -1 || type_info == 0) {
-            // 型名から推測
-            if (type_name == "int") type_info = TYPE_INT;
-            else if (type_name == "long") type_info = TYPE_LONG;
-            else if (type_name == "short") type_info = TYPE_SHORT;
-            else if (type_name == "tiny") type_info = TYPE_TINY;
-            else if (type_name == "char") type_info = TYPE_CHAR;
-            else if (type_name == "bool") type_info = TYPE_BOOL;
-            else if (type_name == "float") type_info = TYPE_FLOAT;
-            else if (type_name == "double") type_info = TYPE_DOUBLE;
-            else if (type_name == "string") type_info = TYPE_STRING;
-            else type_info = TYPE_STRUCT;  // デフォルトは構造体
-        }
+        // 型情報を推測（型名を優先）
+        TypeInfo type_info = TYPE_STRUCT;  // デフォルトは構造体
+        
+        if (type_name == "int") type_info = TYPE_INT;
+        else if (type_name == "long") type_info = TYPE_LONG;
+        else if (type_name == "short") type_info = TYPE_SHORT;
+        else if (type_name == "tiny") type_info = TYPE_TINY;
+        else if (type_name == "char") type_info = TYPE_CHAR;
+        else if (type_name == "bool") type_info = TYPE_BOOL;
+        else if (type_name == "float") type_info = TYPE_FLOAT;
+        else if (type_name == "double") type_info = TYPE_DOUBLE;
+        else if (type_name == "string") type_info = TYPE_STRING;
+        else if (type_name == "void") type_info = TYPE_VOID;
         
         if (debug_mode) {
             std::cerr << "[HIR_EXPR] New resolved type_info=" << type_info << std::endl;

@@ -38,6 +38,7 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     // 必要なインクルード
     emit_line("#include <iostream>");
     emit_line("#include <string>");
+    emit_line("#include <sstream>");
     emit_line("#include <memory>");
     emit_line("#include <vector>");
     emit_line("#include <functional>");
@@ -57,6 +58,7 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     emit_line("// Cb built-in functions");
     emit_line("#define println(...) cb_println(__VA_ARGS__)");
     emit_line("#define print(...) cb_print(__VA_ARGS__)");
+    emit_line("#define hex(x) cb_hex(x)");
     emit_line("");
 
     // 組み込み関数の実装
@@ -70,6 +72,14 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     emit_line("template<typename... Args>");
     emit_line("void cb_print(Args... args) {");
     emit_line("    ((std::cout << args << \" \"), ...);");
+    emit_line("}");
+    emit_line("");
+    emit_line("// Hexadecimal formatting function");
+    emit_line("template<typename T>");
+    emit_line("std::string cb_hex(T value) {");
+    emit_line("    std::stringstream ss;");
+    emit_line("    ss << \"0x\" << std::hex << (uintptr_t)value;");
+    emit_line("    return ss.str();");
     emit_line("}");
     emit_line("");
 

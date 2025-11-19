@@ -372,7 +372,10 @@ std::string HIRToCpp::generate_function_call(const HIRExpr &expr) {
         std::string function = func_name.substr(dot_pos + 1);
         func_name = module + "_" + function;
     } else {
-        func_name = add_hir_prefix(func_name);
+        // 組み込み関数はプレフィックスを付けない
+        if (func_name != "println" && func_name != "print" && func_name != "hex") {
+            func_name = add_hir_prefix(func_name);
+        }
     }
 
     std::string result = func_name;
