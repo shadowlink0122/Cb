@@ -223,7 +223,7 @@ endif
 FFI_LIBS=$(STDLIB_FOREIGN_DIR)/libcppexample.$(LIB_EXT) \
          $(STDLIB_FOREIGN_DIR)/libadvanced.$(LIB_EXT)
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-interpreter integration-test-compiler integration-test-verbose hir-integration-test integration-test-old test test-interpreter test-hir test-compiler test-all debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version ffi-libs clean-ffi test-ffi stdlib-test stdlib-cpp-test stdlib-cb-test stdlib-cb-test-interpreter stdlib-cb-test-compiler
+.PHONY: all clean lint fmt unit-test integration-test integration-test-interpreter integration-test-compiler integration-test-unified integration-test-unified-interpreter integration-test-unified-compiler integration-test-verbose hir-integration-test integration-test-old test test-interpreter test-hir test-compiler test-all debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version ffi-libs clean-ffi test-ffi stdlib-test stdlib-cpp-test stdlib-cb-test stdlib-cb-test-interpreter stdlib-cb-test-compiler
 
 all: setup-dirs $(MAIN_TARGET) ffi-libs
 
@@ -374,9 +374,30 @@ integration-test-interpreter: $(TESTS_DIR)/integration/test_main
 	fi
 
 # Integration test - Compiler mode only
+# NEW: Unified integration tests - Run same Cb test files in both modes
+integration-test-unified: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Cb Unified Integration Tests (BOTH MODES)"
+	@echo "Testing all .cb test files in both interpreter and compiler"
+	@echo "============================================================="
+	@bash tests/run_unified_integration_tests.sh both
+
+integration-test-unified-interpreter: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Cb Unified Integration Tests (INTERPRETER ONLY)"
+	@echo "============================================================="
+	@bash tests/run_unified_integration_tests.sh interpreter
+
+integration-test-unified-compiler: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Cb Unified Integration Tests (COMPILER ONLY)"
+	@echo "============================================================="
+	@bash tests/run_unified_integration_tests.sh compiler
+
+# OLD: Legacy integration test targets (C++ test framework)
 integration-test-compiler: $(MAIN_TARGET)
 	@echo "============================================================="
-	@echo "Running Cb Integration Test Suite (COMPILER MODE)"
+	@echo "Running Cb Integration Test Suite (COMPILER MODE - Legacy)"
 	@echo "============================================================="
 	@echo "Testing all integration test cases via compilation..."
 	@bash tests/integration/run_compiler_tests.sh 2>&1 | tee /tmp/cb_integration_compiler.log | fold -s -w 80; \
@@ -384,7 +405,7 @@ integration-test-compiler: $(MAIN_TARGET)
 		exit 1; \
 	fi
 
-# Integration test - Both modes (default)
+# Integration test - Both modes (default) - Uses C++ test framework for interpreter
 integration-test: integration-test-interpreter integration-test-compiler
 	@echo ""
 	@echo "✅ Integration tests completed for both INTERPRETER and COMPILER modes"
@@ -700,7 +721,10 @@ help:
 	@echo "  test                   - Run all 4 test suites"
 	@echo "  test-interpreter       - Run tests in interpreter mode"
 	@echo "  test-hir               - Run tests in HIR compilation mode"
-	@echo "  integration-test       - Run integration tests"
+	@echo "  integration-test       - Run integration tests (C++ framework)"
+	@echo "  integration-test-unified       - Run unified tests (.cb files, both modes)"
+	@echo "  integration-test-unified-interpreter  - Run unified tests (interpreter only)"
+	@echo "  integration-test-unified-compiler     - Run unified tests (compiler only)"
 	@echo "  hir-integration-test   - Run HIR integration tests (89 tests, 97.8% pass)"
 	@echo "  unit-test              - Run unit tests (30 tests)"
 	@echo "  stdlib-cpp-test        - Run stdlib C++ infrastructure tests"

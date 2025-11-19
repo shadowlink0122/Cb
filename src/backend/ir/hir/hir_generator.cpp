@@ -18,6 +18,13 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
 
     auto program = std::make_unique<HIRProgram>();
 
+    // v0.14.0: First pass - collect all interface names for value type resolution
+    for (const auto &node : ast_nodes) {
+        if (node && node->node_type == ASTNodeType::AST_INTERFACE_DECL) {
+            interface_names_.insert(node->name);
+        }
+    }
+
     for (const auto &node : ast_nodes) {
         if (!node)
             continue;
@@ -56,6 +63,51 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
         case ASTNodeType::AST_IMPL_DECL: {
             auto impl_def = convert_impl(node.get());
             program->impls.push_back(std::move(impl_def));
+            break;
+        }
+
+        case ASTNodeType::AST_UNION_TYPEDEF_DECL: {
+            auto union_def = convert_union(node.get());
+            program->unions.push_back(std::move(union_def));
+            break;
+        }
+
+        case ASTNodeType::AST_TYPEDEF_DECL: {
+            // 単純なtypedef（typedef int MyInt; など）の処理
+            HIRTypedef typedef_def;
+            typedef_def.name = node->name;
+            typedef_def.target_type = convert_type(node->type_info, node->type_name);
+            typedef_def.location = convert_location(node->location);
+            program->typedefs.push_back(std::move(typedef_def));
+            break;
+        }
+
+        case ASTNodeType::AST_FUNCTION_POINTER_TYPEDEF: {
+            // 関数ポインタのtypedef処理
+            HIRTypedef typedef_def;
+            typedef_def.name = node->name;
+            
+            // 関数ポインタ型を構築
+            HIRType func_ptr_type;
+            func_ptr_type.kind = HIRType::TypeKind::Function;
+            
+            auto &fp = node->function_pointer_type;
+            
+            // 戻り値型
+            func_ptr_type.return_type = std::make_unique<HIRType>(
+                convert_type(fp.return_type, fp.return_type_name));
+            
+            // パラメータ型
+            for (size_t i = 0; i < fp.param_types.size(); ++i) {
+                HIRType param_type = convert_type(
+                    fp.param_types[i],
+                    i < fp.param_type_names.size() ? fp.param_type_names[i] : "");
+                func_ptr_type.param_types.push_back(param_type);
+            }
+            
+            typedef_def.target_type = std::move(func_ptr_type);
+            typedef_def.location = convert_location(node->location);
+            program->typedefs.push_back(std::move(typedef_def));
             break;
         }
 
@@ -243,6 +295,9 @@ std::unique_ptr<HIRProgram> HIRGenerator::generate_with_parser_definitions(
     // Add interfaces from parser definitions
     for (const auto &pair : interface_defs) {
         const InterfaceDefinition &def = pair.second;
+
+        // v0.14.0: Track interface names for value type resolution
+        interface_names_.insert(def.name);
 
         // Check if this interface is already in the program
         bool already_exists = false;
@@ -780,6 +835,20 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
             expr.kind = HIRExpr::ExprKind::Await;
             expr.operand =
                 std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+        } else if (node->op == "&") {
+            // Address-of operator: &expr
+            expr.kind = HIRExpr::ExprKind::AddressOf;
+            expr.operand =
+                std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+            // Type should be pointer to operand's type
+            // Type inference is done by the type checker or code generator
+        } else if (node->op == "*") {
+            // Dereference operator: *expr
+            expr.kind = HIRExpr::ExprKind::Dereference;
+            expr.operand =
+                std::make_unique<HIRExpr>(convert_expr(node->left.get()));
+            // Type should be the pointee type
+            // Type inference is done by the type checker or code generator
         } else {
             expr.kind = HIRExpr::ExprKind::UnaryOp;
             expr.op = node->op;
@@ -893,10 +962,25 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
     case ASTNodeType::AST_STRUCT_LITERAL: {
         expr.kind = HIRExpr::ExprKind::StructLiteral;
         expr.struct_type_name = node->type_name;
-        for (const auto &child : node->children) {
-            if (child->node_type == ASTNodeType::AST_ASSIGN) {
-                expr.field_names.push_back(child->name);
-                expr.field_values.push_back(convert_expr(child->right.get()));
+
+        // 名前付き初期化: {name: value, ...}
+        // パーサーはargumentsにAST_ASSIGNノードを保存する
+        bool has_named_init = false;
+        for (const auto &arg : node->arguments) {
+            if (arg->node_type == ASTNodeType::AST_ASSIGN) {
+                has_named_init = true;
+                expr.field_names.push_back(arg->name);
+                if (arg->right) {
+                    expr.field_values.push_back(convert_expr(arg->right.get()));
+                }
+            }
+        }
+
+        // 位置ベース初期化: {value1, value2, ...}
+        // Only process as positional if no named initialization was found
+        if (!has_named_init) {
+            for (const auto &arg : node->arguments) {
+                expr.field_values.push_back(convert_expr(arg.get()));
             }
         }
         break;
@@ -1013,7 +1097,35 @@ HIRExpr HIRGenerator::convert_expr(const ASTNode *node) {
 
     case ASTNodeType::AST_NEW_EXPR: {
         expr.kind = HIRExpr::ExprKind::New;
-        expr.new_type = convert_type(node->type_info, node->type_name);
+        // new式は new_type_nameを使用
+        std::string type_name = node->new_type_name.empty() ? node->type_name : node->new_type_name;
+        
+        // 型情報を推測
+        TypeInfo type_info = node->type_info;
+        if (type_info == -1 || type_info == 0) {
+            // 型名から推測
+            if (type_name == "int") type_info = TYPE_INT;
+            else if (type_name == "long") type_info = TYPE_LONG;
+            else if (type_name == "short") type_info = TYPE_SHORT;
+            else if (type_name == "tiny") type_info = TYPE_TINY;
+            else if (type_name == "char") type_info = TYPE_CHAR;
+            else if (type_name == "bool") type_info = TYPE_BOOL;
+            else if (type_name == "float") type_info = TYPE_FLOAT;
+            else if (type_name == "double") type_info = TYPE_DOUBLE;
+            else if (type_name == "string") type_info = TYPE_STRING;
+            else type_info = TYPE_STRUCT;  // デフォルトは構造体
+        }
+        
+        // 配列の場合、型名に[] を追加
+        if (node->is_array_new && node->new_array_size) {
+            // 配列サイズを取得（リテラルの場合）
+            // TODO: 動的サイズのサポート
+            type_name += "[]";
+        }
+        
+        expr.new_type = convert_type(type_info, type_name);
+        
+        // コンストラクタ引数
         for (const auto &arg : node->arguments) {
             expr.new_args.push_back(convert_expr(arg.get()));
         }
@@ -1084,7 +1196,29 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
     case ASTNodeType::AST_VAR_DECL: {
         stmt.kind = HIRStmt::StmtKind::VarDecl;
         stmt.var_name = node->name;
-        stmt.var_type = convert_type(node->type_info, node->type_name);
+        
+        // unsigned修飾子を考慮してTypeInfoを調整
+        TypeInfo adjusted_type_info = node->type_info;
+        if (node->is_unsigned) {
+            switch (node->type_info) {
+            case TYPE_TINY:
+                adjusted_type_info = TYPE_UNSIGNED_TINY;
+                break;
+            case TYPE_SHORT:
+                adjusted_type_info = TYPE_UNSIGNED_SHORT;
+                break;
+            case TYPE_INT:
+                adjusted_type_info = TYPE_UNSIGNED_INT;
+                break;
+            case TYPE_LONG:
+                adjusted_type_info = TYPE_UNSIGNED_LONG;
+                break;
+            default:
+                break;
+            }
+        }
+        
+        stmt.var_type = convert_type(adjusted_type_info, node->type_name);
         stmt.is_const = node->is_const;
         if (debug_mode) {
             DEBUG_PRINT(DebugMsgId::HIR_STMT_VAR_DECL, node->name.c_str());
@@ -1121,8 +1255,20 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
         if (!node->children.empty()) {
             const auto &first_var = node->children[0];
             stmt.var_name = first_var->name;
-            stmt.var_type =
-                convert_type(first_var->type_info, first_var->type_name);
+            
+            // unsigned修飾子を考慮
+            TypeInfo adjusted_type_info = first_var->type_info;
+            if (first_var->is_unsigned) {
+                switch (first_var->type_info) {
+                case TYPE_TINY: adjusted_type_info = TYPE_UNSIGNED_TINY; break;
+                case TYPE_SHORT: adjusted_type_info = TYPE_UNSIGNED_SHORT; break;
+                case TYPE_INT: adjusted_type_info = TYPE_UNSIGNED_INT; break;
+                case TYPE_LONG: adjusted_type_info = TYPE_UNSIGNED_LONG; break;
+                default: break;
+                }
+            }
+            
+            stmt.var_type = convert_type(adjusted_type_info, first_var->type_name);
             stmt.is_const = first_var->is_const;
             if (first_var->right) {
                 stmt.init_expr = std::make_unique<HIRExpr>(
@@ -1141,8 +1287,20 @@ HIRStmt HIRGenerator::convert_stmt(const ASTNode *node) {
                     HIRStmt var_stmt;
                     var_stmt.kind = HIRStmt::StmtKind::VarDecl;
                     var_stmt.var_name = var_node->name;
-                    var_stmt.var_type =
-                        convert_type(var_node->type_info, var_node->type_name);
+                    
+                    // unsigned修飾子を考慮
+                    TypeInfo adj_type = var_node->type_info;
+                    if (var_node->is_unsigned) {
+                        switch (var_node->type_info) {
+                        case TYPE_TINY: adj_type = TYPE_UNSIGNED_TINY; break;
+                        case TYPE_SHORT: adj_type = TYPE_UNSIGNED_SHORT; break;
+                        case TYPE_INT: adj_type = TYPE_UNSIGNED_INT; break;
+                        case TYPE_LONG: adj_type = TYPE_UNSIGNED_LONG; break;
+                        default: break;
+                        }
+                    }
+                    
+                    var_stmt.var_type = convert_type(adj_type, var_node->type_name);
                     var_stmt.is_const = var_node->is_const;
                     if (var_node->right) {
                         var_stmt.init_expr = std::make_unique<HIRExpr>(
@@ -1545,22 +1703,12 @@ HIRFunction HIRGenerator::convert_function(const ASTNode *node) {
         } else if (node->return_type_name == "double") {
             actual_return_type = TYPE_DOUBLE;
         } else {
-            // v0.14.0: 配列型のチェック（"int[3]" のような形式）
+            // v0.14.0: 配列型のチェック（"int[3]" や "int[2][3]" のような形式）
             if (node->return_type_name.find('[') != std::string::npos) {
                 // 配列型 - 直接ArrayTypeInfoを構築してconvert_array_typeを使用
                 size_t bracket_pos = node->return_type_name.find('[');
                 std::string element_type_name =
                     node->return_type_name.substr(0, bracket_pos);
-                size_t close_bracket =
-                    node->return_type_name.find(']', bracket_pos);
-                int size = -1;
-                if (close_bracket != std::string::npos) {
-                    std::string size_str = node->return_type_name.substr(
-                        bracket_pos + 1, close_bracket - bracket_pos - 1);
-                    if (!size_str.empty()) {
-                        size = std::stoi(size_str);
-                    }
-                }
 
                 // ArrayTypeInfoを構築
                 ArrayTypeInfo array_info;
@@ -1585,7 +1733,26 @@ HIRFunction HIRGenerator::convert_function(const ASTNode *node) {
                 else
                     array_info.base_type = TYPE_STRUCT;
 
-                array_info.dimensions.push_back(ArrayDimension(size, false));
+                // すべての次元を解析（例: "int[2][3][4]"）
+                size_t pos = bracket_pos;
+                while (pos != std::string::npos && pos < node->return_type_name.length()) {
+                    size_t open_bracket = node->return_type_name.find('[', pos);
+                    if (open_bracket == std::string::npos) break;
+                    
+                    size_t close_bracket = node->return_type_name.find(']', open_bracket);
+                    if (close_bracket == std::string::npos) break;
+                    
+                    std::string size_str = node->return_type_name.substr(
+                        open_bracket + 1, close_bracket - open_bracket - 1);
+                    int size = -1;
+                    if (!size_str.empty()) {
+                        size = std::stoi(size_str);
+                    }
+                    
+                    array_info.dimensions.push_back(ArrayDimension(size, false));
+                    pos = close_bracket + 1;
+                }
+
                 func.return_type = convert_array_type(array_info);
                 func.is_async = node->is_async;
                 func.is_exported = node->is_exported;
@@ -1708,6 +1875,121 @@ HIREnum HIRGenerator::convert_enum(const ASTNode *node) {
     return enum_def;
 }
 
+HIRUnion HIRGenerator::convert_union(const ASTNode *node) {
+    HIRUnion union_def;
+
+    if (!node)
+        return union_def;
+
+    union_def.name = node->union_definition.name;
+    union_def.location = convert_location(node->location);
+
+    // リテラル値の変換
+    for (const auto &value : node->union_definition.allowed_values) {
+        HIRUnion::Variant variant;
+        switch (value.value_type) {
+        case TYPE_INT:
+        case TYPE_LONG:
+        case TYPE_SHORT:
+        case TYPE_TINY:
+        case TYPE_CHAR:
+            variant.kind = HIRUnion::Variant::Kind::LiteralInt;
+            variant.int_value = value.int_value;
+            break;
+        case TYPE_STRING:
+            variant.kind = HIRUnion::Variant::Kind::LiteralString;
+            variant.string_value = value.string_value;
+            break;
+        case TYPE_BOOL:
+            variant.kind = HIRUnion::Variant::Kind::LiteralBool;
+            variant.bool_value = value.bool_value;
+            break;
+        default:
+            // Skip unknown types
+            continue;
+        }
+        union_def.variants.push_back(variant);
+    }
+
+    // 許可される型の変換 (int | string など)
+    for (const auto &type : node->union_definition.allowed_types) {
+        HIRUnion::Variant variant;
+        variant.kind = HIRUnion::Variant::Kind::Type;
+        variant.type = convert_type(type, "");
+        union_def.variants.push_back(variant);
+    }
+
+    // カスタム型の変換 (struct名など)
+    for (const auto &custom_type : node->union_definition.allowed_custom_types) {
+        HIRUnion::Variant variant;
+        variant.kind = HIRUnion::Variant::Kind::Type;
+        HIRType hir_type;
+        hir_type.kind = HIRType::TypeKind::Struct;
+        hir_type.name = custom_type;
+        variant.type = hir_type;
+        union_def.variants.push_back(variant);
+    }
+
+    // 配列型の変換
+    for (const auto &array_type_str : node->union_definition.allowed_array_types) {
+        HIRUnion::Variant variant;
+        variant.kind = HIRUnion::Variant::Kind::Type;
+        HIRType hir_type;
+        hir_type.kind = HIRType::TypeKind::Array;
+
+        // 配列型文字列をパース（例：int[3], bool[2]）
+        size_t bracket_pos = array_type_str.find('[');
+        if (bracket_pos != std::string::npos) {
+            std::string element_type_str = array_type_str.substr(0, bracket_pos);
+            std::string size_str = array_type_str.substr(bracket_pos + 1);
+            // Remove closing bracket
+            size_t close_pos = size_str.find(']');
+            if (close_pos != std::string::npos) {
+                size_str = size_str.substr(0, close_pos);
+            }
+
+            // 要素型を設定
+            hir_type.inner_type = std::make_unique<HIRType>();
+            if (element_type_str == "int") {
+                hir_type.inner_type->kind = HIRType::TypeKind::Int;
+            } else if (element_type_str == "bool") {
+                hir_type.inner_type->kind = HIRType::TypeKind::Bool;
+            } else if (element_type_str == "string") {
+                hir_type.inner_type->kind = HIRType::TypeKind::String;
+            } else if (element_type_str == "char") {
+                hir_type.inner_type->kind = HIRType::TypeKind::Char;
+            } else if (element_type_str == "float") {
+                hir_type.inner_type->kind = HIRType::TypeKind::Float;
+            } else if (element_type_str == "double") {
+                hir_type.inner_type->kind = HIRType::TypeKind::Double;
+            } else if (element_type_str == "long" || element_type_str == "int64") {
+                hir_type.inner_type->kind = HIRType::TypeKind::Long;
+            } else {
+                // カスタム型（構造体など）
+                hir_type.inner_type->kind = HIRType::TypeKind::Struct;
+                hir_type.inner_type->name = element_type_str;
+            }
+
+            // サイズを設定
+            if (!size_str.empty()) {
+                hir_type.array_size = std::stoi(size_str);
+            } else {
+                hir_type.array_size = 0; // 動的配列
+            }
+        } else {
+            // ブラケットがない場合は動的配列として扱う
+            hir_type.inner_type = std::make_unique<HIRType>();
+            hir_type.inner_type->kind = HIRType::TypeKind::Int;
+            hir_type.array_size = 0;
+        }
+
+        variant.type = std::move(hir_type);
+        union_def.variants.push_back(std::move(variant));
+    }
+
+    return union_def;
+}
+
 HIRInterface HIRGenerator::convert_interface(const ASTNode *node) {
     HIRInterface interface_def;
 
@@ -1716,6 +1998,9 @@ HIRInterface HIRGenerator::convert_interface(const ASTNode *node) {
 
     interface_def.name = node->name;
     interface_def.location = convert_location(node->location);
+
+    // v0.14.0: Track interface names for value type resolution
+    interface_names_.insert(node->name);
 
     // メソッドシグネチャの変換
     for (const auto &child : node->children) {
@@ -1829,9 +2114,25 @@ HIRType HIRGenerator::convert_array_type(const ArrayTypeInfo &array_info) {
 HIRType HIRGenerator::convert_type(TypeInfo type_info,
                                    const std::string &type_name) {
     HIRType hir_type;
+    
+    // 型名から TypeInfo を推測（type_info が不明な場合）
+    TypeInfo actual_type_info = type_info;
+    if (type_info == -1 || type_info == 0) {
+        // 型名から TypeInfo を推測
+        if (type_name.find("function_pointer:") == 0) {
+            actual_type_info = TYPE_FUNCTION_POINTER;
+        }
+    }
+    
+    // 関数ポインタ型の特別処理
+    // 型名が "function_pointer:TypeName" の形式の場合、プレフィックスを除去
+    std::string actual_type_name = type_name;
+    if (type_name.find("function_pointer:") == 0) {
+        actual_type_name = type_name.substr(17); // "function_pointer:" の長さ = 17
+    }
 
     // 基本型の変換
-    switch (type_info) {
+    switch (actual_type_info) {
     case TYPE_VOID:
         hir_type.kind = HIRType::TypeKind::Void;
         break;
@@ -1846,6 +2147,22 @@ HIRType HIRGenerator::convert_type(TypeInfo type_info,
         break;
     case TYPE_LONG:
         hir_type.kind = HIRType::TypeKind::Long;
+        break;
+    case TYPE_UNSIGNED_TINY:
+        hir_type.kind = HIRType::TypeKind::UnsignedTiny;
+        hir_type.is_unsigned = true;
+        break;
+    case TYPE_UNSIGNED_SHORT:
+        hir_type.kind = HIRType::TypeKind::UnsignedShort;
+        hir_type.is_unsigned = true;
+        break;
+    case TYPE_UNSIGNED_INT:
+        hir_type.kind = HIRType::TypeKind::UnsignedInt;
+        hir_type.is_unsigned = true;
+        break;
+    case TYPE_UNSIGNED_LONG:
+        hir_type.kind = HIRType::TypeKind::UnsignedLong;
+        hir_type.is_unsigned = true;
         break;
     case TYPE_CHAR:
         hir_type.kind = HIRType::TypeKind::Char;
@@ -1864,24 +2181,62 @@ HIRType HIRGenerator::convert_type(TypeInfo type_info,
         break;
     case TYPE_STRUCT:
         hir_type.kind = HIRType::TypeKind::Struct;
-        hir_type.name = type_name;
+        hir_type.name = actual_type_name;
+
+        // v0.14.0: Check if this is a value-type interface (Interface_Value)
+        if (actual_type_name.length() > 6 &&
+            actual_type_name.substr(actual_type_name.length() - 6) == "_Value") {
+            std::string base_name = actual_type_name.substr(0, actual_type_name.length() - 6);
+            // If the base name is a known interface, this is valid
+            if (interface_names_.find(base_name) != interface_names_.end()) {
+                // Valid value type interface - keep it as Struct type
+                // The C++ codegen will generate the correct class
+            }
+        }
+        // Check if this is an interface name (use value type by default)
+        else if (interface_names_.find(actual_type_name) != interface_names_.end()) {
+            // This is an interface used as a value type
+            hir_type.name = actual_type_name + "_Value";
+            if (debug_mode) {
+                std::cerr << "[HIR_TYPE] Interface " << actual_type_name 
+                         << " converted to value type: " << hir_type.name 
+                         << std::endl;
+            }
+        }
         break;
     case TYPE_ENUM:
         hir_type.kind = HIRType::TypeKind::Enum;
-        hir_type.name = type_name;
+        hir_type.name = actual_type_name;
         break;
     case TYPE_INTERFACE:
         hir_type.kind = HIRType::TypeKind::Interface;
-        hir_type.name = type_name;
+        // Only append _Value if it's not a pointer type
+        if (!actual_type_name.empty() && actual_type_name.back() == '*') {
+            // This is a pointer to interface - keep the name as is
+            hir_type.name = actual_type_name;
+        } else {
+            // This is a value type interface - convert to _Value
+            hir_type.name = actual_type_name + "_Value";
+            if (debug_mode) {
+                std::cerr << "[HIR_TYPE] Interface " << actual_type_name
+                         << " converted to value type: " << hir_type.name
+                         << std::endl;
+            }
+        }
+        break;
+    case TYPE_UNION:
+        // Union types are represented as type aliases in C++ (using std::variant)
+        hir_type.kind = HIRType::TypeKind::Struct;  // Treat as struct for codegen
+        hir_type.name = actual_type_name;
         break;
     case TYPE_POINTER:
         hir_type.kind = HIRType::TypeKind::Pointer;
-        hir_type.name = type_name;
+        hir_type.name = actual_type_name;
 
         // 型名から内部型を抽出（"Type*" -> "Type"）
-        if (!type_name.empty() && type_name.back() == '*') {
+        if (!actual_type_name.empty() && actual_type_name.back() == '*') {
             std::string inner_type_name =
-                type_name.substr(0, type_name.length() - 1);
+                actual_type_name.substr(0, actual_type_name.length() - 1);
             // 末尾の空白を削除
             while (!inner_type_name.empty() && inner_type_name.back() == ' ') {
                 inner_type_name.pop_back();
@@ -1908,31 +2263,36 @@ HIRType HIRGenerator::convert_type(TypeInfo type_info,
         hir_type.kind = HIRType::TypeKind::Nullptr;
         break;
     case TYPE_FUNCTION_POINTER:
-        hir_type.kind = HIRType::TypeKind::Function;
-        hir_type.name = type_name;
+        // 関数ポインタ型はtypedefで定義されているので、名前をそのまま使用
+        hir_type.kind = HIRType::TypeKind::Struct; // typedefとして扱う
+        hir_type.name = actual_type_name;
+        if (debug_mode) {
+            std::cerr << "[HIR_TYPE] Function pointer type converted: " << type_name 
+                     << " -> " << actual_type_name << std::endl;
+        }
         break;
     case TYPE_GENERIC:
         hir_type.kind = HIRType::TypeKind::Generic;
-        hir_type.name = type_name;
+        hir_type.name = actual_type_name;
         break;
     default:
-        if (type_info >= TYPE_ARRAY_BASE) {
+        if (actual_type_info >= TYPE_ARRAY_BASE) {
             hir_type.kind = HIRType::TypeKind::Array;
-            hir_type.name = type_name;
+            hir_type.name = actual_type_name;
 
             // v0.14.0: 配列の要素型とサイズの変換
             // type_nameは "int[3]" のような形式
-            if (!type_name.empty()) {
-                size_t bracket_pos = type_name.find('[');
+            if (!actual_type_name.empty()) {
+                size_t bracket_pos = actual_type_name.find('[');
                 if (bracket_pos != std::string::npos) {
                     // 要素型の抽出
                     std::string element_type_name =
-                        type_name.substr(0, bracket_pos);
+                        actual_type_name.substr(0, bracket_pos);
 
                     // サイズの抽出
-                    size_t close_bracket = type_name.find(']', bracket_pos);
+                    size_t close_bracket = actual_type_name.find(']', bracket_pos);
                     if (close_bracket != std::string::npos) {
-                        std::string size_str = type_name.substr(
+                        std::string size_str = actual_type_name.substr(
                             bracket_pos + 1, close_bracket - bracket_pos - 1);
                         if (!size_str.empty()) {
                             hir_type.array_size = std::stoi(size_str);
@@ -1968,7 +2328,24 @@ HIRType HIRGenerator::convert_type(TypeInfo type_info,
                 }
             }
         } else {
-            hir_type.kind = HIRType::TypeKind::Unknown;
+            // v0.14.0: Check if this is a value type interface (Interface_Value)
+            if (actual_type_name.length() > 6 &&
+                actual_type_name.substr(actual_type_name.length() - 6) == "_Value") {
+                std::string base_name = actual_type_name.substr(0, actual_type_name.length() - 6);
+                // If the base name is a known interface, this is valid
+                if (interface_names_.find(base_name) != interface_names_.end()) {
+                    hir_type.kind = HIRType::TypeKind::Struct;
+                    hir_type.name = actual_type_name;
+                    if (debug_mode) {
+                        std::cerr << "[HIR_TYPE] Recognized value type interface: "
+                                 << actual_type_name << std::endl;
+                    }
+                } else {
+                    hir_type.kind = HIRType::TypeKind::Unknown;
+                }
+            } else {
+                hir_type.kind = HIRType::TypeKind::Unknown;
+            }
         }
         break;
     }

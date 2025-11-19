@@ -1,0 +1,35 @@
+// 関数ポインタのテスト
+
+typedef int (*BinaryOp)(int, int);
+
+int add(int a, int b) {
+    return a + b;
+}
+
+int multiply(int a, int b) {
+    return a * b;
+}
+
+int apply_operation(int x, int y, BinaryOp operation) {
+    return operation(x, y);
+}
+
+void test_function_pointer_basic() {
+    BinaryOp func_ptr = &add;
+    int result = func_ptr(5, 3);
+    println("Function pointer result:", result);
+}
+
+void test_function_pointer_as_param() {
+    int result1 = apply_operation(10, 5, &add);
+    println("10 + 5 =", result1);
+    
+    int result2 = apply_operation(10, 5, &multiply);
+    println("10 * 5 =", result2);
+}
+
+void main() {
+    println("=== Function Pointer Tests ===");
+    test_function_pointer_basic();
+    test_function_pointer_as_param();
+}

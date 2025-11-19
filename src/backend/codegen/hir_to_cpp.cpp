@@ -33,6 +33,7 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     emit_line("#include <memory>");
     emit_line("#include <vector>");
     emit_line("#include <functional>");
+    emit_line("#include <variant>   // For union types");
     emit_line("#include <cmath>     // For FFI math functions");
     emit_line("#include <cstdlib>   // For FFI C functions");
     emit_line("#include <cassert>   // For assert statements");
@@ -86,6 +87,25 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     emit_line("    }");
     emit_line("}");
     emit_line("");
+    emit_line("// Specialization for std::variant - uses std::visit to convert");
+    emit_line("template<typename... Ts>");
+    emit_line("std::string CB_HIR_to_string_helper(const std::variant<Ts...>& value) {");
+    emit_line("    return std::visit([](const auto& v) -> std::string {");
+    emit_line("        using T = std::decay_t<decltype(v)>;");
+    emit_line("        if constexpr (std::is_same_v<T, std::string>) {");
+    emit_line("            return v;");
+    emit_line("        } else if constexpr (std::is_same_v<T, bool>) {");
+    emit_line("            return v ? \"true\" : \"false\";");
+    emit_line("        } else if constexpr (std::is_same_v<T, char>) {");
+    emit_line("            return std::string(1, v);");
+    emit_line("        } else if constexpr (std::is_arithmetic_v<T>) {");
+    emit_line("            return std::to_string(v);");
+    emit_line("        } else {");
+    emit_line("            return \"[complex type]\";");
+    emit_line("        }");
+    emit_line("    }, value);");
+    emit_line("}");
+    emit_line("");
 
     // インポート処理
     generate_imports(program);
@@ -102,6 +122,9 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     // Enum定義
     generate_enums(program.enums);
 
+    // Union定義
+    generate_unions(program.unions);
+
     // インターフェース定義（抽象クラスとして）- 構造体の前に配置
     generate_interfaces(program.interfaces);
 
@@ -116,6 +139,9 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
 
     // Impl定義（メソッド実装）
     generate_impls(program.impls);
+    
+    // プリミティブ型のModel特殊化を生成
+    generate_primitive_type_specializations(program);
 
     return output.str();
 }
@@ -229,9 +255,34 @@ void HIRToCpp::generate_typedefs(const std::vector<HIRTypedef> &typedefs) {
 
     emit_line("// Type aliases");
     for (const auto &typedef_def : typedefs) {
-        emit("using " + typedef_def.name + " = ");
-        emit(generate_type(typedef_def.target_type));
-        emit(";\n");
+        // 関数ポインタ型の場合は特別な構文を使用
+        if (typedef_def.target_type.kind == HIRType::TypeKind::Function) {
+            emit("using " + typedef_def.name + " = ");
+            
+            // 戻り値型
+            if (typedef_def.target_type.return_type) {
+                emit(generate_type(*typedef_def.target_type.return_type));
+            } else {
+                emit("void");
+            }
+            
+            emit(" (*)(");
+            
+            // パラメータ型
+            for (size_t i = 0; i < typedef_def.target_type.param_types.size(); i++) {
+                if (i > 0)
+                    emit(", ");
+                emit(generate_type(typedef_def.target_type.param_types[i]));
+            }
+            
+            emit(");\n");
+        } else {
+            // 通常の型エイリアス
+            std::string base_type = generate_type(typedef_def.target_type);
+            emit("using " + typedef_def.name + " = ");
+            emit(base_type);
+            emit(";\n");
+        }
     }
     emit_line("");
 }
@@ -353,49 +404,240 @@ void HIRToCpp::generate_enums(const std::vector<HIREnum> &enums) {
 void HIRToCpp::generate_interfaces(
     const std::vector<HIRInterface> &interfaces) {
     for (const auto &interface : interfaces) {
-        emit_line("// Interface: " + interface.name);
+        // ポインタベースinterface生成（既存）
+        generate_pointer_interface(interface);
 
-        // Add template parameters if generic
-        if (!interface.generic_params.empty()) {
-            emit("template<");
-            for (size_t i = 0; i < interface.generic_params.size(); i++) {
-                if (i > 0)
-                    emit(", ");
-                emit("typename " + interface.generic_params[i]);
-            }
-            emit(">\n");
+        // 値型interface生成（新規）
+        if (interface.generate_value_type) {
+            generate_value_interface(interface);
+        }
+    }
+}
+
+void HIRToCpp::generate_pointer_interface(const HIRInterface &interface) {
+    emit_line("// Interface (pointer-based): " + interface.name);
+
+    // Add template parameters if generic
+    if (!interface.generic_params.empty()) {
+        emit("template<");
+        for (size_t i = 0; i < interface.generic_params.size(); i++) {
+            if (i > 0)
+                emit(", ");
+            emit("typename " + interface.generic_params[i]);
+        }
+        emit(">\n");
+    }
+
+    emit_line("class " + interface.name + " {");
+    emit_line("public:");
+    increase_indent();
+
+    emit_line("virtual ~" + interface.name + "() = default;");
+    emit_line("");
+
+    for (const auto &method : interface.methods) {
+        emit("virtual ");
+        emit(generate_type(method.return_type));
+        emit(" " + method.name + "(");
+
+        for (size_t i = 0; i < method.parameters.size(); i++) {
+            if (i > 0)
+                emit(", ");
+            const auto &param = method.parameters[i];
+            if (param.is_const)
+                emit("const ");
+            std::string param_type = generate_type(param.type);
+            emit(param_type);
+            emit(" " + param.name);
         }
 
-        emit_line("class " + interface.name + " {");
-        emit_line("public:");
+        emit(") = 0;\n");
+    }
+
+    decrease_indent();
+    emit_line("};");
+    emit_line("");
+}
+
+void HIRToCpp::generate_value_interface(const HIRInterface &interface) {
+    std::string value_class_name = interface.name + "_Value";
+
+    emit_line("// Interface (value-based, type erasure): " + interface.name);
+
+    // テンプレートパラメータ
+    if (!interface.generic_params.empty()) {
+        emit("template<");
+        for (size_t i = 0; i < interface.generic_params.size(); i++) {
+            if (i > 0)
+                emit(", ");
+            emit("typename " + interface.generic_params[i]);
+        }
+        emit(">\n");
+    }
+
+    emit_line("class " + value_class_name + " {");
+    emit_line("private:");
+    increase_indent();
+
+    // Concept（内部インターフェース）
+    emit_line("struct Concept {");
+    increase_indent();
+
+    for (const auto &method : interface.methods) {
+        emit("virtual ");
+        emit(generate_type(method.return_type));
+        emit(" " + method.name + "(");
+
+        for (size_t i = 0; i < method.parameters.size(); i++) {
+            if (i > 0)
+                emit(", ");
+            const auto &param = method.parameters[i];
+            if (param.is_const)
+                emit("const ");
+            emit(generate_type(param.type));
+            emit(" " + param.name);
+        }
+
+        emit(") = 0;\n");
+    }
+
+    emit_line("virtual std::unique_ptr<Concept> clone() const = 0;");
+    emit_line("virtual ~Concept() = default;");
+
+    decrease_indent();
+    emit_line("};");
+    emit_line("");
+
+    // Model（テンプレート実装）
+    emit_line("template<typename T>");
+    emit_line("struct Model : Concept {");
+    increase_indent();
+
+    emit_line("T data;");
+    emit_line("");
+    emit_line("Model(T d) : data(std::move(d)) {}");
+    emit_line("");
+
+    for (const auto &method : interface.methods) {
+        emit(generate_type(method.return_type));
+        emit(" " + method.name + "(");
+
+        for (size_t i = 0; i < method.parameters.size(); i++) {
+            if (i > 0)
+                emit(", ");
+            const auto &param = method.parameters[i];
+            if (param.is_const)
+                emit("const ");
+            emit(generate_type(param.type));
+            emit(" " + param.name);
+        }
+
+        emit(") override {\n");
         increase_indent();
 
-        emit_line("virtual ~" + interface.name + "() = default;");
-        emit_line("");
-
-        for (const auto &method : interface.methods) {
-            emit("virtual ");
-            emit(generate_type(method.return_type));
-            emit(" " + method.name + "(");
-
-            for (size_t i = 0; i < method.parameters.size(); i++) {
-                if (i > 0)
-                    emit(", ");
-                const auto &param = method.parameters[i];
-                if (param.is_const)
-                    emit("const ");
-                std::string param_type = generate_type(param.type);
-                emit(param_type);
-                emit(" " + param.name);
-            }
-
-            emit(") = 0;\n");
+        emit("return data." + method.name + "(");
+        for (size_t i = 0; i < method.parameters.size(); i++) {
+            if (i > 0)
+                emit(", ");
+            emit(method.parameters[i].name);
         }
+        emit(");\n");
 
         decrease_indent();
-        emit_line("};");
-        emit_line("");
+        emit_line("}");
     }
+
+    emit_line("");
+    emit_line("std::unique_ptr<Concept> clone() const override {");
+    increase_indent();
+    emit_line("return std::make_unique<Model<T>>(data);");
+    decrease_indent();
+    emit_line("}");
+
+    decrease_indent();
+    emit_line("};");
+    emit_line("");
+
+    // メンバ変数
+    emit_line("std::unique_ptr<Concept> ptr_;");
+    emit_line("");
+
+    decrease_indent();
+    emit_line("public:");
+    increase_indent();
+
+    // コンストラクタ
+    emit_line("template<typename T>");
+    emit_line(value_class_name + "(T obj)");
+    increase_indent();
+    emit_line(": ptr_(std::make_unique<Model<T>>(std::move(obj))) {}");
+    decrease_indent();
+    emit_line("");
+
+    // コピーコンストラクタ
+    emit_line(value_class_name + "(const " + value_class_name + "& other)");
+    increase_indent();
+    emit_line(": ptr_(other.ptr_ ? other.ptr_->clone() : nullptr) {}");
+    decrease_indent();
+    emit_line("");
+
+    // ムーブコンストラクタ
+    emit_line(value_class_name + "(" + value_class_name +
+              "&& other) = default;");
+    emit_line("");
+
+    // コピー代入演算子
+    emit_line(value_class_name + "& operator=(const " + value_class_name +
+              "& other) {");
+    increase_indent();
+    emit_line("if (this != &other) {");
+    increase_indent();
+    emit_line("ptr_ = other.ptr_ ? other.ptr_->clone() : nullptr;");
+    decrease_indent();
+    emit_line("}");
+    emit_line("return *this;");
+    decrease_indent();
+    emit_line("}");
+    emit_line("");
+
+    // ムーブ代入演算子
+    emit_line(value_class_name + "& operator=(" + value_class_name +
+              "&& other) = default;");
+    emit_line("");
+
+    // メソッド
+    for (const auto &method : interface.methods) {
+        emit(generate_type(method.return_type));
+        emit(" " + method.name + "(");
+
+        for (size_t i = 0; i < method.parameters.size(); i++) {
+            if (i > 0)
+                emit(", ");
+            const auto &param = method.parameters[i];
+            if (param.is_const)
+                emit("const ");
+            emit(generate_type(param.type));
+            emit(" " + param.name);
+        }
+
+        emit(") {\n");
+        increase_indent();
+
+        emit("return ptr_->" + method.name + "(");
+        for (size_t i = 0; i < method.parameters.size(); i++) {
+            if (i > 0)
+                emit(", ");
+            emit(method.parameters[i].name);
+        }
+        emit(");\n");
+
+        decrease_indent();
+        emit_line("}");
+    }
+
+    decrease_indent();
+    emit_line("};");
+    emit_line("");
 }
 
 void HIRToCpp::generate_global_vars(const std::vector<HIRGlobalVar> &globals) {
@@ -429,6 +671,106 @@ void HIRToCpp::generate_functions(const std::vector<HIRFunction> &functions) {
 void HIRToCpp::generate_impls(const std::vector<HIRImpl> &impls) {
     for (const auto &impl : impls) {
         generate_impl(impl);
+    }
+}
+
+void HIRToCpp::generate_primitive_type_specializations(const HIRProgram &program) {
+    emit_line("// Model specializations for primitive types");
+    emit_line("");
+    
+    // プリミティブ型のリスト（すべての型を含む）
+    std::vector<std::string> primitive_types = {
+        // 符号付き整数型
+        "int", "long", "short", "tiny", 
+        // 符号なし整数型
+        "unsigned", "unsigned long", "unsigned short", "unsigned tiny",
+        // その他
+        "char", "bool", "float", "double", "string"
+    };
+    
+    // 各interfaceについて、プリミティブ型のimplがあるか確認
+    for (const auto &interface : program.interfaces) {
+        if (!interface.generate_value_type) {
+            continue;
+        }
+        
+        std::string value_class_name = interface.name + "_Value";
+        
+        // このinterfaceに対するimplを探す
+        for (const auto &impl : program.impls) {
+            if (impl.interface_name != interface.name) {
+                continue;
+            }
+            
+            // プリミティブ型かチェック
+            bool is_primitive = false;
+            for (const auto &prim : primitive_types) {
+                if (impl.struct_name == prim) {
+                    is_primitive = true;
+                    break;
+                }
+            }
+            
+            if (!is_primitive) {
+                continue;
+            }
+            
+            // Model特殊化を生成
+            emit_line("// Model specialization for " + impl.struct_name);
+            emit_line("template<>");
+            emit_line("struct " + value_class_name + "::Model<" + impl.struct_name + "> : " + value_class_name + "::Concept {");
+            increase_indent();
+            
+            emit_line(impl.struct_name + " data;");
+            emit_line("");
+            emit_line("Model(" + impl.struct_name + " d) : data(d) {}");
+            emit_line("");
+            
+            // 各メソッドの実装を生成
+            for (const auto &method : impl.methods) {
+                emit_indent();
+                emit(generate_type(method.return_type));
+                emit(" " + method.name + "(");
+                
+                for (size_t i = 0; i < method.parameters.size(); i++) {
+                    if (i > 0) emit(", ");
+                    const auto &param = method.parameters[i];
+                    if (param.is_const) emit("const ");
+                    emit(generate_type(param.type));
+                    emit(" " + add_hir_prefix(param.name));
+                }
+                
+                emit(") override {\n");
+                increase_indent();
+                
+                // メソッド本体を生成
+                // selfをdataに置き換えて生成
+                if (method.body) {
+                    // 一時的にコンテキストを設定
+                    bool old_is_primitive = current_impl_is_for_primitive;
+                    current_impl_is_for_primitive = true;
+                    
+                    generate_stmt(*method.body);
+                    
+                    current_impl_is_for_primitive = old_is_primitive;
+                }
+                
+                decrease_indent();
+                emit_line("}");
+                emit_line("");
+            }
+            
+            // clone()メソッド
+            emit_line("std::unique_ptr<" + value_class_name + "::Concept> clone() const override {");
+            increase_indent();
+            emit_line("return std::make_unique<Model<" + impl.struct_name + ">>(data);");
+            decrease_indent();
+            emit_line("}");
+            
+            decrease_indent();
+            emit_line("};");
+            emit_line("");
+        }
     }
 }
 
@@ -520,64 +862,56 @@ void HIRToCpp::generate_struct(const HIRStruct &struct_def) {
         }
     }
 
-    // Add default constructor to initialize fields
+    // Add default constructor
     emit_line("");
     emit_line("// Default constructor");
     emit_indent();
-    emit(struct_def.name + "() {");
-    if (!struct_def.fields.empty()) {
-        emit("\n");
-        for (const auto &field : struct_def.fields) {
-            emit_indent();
-            emit_indent();
-            emit(field.name + " = ");
-            // Initialize based on type
-            if (field.type.kind == HIRType::TypeKind::Pointer ||
-                field.type.kind == HIRType::TypeKind::Nullptr) {
-                emit("nullptr");
-            } else if (field.type.kind == HIRType::TypeKind::Int ||
-                       field.type.kind == HIRType::TypeKind::Long ||
-                       field.type.kind == HIRType::TypeKind::Short ||
-                       field.type.kind == HIRType::TypeKind::Tiny) {
-                emit("0");
-            } else if (field.type.kind == HIRType::TypeKind::Float ||
-                       field.type.kind == HIRType::TypeKind::Double) {
-                emit("0.0");
-            } else if (field.type.kind == HIRType::TypeKind::Bool) {
-                emit("false");
-            } else if (field.type.kind == HIRType::TypeKind::String) {
-                emit("\"\"");
-            } else {
-                // For structs and other types, use default initialization
-                emit("{}");
-            }
-            emit(";\n");
-        }
+    emit(struct_def.name + "() = default;\n");
+
+    // If implementing interfaces, add field initialization constructor
+    if (!implemented_interfaces.empty() && !struct_def.fields.empty()) {
+        emit_line("");
+        emit_line("// Field initialization constructor");
         emit_indent();
+        emit(struct_def.name + "(");
+        for (size_t i = 0; i < struct_def.fields.size(); i++) {
+            if (i > 0) emit(", ");
+            const auto &field = struct_def.fields[i];
+            emit(generate_type(field.type) + " _" + field.name);
+        }
+        emit(")");
+        if (!struct_def.fields.empty()) {
+            emit(" : ");
+            for (size_t i = 0; i < struct_def.fields.size(); i++) {
+                if (i > 0) emit(", ");
+                const auto &field = struct_def.fields[i];
+                emit(field.name + "(_" + field.name + ")");
+            }
+        }
+        emit(" {}\n");
     }
-    emit("}\n");
 
     // Add method declarations from impls
     std::set<std::string>
         declared_methods; // Track declared methods to avoid duplicates
     if (!struct_impls.empty()) {
-        // Find the corresponding interface for type lookup
-        const HIRInterface *interface_ptr = nullptr;
-        if (current_program && !implemented_interfaces.empty()) {
-            std::string interface_base = implemented_interfaces[0];
-            size_t angle = interface_base.find('<');
-            if (angle != std::string::npos) {
-                interface_base = interface_base.substr(0, angle);
-            }
-            for (const auto &iface : current_program->interfaces) {
-                if (iface.name == interface_base) {
-                    interface_ptr = &iface;
-                    break;
+        for (const auto *impl_ptr : struct_impls) {
+            // Find the corresponding interface for this specific impl
+            const HIRInterface *interface_ptr = nullptr;
+            if (current_program && !impl_ptr->interface_name.empty()) {
+                std::string interface_base = impl_ptr->interface_name;
+                size_t angle = interface_base.find('<');
+                if (angle != std::string::npos) {
+                    interface_base = interface_base.substr(0, angle);
+                }
+                for (const auto &iface : current_program->interfaces) {
+                    if (iface.name == interface_base) {
+                        interface_ptr = &iface;
+                        break;
+                    }
                 }
             }
-        }
 
-        for (const auto *impl_ptr : struct_impls) {
             if (!impl_ptr->methods.empty()) {
                 emit_line("");
                 emit_line("// Methods");
@@ -613,6 +947,10 @@ void HIRToCpp::generate_struct(const HIRStruct &struct_def) {
                     declared_methods.insert(method_sig);
 
                     emit_indent();
+                    // Add virtual keyword if implementing an interface
+                    if (!impl_ptr->interface_name.empty() && interface_method) {
+                        emit("virtual ");
+                    }
                     // Use interface return type if available, otherwise impl's
                     std::string return_type;
                     if (interface_method) {
@@ -680,6 +1018,111 @@ void HIRToCpp::generate_enum(const HIREnum &enum_def) {
 
     decrease_indent();
     emit_line("};");
+    emit_line("");
+}
+
+void HIRToCpp::generate_unions(const std::vector<HIRUnion> &unions) {
+    for (const auto &union_def : unions) {
+        generate_union(union_def);
+    }
+}
+
+void HIRToCpp::generate_union(const HIRUnion &union_def) {
+    emit_line("// Union type: " + union_def.name);
+
+    // Build typedef resolution map from current program
+    std::unordered_map<std::string, std::string> typedef_map;
+    if (current_program) {
+        for (const auto &td : current_program->typedefs) {
+            std::string base_type = generate_type(td.target_type);
+            typedef_map[td.name] = base_type;
+        }
+    }
+
+    // Helper lambda to resolve typedefs to their base types
+    auto resolve_typedef = [&typedef_map](const std::string &type_str) -> std::string {
+        std::string resolved = type_str;
+        // Keep resolving until we hit a non-typedef
+        for (int i = 0; i < 10; i++) { // Max 10 levels of typedef nesting
+            auto it = typedef_map.find(resolved);
+            if (it == typedef_map.end()) {
+                break;
+            }
+            resolved = it->second;
+        }
+        return resolved;
+    };
+
+    // Collect type names for std::variant
+    std::vector<std::string> type_names;
+    bool has_literals = false;
+
+    for (const auto &variant : union_def.variants) {
+        switch (variant.kind) {
+        case HIRUnion::Variant::Kind::LiteralInt:
+        case HIRUnion::Variant::Kind::LiteralBool:
+            if (!has_literals) {
+                // Add int once for literal integers/bools
+                bool found = false;
+                for (const auto &t : type_names) {
+                    if (t == "int") {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    type_names.push_back("int");
+                has_literals = true;
+            }
+            break;
+        case HIRUnion::Variant::Kind::LiteralString: {
+            bool found = false;
+            for (const auto &t : type_names) {
+                if (t == "std::string") {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                type_names.push_back("std::string");
+            break;
+        }
+        case HIRUnion::Variant::Kind::Type: {
+            std::string type_str = generate_type(variant.type);
+            // Resolve typedefs to their base types
+            std::string resolved_type = resolve_typedef(type_str);
+            // Avoid duplicates using resolved type
+            bool found = false;
+            for (const auto &t : type_names) {
+                if (t == resolved_type) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found)
+                type_names.push_back(resolved_type);
+            break;
+        }
+        }
+    }
+
+    // Generate std::variant typedef
+    if (type_names.empty()) {
+        // Empty union, use int as default
+        emit_line("using " + union_def.name + " = int;");
+    } else if (type_names.size() == 1) {
+        // Single type, use direct alias
+        emit_line("using " + union_def.name + " = " + type_names[0] + ";");
+    } else {
+        // Multiple types, use std::variant
+        emit("using " + union_def.name + " = std::variant<");
+        for (size_t i = 0; i < type_names.size(); i++) {
+            if (i > 0)
+                emit(", ");
+            emit(type_names[i]);
+        }
+        emit(">;\n");
+    }
     emit_line("");
 }
 
@@ -754,7 +1197,30 @@ void HIRToCpp::generate_impl(const HIRImpl &impl) {
         emit_line("// implements: " + impl.interface_name);
     }
 
-    // メソッドを生成（メソッド名にstruct名をプレフィックス）
+    // Check if implementing for a primitive type (すべてのプリミティブ型を含む)
+    bool is_primitive_type = (impl.struct_name == "int" || 
+                             impl.struct_name == "long" ||
+                             impl.struct_name == "short" ||
+                             impl.struct_name == "tiny" ||
+                             impl.struct_name == "unsigned" ||
+                             impl.struct_name == "unsigned long" ||
+                             impl.struct_name == "unsigned short" ||
+                             impl.struct_name == "unsigned tiny" ||
+                             impl.struct_name == "char" ||
+                             impl.struct_name == "bool" ||
+                             impl.struct_name == "float" ||
+                             impl.struct_name == "double" ||
+                             impl.struct_name == "string");
+    
+    // プリミティブ型でinterfaceを実装している場合はスキップ
+    // (Model特殊化で処理される)
+    if (is_primitive_type && !impl.interface_name.empty()) {
+        emit_line("// Skipped: Will be generated as Model specialization");
+        emit_line("");
+        return;
+    }
+
+    // メソッドを生成
     for (const auto &method : impl.methods) {
         emit_line("// Method: " + method.name);
 
@@ -817,7 +1283,24 @@ void HIRToCpp::generate_impl(const HIRImpl &impl) {
         // 戻り値の型
         emit_indent();
         emit(generate_type(method.return_type));
-        emit(" " + impl.struct_name + "::" + method.name + "(");
+        
+        // For primitive types, generate as free functions
+        if (is_primitive_type) {
+            // Free function: impl_struct_method(self, params...)
+            std::string func_name = "CB_IMPL_" + impl.struct_name + "_" + method.name;
+            emit(" " + func_name + "(");
+            
+            // First parameter is always 'self'
+            emit(impl.struct_name + " CB_HIR_self");
+            
+            // Add other parameters
+            if (!method.parameters.empty()) {
+                emit(", ");
+            }
+        } else {
+            // Member function: Struct::method(params...)
+            emit(" " + impl.struct_name + "::" + method.name + "(");
+        }
 
         // パラメータ - ジェネリック型の場合は型パラメータ名を使用
         for (size_t i = 0; i < method.parameters.size(); i++) {
@@ -848,6 +1331,9 @@ void HIRToCpp::generate_impl(const HIRImpl &impl) {
 
         // ジェネリックパラメータをコンテキストに設定
         current_generic_params = generic_params;
+        
+        // プリミティブ型implのコンテキストを設定
+        current_impl_is_for_primitive = is_primitive_type;
 
         // 関数本体
         if (method.body) {
@@ -858,6 +1344,7 @@ void HIRToCpp::generate_impl(const HIRImpl &impl) {
 
         // コンテキストをクリア
         current_generic_params.clear();
+        current_impl_is_for_primitive = false;
 
         emit_line("}");
         emit_line("");
@@ -945,25 +1432,10 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
 
         // Check if we're in a function that returns an array
         // OR if initializer is a function call that returns array
-        bool use_std_array =
-            (current_function_return_type.kind == HIRType::TypeKind::Array) ||
-            (stmt.init_expr &&
-             stmt.init_expr->kind == HIRExpr::ExprKind::FunctionCall);
+        // v0.14.0: Always use std::array for fixed-size arrays to support union assignment
+        bool use_std_array = true;
 
-        if (!dimensions.empty() && dimensions[0] > 0 && !use_std_array) {
-            // Fixed-size C array (possibly multidimensional)
-            // Example: int[2][3] arr -> int arr[2][3]
-            if (base_type) {
-                emit(generate_type(*base_type));
-            } else {
-                emit("int"); // fallback
-            }
-            emit(" " + add_hir_prefix(stmt.var_name));
-            // Add all dimensions
-            for (int dim : dimensions) {
-                emit("[" + std::to_string(dim) + "]");
-            }
-        } else if (use_std_array && !dimensions.empty() && dimensions[0] > 0) {
+        if (!dimensions.empty() && dimensions[0] > 0 && use_std_array) {
             // Use std::array when in a function returning array or initialized
             // by function call
             emit(generate_type(stmt.var_type));
@@ -1414,20 +1886,151 @@ std::string HIRToCpp::generate_literal(const HIRExpr &expr) {
 }
 
 std::string HIRToCpp::generate_variable(const HIRExpr &expr) {
-    // Convert 'self' to '(*this)'
+    // Convert 'self' to appropriate representation
     if (expr.var_name == "self") {
-        return "(*this)";
+        if (current_impl_is_for_primitive) {
+            // For primitive type impl Model specialization, use 'data'
+            return "data";
+        } else {
+            // For struct impls, use (*this)
+            return "(*this)";
+        }
     }
     return add_hir_prefix(expr.var_name);
 }
 
 std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
+    // Helper lambda to check if a type name is a union
+    auto is_union_type = [this](const std::string &type_name) -> bool {
+        if (!current_program || type_name.empty()) return false;
+        for (const auto &union_def : current_program->unions) {
+            if (union_def.name == type_name) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // Helper lambda to get type name for an expression
+    auto get_expr_type_name = [this](const HIRExpr *e) -> std::string {
+        if (!e || !current_program) return "";
+
+        // Check direct type info
+        if (!e->type.name.empty()) {
+            return e->type.name;
+        }
+
+        // For MemberAccess, look up the struct field type
+        if (e->kind == HIRExpr::ExprKind::MemberAccess && e->object) {
+            // Get the object's struct type
+            std::string struct_name;
+
+            // Check object's type name
+            if (!e->object->type.name.empty()) {
+                struct_name = e->object->type.name;
+            }
+            // For Variable, look up from function parameters
+            else if (e->object->kind == HIRExpr::ExprKind::Variable) {
+                auto it = current_function_params.find(e->object->var_name);
+                if (it != current_function_params.end()) {
+                    struct_name = it->second.name;
+                }
+            }
+
+            // Look up the struct and find the field type
+            if (!struct_name.empty()) {
+                for (const auto &s : current_program->structs) {
+                    if (s.name == struct_name) {
+                        for (const auto &field : s.fields) {
+                            if (field.name == e->member_name) {
+                                return field.type.name;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Fallback: search all structs for the field name
+            // This handles local variables where type info is not available
+            if (!e->member_name.empty()) {
+                for (const auto &s : current_program->structs) {
+                    for (const auto &field : s.fields) {
+                        if (field.name == e->member_name && !field.type.name.empty()) {
+                            // Check if this field type is a union
+                            for (const auto &union_def : current_program->unions) {
+                                if (union_def.name == field.type.name) {
+                                    return field.type.name;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return "";
+    };
+
+    // Union型の算術演算の特殊処理
+    // 左辺がUnion型で算術演算の場合、std::get<int>()でラップ
+    if (expr.left && expr.right && current_program) {
+        std::string left_type_name = get_expr_type_name(expr.left.get());
+        std::string right_type_name = get_expr_type_name(expr.right.get());
+
+        bool left_is_union = is_union_type(left_type_name);
+        bool right_is_union = is_union_type(right_type_name);
+
+        // 算術演算子かチェック
+        bool is_arithmetic = (expr.op == "+" || expr.op == "-" ||
+                              expr.op == "*" || expr.op == "/" || expr.op == "%");
+
+        if ((left_is_union || right_is_union) && is_arithmetic) {
+            std::string result = "(";
+            if (left_is_union) {
+                result += "std::get<int>(" + generate_expr(*expr.left) + ")";
+            } else {
+                result += generate_expr(*expr.left);
+            }
+            result += " " + expr.op + " ";
+            if (right_is_union) {
+                result += "std::get<int>(" + generate_expr(*expr.right) + ")";
+            } else {
+                result += generate_expr(*expr.right);
+            }
+            result += ")";
+            return result;
+        }
+    }
+
     // ポインタ演算の特殊処理: + or - は全てchar*経由で行う（void*対応のため）
     // 型情報が不完全な場合があるため、全ての+/-に適用
     // ポインタ演算の特別処理
     if ((expr.op == "+" || expr.op == "-") && expr.left && expr.right) {
         // 型情報ベースの判定を最優先
         bool is_pointer_arithmetic = false;
+
+        // 文字列連結を除外: 左辺が文字列リテラル、または右辺が文字列型の場合
+        bool is_string_concat = false;
+        if (expr.left->kind == HIRExpr::ExprKind::Literal &&
+            expr.left->type.kind == HIRType::TypeKind::String) {
+            is_string_concat = true;
+        }
+        // 右辺が関数呼び出し(to_string_helper等)または文字列型の場合も文字列連結
+        if (expr.right->kind == HIRExpr::ExprKind::FunctionCall ||
+            expr.right->type.kind == HIRType::TypeKind::String) {
+            is_string_concat = true;
+        }
+
+        if (is_string_concat) {
+            // 文字列連結は通常のBinaryOpとして処理
+            std::string result = "(";
+            result += generate_expr(*expr.left);
+            result += " " + expr.op + " ";
+            result += generate_expr(*expr.right);
+            result += ")";
+            return result;
+        }
 
         // 1. 左辺の型情報が利用可能な場合
         if (expr.left->type.kind == HIRType::TypeKind::Pointer) {
@@ -1609,6 +2212,9 @@ std::string HIRToCpp::generate_function_call(const HIRExpr &expr) {
 std::string HIRToCpp::generate_method_call(const HIRExpr &expr) {
     // FFI module call check: module.function(args)
     // If receiver is a simple variable (module name), treat as FFI call
+    // IMPORTANT: Only treat as FFI if receiver is explicitly a known FFI module
+    // For now, we disable this heuristic and rely on explicit FFI syntax
+    /*
     if (expr.receiver && expr.receiver->kind == HIRExpr::ExprKind::Variable) {
         // Check if this looks like an FFI call (receiver is module name)
         // FFI modules are typically short lowercase names like 'm', 'c', etc.
@@ -1616,8 +2222,10 @@ std::string HIRToCpp::generate_method_call(const HIRExpr &expr) {
 
         // If the receiver is not prefixed and looks like a module name,
         // treat as FFI call: module.function -> module_function
+        // Skip if receiver name looks like a regular variable (longer names, or has CB_HIR_ prefix)
         if (receiver_name.find("CB_HIR_") == std::string::npos &&
-            receiver_name.length() <= 3) { // Short names like 'm', 'c', 'io'
+            receiver_name.length() <= 2 &&  // Changed from 3 to 2 - only single letter modules
+            std::islower(receiver_name[0])) { // Must start with lowercase
             std::string result = receiver_name + "_" + expr.method_name + "(";
             for (size_t i = 0; i < expr.arguments.size(); i++) {
                 if (i > 0)
@@ -1628,6 +2236,7 @@ std::string HIRToCpp::generate_method_call(const HIRExpr &expr) {
             return result;
         }
     }
+    */
 
     // Determine if we should use -> or .
     bool use_arrow = expr.is_arrow ||
@@ -1737,9 +2346,18 @@ std::string HIRToCpp::generate_lambda(const HIRExpr &expr) {
 std::string HIRToCpp::generate_struct_literal(const HIRExpr &expr) {
     std::string result = expr.struct_type_name + "{";
 
+    // Check if we have named fields (designated initializers)
+    bool use_named = !expr.field_names.empty() &&
+                     expr.field_names.size() == expr.field_values.size();
+
     for (size_t i = 0; i < expr.field_values.size(); i++) {
         if (i > 0)
             result += ", ";
+
+        if (use_named && !expr.field_names[i].empty()) {
+            // C++20 designated initializer: .field = value
+            result += "." + expr.field_names[i] + " = ";
+        }
         result += generate_expr(expr.field_values[i]);
     }
 
@@ -1748,7 +2366,19 @@ std::string HIRToCpp::generate_struct_literal(const HIRExpr &expr) {
 }
 
 std::string HIRToCpp::generate_array_literal(const HIRExpr &expr) {
+    // 多次元配列かどうかチェック（最初の要素がArrayLiteralかどうか）
+    bool is_multidim = false;
+    if (!expr.array_elements.empty() && 
+        expr.array_elements[0].kind == HIRExpr::ExprKind::ArrayLiteral) {
+        is_multidim = true;
+    }
+    
     std::string result = "{";
+    
+    // 多次元配列の場合、外側の{}を追加
+    if (is_multidim) {
+        result = "{{";
+    }
 
     for (size_t i = 0; i < expr.array_elements.size(); i++) {
         if (i > 0)
@@ -1757,6 +2387,12 @@ std::string HIRToCpp::generate_array_literal(const HIRExpr &expr) {
     }
 
     result += "}";
+    
+    // 多次元配列の場合、外側の}を追加
+    if (is_multidim) {
+        result += "}";
+    }
+    
     return result;
 }
 
@@ -1824,52 +2460,97 @@ void HIRToCpp::generate_assert(const HIRStmt &stmt) {
 // === 型の生成 ===
 
 std::string HIRToCpp::generate_type(const HIRType &type) {
+    std::string result;
+    
+    // static修飾子
+    if (type.is_static) {
+        result += "static ";
+    }
+    
+    // const修飾子（値型の場合）
+    if (type.is_const && type.kind != HIRType::TypeKind::Pointer) {
+        result += "const ";
+    }
+    
+    // 基本型
     switch (type.kind) {
     case HIRType::TypeKind::Void:
-        return "void";
+        result += "void";
+        break;
     case HIRType::TypeKind::Tiny:
-        return "int8_t";
+        result += "int8_t";
+        break;
     case HIRType::TypeKind::Short:
-        return "int16_t";
+        result += "int16_t";
+        break;
     case HIRType::TypeKind::Int:
-        return "int";
+        result += "int";
+        break;
     case HIRType::TypeKind::Long:
-        return "int64_t";
+        result += "int64_t";
+        break;
+    case HIRType::TypeKind::UnsignedTiny:
+        result += "uint8_t";
+        break;
+    case HIRType::TypeKind::UnsignedShort:
+        result += "uint16_t";
+        break;
+    case HIRType::TypeKind::UnsignedInt:
+        result += "unsigned";
+        break;
+    case HIRType::TypeKind::UnsignedLong:
+        result += "uint64_t";
+        break;
     case HIRType::TypeKind::Char:
-        return "char";
+        result += "char";
+        break;
     case HIRType::TypeKind::String:
-        return "std::string";
+        result += "std::string";
+        break;
     case HIRType::TypeKind::Bool:
-        return "bool";
+        result += "bool";
+        break;
     case HIRType::TypeKind::Float:
-        return "float";
+        result += "float";
+        break;
     case HIRType::TypeKind::Double:
-        return "double";
+        result += "double";
+        break;
     case HIRType::TypeKind::Struct:
     case HIRType::TypeKind::Enum:
     case HIRType::TypeKind::Interface:
-        return type.name;
+        result += type.name;
+        break;
     case HIRType::TypeKind::Pointer:
         return generate_pointer_type(type);
     case HIRType::TypeKind::Reference:
         return generate_reference_type(type);
+    case HIRType::TypeKind::RvalueReference:
+        return generate_rvalue_reference_type(type);
     case HIRType::TypeKind::Array:
         return generate_array_type(type);
     case HIRType::TypeKind::Function:
         return generate_function_type(type);
     case HIRType::TypeKind::Generic:
-        return type.name;
+        result += type.name;
+        break;
     case HIRType::TypeKind::Nullptr:
-        return "std::nullptr_t";
+        result += "std::nullptr_t";
+        break;
     case HIRType::TypeKind::Unknown:
         // ジェネリック型パラメータがある場合は最初のものを使用
         if (!current_generic_params.empty()) {
-            return current_generic_params[0];
+            result += current_generic_params[0];
+        } else {
+            result += "/* unknown type */";
         }
-        return "/* unknown type */";
+        break;
     default:
-        return "/* unknown type */";
+        result += "/* unknown type */";
+        break;
     }
+    
+    return result;
 }
 
 std::string HIRToCpp::generate_basic_type(const HIRType &type) {
@@ -1877,21 +2558,30 @@ std::string HIRToCpp::generate_basic_type(const HIRType &type) {
 }
 
 std::string HIRToCpp::generate_pointer_type(const HIRType &type) {
-    if (type.inner_type) {
-        return generate_type(*type.inner_type) + "*";
-    }
-    // If name contains "*", it's already a pointer type with the * in the name
-    // Example: "TestResult*" or "void*" or "MapNode<K, V>*"
-    if (!type.name.empty()) {
-        // Check if name already has * at the end
+    std::string result;
+    
+    // const T* (pointer to const)
+    if (type.is_pointee_const && type.inner_type) {
+        result = "const " + generate_type(*type.inner_type) + "*";
+    } else if (type.inner_type) {
+        result = generate_type(*type.inner_type) + "*";
+    } else if (!type.name.empty()) {
+        // If name contains "*", it's already a pointer type with the * in the name
         if (type.name.back() == '*') {
-            return type.name;
+            result = type.name;
+        } else {
+            result = type.name + "*";
         }
-        // Otherwise add *
-        return type.name + "*";
+    } else {
+        result = "void*";
     }
-    // Default to void* if type name is missing
-    return "void*";
+    
+    // T* const (const pointer)
+    if (type.is_pointer_const) {
+        result += " const";
+    }
+    
+    return result;
 }
 
 std::string HIRToCpp::generate_reference_type(const HIRType &type) {
@@ -1901,18 +2591,46 @@ std::string HIRToCpp::generate_reference_type(const HIRType &type) {
     return type.name + "&";
 }
 
-std::string HIRToCpp::generate_array_type(const HIRType &type) {
+std::string HIRToCpp::generate_rvalue_reference_type(const HIRType &type) {
     if (type.inner_type) {
-        if (type.array_size > 0) {
-            // 固定長配列
-            return "std::array<" + generate_type(*type.inner_type) + ", " +
-                   std::to_string(type.array_size) + ">";
-        } else {
-            // 動的配列
-            return "std::vector<" + generate_type(*type.inner_type) + ">";
-        }
+        return generate_type(*type.inner_type) + "&&";
     }
-    return "std::vector<int>"; // fallback
+    return type.name + "&&";
+}
+
+std::string HIRToCpp::generate_array_type(const HIRType &type) {
+    if (!type.inner_type) {
+        return "std::vector<int>"; // fallback
+    }
+    
+    // 多次元配列のサポート
+    if (!type.array_dimensions.empty()) {
+        std::string result = generate_type(*type.inner_type);
+        
+        // 各次元に対してstd::arrayまたはstd::vectorでラップ
+        for (auto it = type.array_dimensions.rbegin(); it != type.array_dimensions.rend(); ++it) {
+            int size = *it;
+            if (size > 0) {
+                // 固定長配列
+                result = "std::array<" + result + ", " + std::to_string(size) + ">";
+            } else {
+                // 動的配列
+                result = "std::vector<" + result + ">";
+            }
+        }
+        
+        return result;
+    }
+    
+    // 1次元配列（後方互換性）
+    if (type.array_size > 0) {
+        // 固定長配列
+        return "std::array<" + generate_type(*type.inner_type) + ", " +
+               std::to_string(type.array_size) + ">";
+    } else {
+        // 動的配列
+        return "std::vector<" + generate_type(*type.inner_type) + ">";
+    }
 }
 
 std::string HIRToCpp::generate_function_type(const HIRType &type) {

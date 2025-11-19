@@ -1,0 +1,397 @@
+================================================================================
+STRUCT LITERAL CODE REFERENCE - DETAILED BREAKDOWN
+================================================================================
+
+1. HIR DATA STRUCTURES
+================================================================================
+
+File: src/backend/ir/hir/hir_node.h (Lines 145-148)
+
+    struct HIRExpr {
+        // ... other fields ...
+        
+        // Struct Literal Fields:
+        std::string struct_type_name;           // Name of struct type (e.g., "Person")
+        std::vector<std::string> field_names;   // Field names for named init: ["name", "age", "height"]
+        std::vector<HIRExpr> field_values;      // Field values: [Literal("Alice"), Literal(25), ...]
+        
+        // ... other fields ...
+    };
+
+Used for:
+  • Storing named field information from {name: value} syntax
+  • Positional initialization uses field_names.empty() to detect
+  • Both HIR generation and C++ codegen rely on these fields
+
+================================================================================
+
+2. HIR GENERATION - STRUCT LITERALS
+================================================================================
+
+File: src/backend/ir/hir/hir_generator.cpp (Lines 903-922)
+Function: HIRExpr HIRGenerator::convert_expr(const ASTNode *node)
+
+CURRENT IMPLEMENTATION:
+
+    case ASTNodeType::AST_STRUCT_LITERAL: {
+        expr.kind = HIRExpr::ExprKind::StructLiteral;
+        expr.struct_type_name = node->type_name;
+
+        // Named initialization: {name: value, ...}
+        for (const auto &child : node->children) {
+            if (child->node_type == ASTNodeType::AST_ASSIGN) {
+                expr.field_names.push_back(child->name);
+                expr.field_values.push_back(convert_expr(child->right.get()));
+            }
+        }
+
+        // Positional initialization: {value1, value2, ...}
+        // Only process arguments if no named initialization was found
+        if (expr.field_names.empty()) {
+            for (const auto &arg : node->arguments) {
+                expr.field_values.push_back(convert_expr(arg.get()));
+            }
+        }
+        break;
+    }
+
+FLOW FOR NAMED INITIALIZATION:
+    Input:   {name: "Alice", age: 25, height: 165}
+    ↓
+    AST has children: [AST_ASSIGN, AST_ASSIGN, AST_ASSIGN]
+    ↓
+    For each child:
+      1. Check if node_type == AST_ASSIGN
+      2. Extract field name from child->name
+      3. Extract field value by calling convert_expr(child->right)
+      4. Add to field_names and field_values vectors
+    ↓
+    Result: field_names = ["name", "age", "height"]
+            field_values = [Literal, Literal, Literal]
+
+FLOW FOR POSITIONAL INITIALIZATION:
+    Input:   {"Bob", 30, 180}
+    ↓
+    AST has arguments: [STRING, NUMBER, NUMBER]
+    ↓
+    Since field_names.empty(), iterate through arguments
+    ↓
+    For each argument:
+      1. Call convert_expr(arg)
+      2. Add result to field_values
+    ↓
+    Result: field_names = [] (empty)
+            field_values = [Literal("Bob"), Literal(30), Literal(180)]
+
+KEY POINTS:
+  • field_names.empty() is used to detect initialization type
+  • AST_ASSIGN children contain field names and value expressions
+  • convert_expr is called on child->right (the value expression)
+  • For positional init, arguments vector is used instead of children
+  • Recursive conversion handles nested struct literals automatically
+
+CURRENT PROBLEM:
+  • Error: "Unsupported expression type in HIR generation: AST node type 10"
+  • Type 10 = AST_ASSIGN, which suggests field value conversion may be failing
+  • The generated C++ shows empty values, suggesting field_values is empty
+
+================================================================================
+
+3. C++ CODE GENERATION - STRUCT LITERALS
+================================================================================
+
+File: src/backend/codegen/hir_to_cpp.cpp (Lines 1924-1935)
+Function: std::string HIRToCpp::generate_struct_literal(const HIRExpr &expr)
+
+CURRENT IMPLEMENTATION (BROKEN):
+
+    std::string HIRToCpp::generate_struct_literal(const HIRExpr &expr) {
+        std::string result = expr.struct_type_name + "{";
+
+        for (size_t i = 0; i < expr.field_values.size(); i++) {
+            if (i > 0)
+                result += ", ";
+            result += generate_expr(expr.field_values[i]);
+        }
+
+        result += "}";
+        return result;
+    }
+
+WHAT IT DOES:
+  • Starts with type name and opening brace: "Person{"
+  • Iterates through field_values only (ignores field_names completely!)
+  • Generates each value expression
+  • Adds closing brace: "}"
+
+OUTPUT EXAMPLES:
+  Named:     Person{.name = "Alice", .age = 25}
+  Current:   Person{, }  ← WRONG! Ignores field names
+  Expected:  Person{.name = "Alice", .age = 25}  ← With fix
+
+REQUIRED FIX:
+
+    std::string HIRToCpp::generate_struct_literal(const HIRExpr &expr) {
+        std::string result = expr.struct_type_name + "{";
+
+        for (size_t i = 0; i < expr.field_values.size(); i++) {
+            if (i > 0)
+                result += ", ";
+            
+            // Use designated initializer if field names are available
+            if (!expr.field_names.empty() && i < expr.field_names.size()) {
+                result += "." + expr.field_names[i] + " = ";
+            }
+            
+            result += generate_expr(expr.field_values[i]);
+        }
+
+        result += "}";
+        return result;
+    }
+
+FIXED OUTPUT:
+  Named:     Person{.name = "Alice", .age = 25}  ← CORRECT
+  Positional: Person{"Bob", 30, 180}             ← CORRECT (field_names empty)
+  Nested:    Outer{.m = {.x = 10, .y = 20}}      ← CORRECT (recursive)
+
+KEY CHANGE:
+  • Added check: !expr.field_names.empty() && i < expr.field_names.size()
+  • If field names exist, generate designated initializer: .fieldname =
+  • If no field names (positional), generate positional init as before
+  • Enables both named and positional initialization in single function
+
+DESIGNATED INITIALIZERS:
+  • C++20 Standard: {.name = value}
+  • C++17: Limited support
+  • C++11: Not supported (but this code targets C++17+)
+  • Backward compatible: positional init still works
+
+================================================================================
+
+4. RELATED FUNCTIONS
+================================================================================
+
+generate_expr(const HIRExpr &expr)
+  File: src/backend/codegen/hir_to_cpp.cpp
+  Purpose: Dispatch expression generation based on expr.kind
+  Called by: generate_struct_literal for each field value
+  Handles: Literal, Variable, BinaryOp, FunctionCall, MemberAccess, etc.
+
+convert_expr(const ASTNode *node)
+  File: src/backend/ir/hir/hir_generator.cpp (Line 668)
+  Purpose: Convert AST expression to HIR expression
+  Called by: AST_STRUCT_LITERAL case for field values
+  Handles: 50+ AST node types including AST_STRUCT_LITERAL
+  Issue: Called on child->right which should be safe
+
+convert_location(const TokenLocation &loc)
+  File: src/backend/ir/hir/hir_generator.cpp
+  Purpose: Convert AST location to HIR location
+  Called by: convert_expr during HIR node creation
+
+convert_type(TypeInfo type, const std::string &type_name = "")
+  File: src/backend/ir/hir/hir_generator.cpp
+  Purpose: Convert AST type to HIR type
+  Called by: convert_expr during expression creation
+
+================================================================================
+
+5. ERROR HANDLING IN HIR GENERATION
+================================================================================
+
+File: src/backend/ir/hir/hir_generator.cpp (Lines 1075-1082)
+
+    default: {
+        std::string error_msg =
+            "Unsupported expression type in HIR generation: AST node type " +
+            std::to_string(static_cast<int>(node->node_type));
+        report_error(error_msg, node->location);
+        expr.kind = HIRExpr::ExprKind::Literal;
+        break;
+    }
+
+WHAT HAPPENS:
+  1. If convert_expr encounters unsupported AST node type
+  2. Error message printed: "AST node type X"
+  3. expr.kind set to Literal (default/empty value)
+  4. Function returns with partially initialized expr
+  5. Caller (e.g., AST_STRUCT_LITERAL case) receives empty/invalid expr
+  6. Field value is added to field_values anyway (empty expr)
+
+THIS EXPLAINS THE BUG:
+  • When convert_expr hits type 10 (AST_ASSIGN), it goes to default case
+  • Error is reported but function continues
+  • Empty/default expr is returned
+  • Parent adds empty expr to field_values
+  • Result: field_values contains empty expressions
+  • Generated C++ shows empty commas: Person{, , }
+
+================================================================================
+
+6. AST STRUCTURE FOR STRUCT LITERALS
+================================================================================
+
+NAMED INITIALIZATION AST:
+    {name: "Alice", age: 25, height: 165}
+    ↓
+    AST_STRUCT_LITERAL node
+    ├─ type_name: "Person"
+    ├─ children: [AST_ASSIGN_1, AST_ASSIGN_2, AST_ASSIGN_3]
+    │  ├─ AST_ASSIGN_1
+    │  │  ├─ name: "name"
+    │  │  ├─ left: AST_VARIABLE("name")
+    │  │  └─ right: AST_STRING_LITERAL("Alice")
+    │  ├─ AST_ASSIGN_2
+    │  │  ├─ name: "age"
+    │  │  ├─ left: AST_VARIABLE("age")
+    │  │  └─ right: AST_NUMBER(25)
+    │  └─ AST_ASSIGN_3
+    │     ├─ name: "height"
+    │     ├─ left: AST_VARIABLE("height")
+    │     └─ right: AST_NUMBER(165)
+    └─ arguments: [] (empty for named init)
+
+POSITIONAL INITIALIZATION AST:
+    {"Bob", 30, 180}
+    ↓
+    AST_STRUCT_LITERAL node
+    ├─ type_name: "Person"
+    ├─ children: [] (empty for positional)
+    └─ arguments: [AST_STRING_LITERAL("Bob"), AST_NUMBER(30), AST_NUMBER(180)]
+
+NESTED STRUCT LITERAL AST:
+    {l2: {l1: {value: 999}, v1: 111}}
+    ↓
+    AST_STRUCT_LITERAL (outer)
+    └─ children:
+       ├─ AST_ASSIGN
+       │  ├─ name: "l2"
+       │  └─ right: AST_STRUCT_LITERAL (nested) ← Recursive!
+       │     ├─ type_name: (inferred or explicit)
+       │     └─ children:
+       │        ├─ AST_ASSIGN
+       │        │  ├─ name: "l1"
+       │        │  └─ right: AST_STRUCT_LITERAL (nested again)
+       │        └─ AST_ASSIGN
+       │           ├─ name: "v1"
+       │           └─ right: AST_NUMBER(111)
+       └─ ...
+
+================================================================================
+
+7. ENUM DEFINITIONS
+================================================================================
+
+ASTNodeType enum (src/common/ast.h, line 973+)
+    enum class ASTNodeType {
+        AST_NUMBER = 0,
+        AST_VARIABLE = 1,
+        AST_STRING_LITERAL = 2,
+        AST_ARRAY_LITERAL = 3,
+        AST_NULLPTR = 4,
+        AST_BINARY_OP = 5,
+        AST_UNARY_OP = 6,
+        AST_TERNARY_OP = 7,
+        AST_ERROR_PROPAGATION = 8,
+        AST_CAST_EXPR = 9,
+        AST_ASSIGN = 10,              ← TYPE 10 IN ERROR MESSAGE
+        // ... more types ...
+        AST_STRUCT_LITERAL = ?,        ← Somewhere after 10
+        // ... more types ...
+    };
+
+HIRExpr::ExprKind enum
+    enum class ExprKind {
+        Literal,
+        Variable,
+        BinaryOp,
+        UnaryOp,
+        TernaryOp,
+        Cast,
+        FunctionCall,
+        ArrayRef,
+        MemberAccess,
+        StructLiteral,          ← Used for struct literals
+        ArrayLiteral,
+        // ... more kinds ...
+    };
+
+================================================================================
+
+8. TESTING THE FIXES
+================================================================================
+
+MINIMAL TEST CASE - Named Struct Literal:
+    struct Point {
+        int x;
+        int y;
+    };
+    
+    int main() {
+        Point p = {x: 10, y: 20};
+        return 0;
+    }
+
+Expected C++ after fix:
+    struct Point {
+        int x;
+        int y;
+    };
+    
+    int main() {
+        Point CB_HIR_p = {.x = 10, .y = 20};
+        return 0;
+    }
+
+MINIMAL TEST CASE - Positional Struct Literal:
+    struct Point {
+        int x;
+        int y;
+    };
+    
+    int main() {
+        Point p = {10, 20};
+        return 0;
+    }
+
+Expected C++ after fix:
+    struct Point {
+        int x;
+        int y;
+    };
+    
+    int main() {
+        Point CB_HIR_p = {10, 20};  ← Positional, no field names
+        return 0;
+    }
+
+NESTED TEST CASE:
+    struct Inner {
+        int value;
+    };
+    
+    struct Outer {
+        Inner i;
+    };
+    
+    int main() {
+        Outer o = {i: {value: 42}};
+        return 0;
+    }
+
+Expected C++ after fix:
+    struct Inner {
+        int value;
+    };
+    
+    struct Outer {
+        Inner i;
+    };
+    
+    int main() {
+        Outer CB_HIR_o = {.i = {.value = 42}};  ← Recursive initialization
+        return 0;
+    }
+
+================================================================================

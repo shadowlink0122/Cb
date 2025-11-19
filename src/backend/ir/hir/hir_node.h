@@ -18,26 +18,35 @@ struct HIRType {
     enum class TypeKind {
         Unknown,
         Void,
-        Tiny,
-        Short,
-        Int,
-        Long,
+        // 符号付き整数型
+        Tiny,   // 8-bit signed
+        Short,  // 16-bit signed
+        Int,    // 32-bit signed
+        Long,   // 64-bit signed
+        // 符号なし整数型
+        UnsignedTiny,   // 8-bit unsigned
+        UnsignedShort,  // 16-bit unsigned
+        UnsignedInt,    // 32-bit unsigned (unsigned)
+        UnsignedLong,   // 64-bit unsigned
+        // その他のプリミティブ型
         Char,
         String,
         Bool,
         Float,
         Double,
+        // 複合型
         Struct,
         Enum,
         Interface,
         Pointer,
-        Reference, // 参照型 (&T)
+        Reference,  // 参照型 (&T)
+        RvalueReference, // 右辺値参照 (&&T)
         Array,
         Nullptr,
-        Function, // 関数型
-        Generic,  // ジェネリック型パラメータ (T, U, etc.)
-        Optional, // Optional型 (T?)
-        Result,   // Result型
+        Function,   // 関数型
+        Generic,    // ジェネリック型パラメータ (T, U, etc.)
+        Optional,   // Optional型 (T?)
+        Result,     // Result型
     };
 
     TypeKind kind = TypeKind::Unknown;
@@ -46,8 +55,9 @@ struct HIRType {
     // ポインタ・参照・配列・Optional・Result用
     std::unique_ptr<HIRType> inner_type;
 
-    // 配列サイズ（固定長配列の場合）
-    int array_size = -1; // -1 = 動的配列
+    // 多次元配列のサポート
+    std::vector<int> array_dimensions; // 各次元のサイズ（-1 = 動的）
+    int array_size = -1; // 後方互換性のため保持（1次元目のサイズ）
 
     // 関数型用
     std::vector<HIRType> param_types;
@@ -56,8 +66,15 @@ struct HIRType {
     // ジェネリック型パラメータ
     std::vector<HIRType> generic_args;
 
-    // const修飾子
-    bool is_const = false;
+    // 修飾子
+    bool is_const = false;          // const修飾子
+    bool is_static = false;         // static修飾子
+    bool is_volatile = false;       // volatile修飾子
+    bool is_pointer_const = false;  // const pointer (T* const)
+    bool is_pointee_const = false;  // pointer to const (const T*)
+    
+    // unsigned修飾子（TypeKindで表現されるが、互換性のため保持）
+    bool is_unsigned = false;
 
     // コピーコンストラクタとムーブコンストラクタ
     HIRType() = default;
@@ -331,6 +348,7 @@ struct HIRInterface {
     std::vector<MethodSignature> methods;
     std::vector<std::string> generic_params; // ジェネリックパラメータ
     SourceLocation location;
+    bool generate_value_type = true; // 値型interfaceも生成するか（デフォルト: true）
 };
 
 // HIR Impl
@@ -346,6 +364,23 @@ struct HIRImpl {
 struct HIRTypedef {
     std::string name;
     HIRType target_type;
+    SourceLocation location;
+};
+
+// HIR Union (TypeScript-like literal/type unions)
+struct HIRUnion {
+    // Union variant can be a literal value or a type
+    struct Variant {
+        enum class Kind { LiteralInt, LiteralString, LiteralBool, Type };
+        Kind kind;
+        int64_t int_value;
+        std::string string_value;
+        bool bool_value;
+        HIRType type;  // For type variants (int | string | MyStruct)
+    };
+
+    std::string name;
+    std::vector<Variant> variants;
     SourceLocation location;
 };
 
@@ -388,6 +423,7 @@ struct HIRProgram {
     std::vector<HIRInterface> interfaces;
     std::vector<HIRImpl> impls;
     std::vector<HIRTypedef> typedefs;
+    std::vector<HIRUnion> unions;
     std::vector<HIRGlobalVar> global_vars;
     std::vector<HIRImport> imports;
 

@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace cb {
@@ -54,6 +55,9 @@ class HIRGenerator {
     // Impl定義の変換
     hir::HIRImpl convert_impl(const ASTNode *node);
 
+    // Union定義の変換
+    hir::HIRUnion convert_union(const ASTNode *node);
+
     // 型情報の変換
     hir::HIRType convert_type(TypeInfo type_info,
                               const std::string &type_name = "");
@@ -73,6 +77,9 @@ class HIRGenerator {
 
     // エラーカウンタ
     int error_count = 0;
+
+    // v0.14.0: Interface names for value type resolution
+    std::unordered_set<std::string> interface_names_;
 };
 
 } // namespace ir

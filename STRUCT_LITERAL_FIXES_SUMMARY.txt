@@ -1,0 +1,273 @@
+================================================================================
+STRUCT LITERAL TESTS - FAILURE ANALYSIS AND FIXES
+================================================================================
+
+REPORT GENERATED: 2025-11-19
+
+================================================================================
+1. WHAT STRUCT LITERAL SYNTAX IS EXPECTED
+================================================================================
+
+Named Field Initialization (PRIMARY):
+  Person p1 = {name: "Alice", age: 25, height: 165};
+  
+Positional Initialization (SECONDARY):
+  Person p2 = {"Bob", 30, 180};
+
+Nested Named Fields (COMPLEX):
+  Level3 root = {
+      l2: {l1: {l0: {value: 999}, v1: 111}, v2: 222},
+      v3: 333
+  };
+
+Extracted Struct Member Initialization:
+  Outer o1 = {val: {val: {x: 100, y: 200}, z: 300}, w: 400};
+
+Test Files:
+  - tests/cases/struct/struct_literal.cb (named + positional)
+  - tests/cases/nested_struct_init/comprehensive.cb (nested depth=4)
+  - tests/cases/nested_struct_init/declaration_member_access.cb (nested depth=3)
+
+================================================================================
+2. WHAT'S CURRENTLY WORKING VS BROKEN
+================================================================================
+
+WORKING:
+--------
+✓ AST Parser recognizes {name: value, ...} and {value1, value2} syntax
+✓ HIR Generator converts AST_STRUCT_LITERAL nodes
+✓ HIR stores struct_type_name, field_names, and field_values
+✓ Positional struct literal placeholder code exists
+
+BROKEN:
+-------
+✗ C++ Codegen completely ignores field_names vector
+  → Named initialization: Person{, , } instead of Person{.name="Alice", ...}
+  → Positional initialization: Only generates empty commas
+  
+✗ Field values appear empty in generated C++ output
+  → HIR Generation Error: "AST node type 10" (AST_ASSIGN)
+  → Suggests field value extraction is failing
+  
+✗ No designated initializer support in C++ output
+  → Current: Person{value1, value2, value3}
+  → Needed: Person{.name=value1, .age=value2, .height=value3}
+
+EVIDENCE OF FAILURE:
+  Input:  Person p1 = {name: "Alice", age: 25, height: 165};
+  Output: Person CB_HIR_p1 = {, , };
+  Error:  expected expression (C++ syntax error)
+
+================================================================================
+3. SPECIFIC ISSUES TO FIX
+================================================================================
+
+ISSUE #1: CRITICAL - Codegen Ignores Field Names
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Location: src/backend/codegen/hir_to_cpp.cpp
+  Function: HIRToCpp::generate_struct_literal()
+  Lines: 1924-1935
+
+  CURRENT CODE:
+  ─────────────
+  std::string HIRToCpp::generate_struct_literal(const HIRExpr &expr) {
+      std::string result = expr.struct_type_name + "{";
+
+      for (size_t i = 0; i < expr.field_values.size(); i++) {
+          if (i > 0)
+              result += ", ";
+          result += generate_expr(expr.field_values[i]);  // ← IGNORES field_names!
+      }
+
+      result += "}";
+      return result;
+  }
+
+  PROBLEMS:
+  ─────────
+  • Loop uses only field_values, completely ignores field_names vector
+  • No designated initializer syntax (needed for named fields)
+  • Generates invalid C++ when field_names are present
+
+  REQUIRED FIX:
+  ─────────────
+  for (size_t i = 0; i < expr.field_values.size(); i++) {
+      if (i > 0)
+          result += ", ";
+      
+      // Add designated initializer if field names available
+      if (!expr.field_names.empty() && i < expr.field_names.size()) {
+          result += "." + expr.field_names[i] + " = ";
+      }
+      
+      result += generate_expr(expr.field_values[i]);
+  }
+
+  RESULT:
+  ───────
+  Input:  Person p = {name: "Alice", age: 25};
+  Before: Person{, };
+  After:  Person{.name = "Alice", .age = 25};
+
+ISSUE #2: HIGH - Field Values Empty in Generated Code
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Evidence: 
+    Error: "Unsupported expression type in HIR generation: AST node type 10"
+    Output: Person{, , } (all values missing)
+    
+  Root Cause: Type 10 is AST_ASSIGN
+    • Named field syntax uses AST_ASSIGN nodes in children
+    • convert_expr() in hir_generator doesn't handle AST_ASSIGN
+    • Only convert_stmt() handles AST_ASSIGN (line 1205)
+    • When convert_expr is called on AST_ASSIGN, hits default case
+    • Error is reported but field_values may be left empty
+
+  Location: src/backend/ir/hir/hir_generator.cpp
+  Function: HIRGenerator::convert_expr()
+  Lines: 903-922 (AST_STRUCT_LITERAL case)
+
+  CODE:
+  ─────
+  case ASTNodeType::AST_STRUCT_LITERAL: {
+      expr.kind = HIRExpr::ExprKind::StructLiteral;
+      expr.struct_type_name = node->type_name;
+
+      // Named initialization: {name: value, ...}
+      for (const auto &child : node->children) {
+          if (child->node_type == ASTNodeType::AST_ASSIGN) {
+              expr.field_names.push_back(child->name);
+              expr.field_values.push_back(convert_expr(child->right.get()));
+          }
+      }
+
+      // Positional initialization: {value1, value2, ...}
+      if (expr.field_names.empty()) {
+          for (const auto &arg : node->arguments) {
+              expr.field_values.push_back(convert_expr(arg.get()));
+          }
+      }
+  }
+
+  VERIFICATION NEEDED:
+  ─────────────────────
+  1. Check if child->right.get() is a valid pointer
+  2. Verify convert_expr(child->right.get()) succeeds
+  3. Check if errors are silently swallowed
+  4. Ensure field_values vector gets populated
+  5. Test recursive nested struct conversion
+
+ISSUE #3: HIGH - Nested Struct Literal Support
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Problem: Complex nested literals may fail
+  
+  Example:
+    Level3 root = {
+        l2: {l1: {l0: {value: 999}, v1: 111}, v2: 222},
+        v3: 333
+    };
+
+  Requirement:
+    • Field value for 'l2' is itself a struct literal (AST_STRUCT_LITERAL)
+    • Must be recursively converted by convert_expr
+    • Each level must properly extract and convert nested fields
+
+  Concern: If child->right is a struct literal, convert_expr must handle it
+  
+  Current Status: Should work (convert_expr has AST_STRUCT_LITERAL case)
+  Verification Needed: Test with nested structures to confirm
+
+================================================================================
+4. RECOMMENDED FIXES (IN PRIORITY ORDER)
+================================================================================
+
+FIX PRIORITY #1: Update generate_struct_literal() [HIGHEST IMPACT]
+──────────────────────────────────────────────────────────────────
+Status: CRITICAL - Blocks all named field initialization
+File: src/backend/codegen/hir_to_cpp.cpp
+Lines: 1927-1931
+Impact: Quick fix enables named field syntax
+
+Action:
+  1. Open src/backend/codegen/hir_to_cpp.cpp
+  2. Find function: std::string HIRToCpp::generate_struct_literal()
+  3. Update loop to use designated initializers when field_names available
+  4. Test with simple named struct: {x: 10, y: 20}
+
+Expected Outcome:
+  • Named fields generate with .fieldname = value syntax
+  • Positional fields still work (field_names.empty() check)
+  • All three test files should compile successfully
+
+FIX PRIORITY #2: Debug HIR Field Value Generation [VERIFICATION]
+─────────────────────────────────────────────────────────────────
+Status: HIGH - Need to understand why field_values are empty
+File: src/backend/ir/hir/hir_generator.cpp
+Lines: 903-922
+Action:
+  1. Add logging to AST_STRUCT_LITERAL case
+  2. Log when field_names are added (should match field_values)
+  3. Check that convert_expr(child->right.get()) returns valid expressions
+  4. Verify field_values vector size matches field_names size
+
+Expected Outcome:
+  • Understand if field_values are being populated
+  • Identify where values are lost if they are
+  • Ensure error handling doesn't silently fail
+
+FIX PRIORITY #3: Test Nested Struct Literals [VALIDATION]
+──────────────────────────────────────────────────────────
+Status: MEDIUM - Needed for comprehensive.cb and declaration_member_access.cb
+Action:
+  1. Test with nested struct literal after Fix #1
+  2. Verify recursive conversion works
+  3. Check that nested field values are properly generated
+
+Expected Outcome:
+  • Nested struct initialization works at all depths
+  • Test files compile and run successfully
+
+================================================================================
+5. EXECUTION SUMMARY
+================================================================================
+
+COMPILATION PIPELINE FOR STRUCT LITERALS:
+
+Input Code:
+  Person p1 = {name: "Alice", age: 25, height: 165};
+
+AST Stage:
+  AST_STRUCT_LITERAL
+    type_name: "Person"
+    children: [
+      AST_ASSIGN(name="name", right=AST_STRING_LITERAL("Alice")),
+      AST_ASSIGN(name="age", right=AST_NUMBER(25)),
+      AST_ASSIGN(name="height", right=AST_NUMBER(165))
+    ]
+
+HIR Stage:
+  HIRExpr::StructLiteral
+    struct_type_name: "Person"
+    field_names: ["name", "age", "height"]
+    field_values: [
+      Literal("Alice"),
+      Literal(25),
+      Literal(165)
+    ]
+
+C++ Generation Stage:
+  CURRENT:  Person CB_HIR_p1 = {, , };
+  AFTER FIX: Person CB_HIR_p1 = {.name = "Alice", .age = 25, .height = 165};
+
+================================================================================
+6. TEST VALIDATION MATRIX
+================================================================================
+
+Test Case                          Status    Expected Result
+─────────────────────────────────────────────────────────────────────────────
+struct_literal.cb (named)          FAILING   Person{.name="Alice", .age=25, ...}
+struct_literal.cb (positional)     UNKNOWN   Person{"Bob", 30, 180}
+struct_literal.cb (member access)  UNKNOWN   p1.age modified correctly
+comprehensive.cb (depth=4)         FAILING   Nested initialization works
+declaration_member_access.cb       FAILING   Extracted struct member init works
+
+================================================================================

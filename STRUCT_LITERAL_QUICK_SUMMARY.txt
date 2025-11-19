@@ -1,0 +1,157 @@
+================================================================================
+STRUCT LITERAL FAILURES - QUICK SUMMARY
+================================================================================
+
+1. SYNTAX EXPECTED
+================================================================================
+
+Named fields:       {name: "Alice", age: 25, height: 165}
+Positional fields:  {"Bob", 30, 180}
+Nested fields:      {l2: {l1: {l0: {value: 999}, v1: 111}, v2: 222}, v3: 333}
+
+2. WHAT'S BROKEN
+================================================================================
+
+Issue #1: C++ Codegen Ignores Field Names [CRITICAL]
+  File:     src/backend/codegen/hir_to_cpp.cpp (lines 1927-1931)
+  Problem:  Loop only uses field_values, ignores field_names vector
+  Output:   Person{, , } instead of Person{.name = "Alice", .age = 25, ...}
+  Fix:      Add .fieldname = syntax when field_names available
+  Effort:   ~10 lines of code
+
+Issue #2: Field Values Empty in Output [HIGH]
+  File:     src/backend/ir/hir/hir_generator.cpp (lines 903-922)
+  Problem:  Error "AST node type 10" suggests field value extraction failing
+  Output:   Field values appear empty in generated C++
+  Debug:    Check if convert_expr is properly populating field_values
+  Effort:   Medium (investigation needed)
+
+Issue #3: Nested Struct Literals [HIGH]
+  File:     Both hir_generator.cpp and hir_to_cpp.cpp
+  Problem:  No validation that nested initialization works
+  Test:     comprehensive.cb and declaration_member_access.cb
+  Effort:   Minimal (should work with recursive conversion)
+
+3. THE FIX (Priority #1)
+================================================================================
+
+CURRENT CODE (src/backend/codegen/hir_to_cpp.cpp):
+    
+    std::string HIRToCpp::generate_struct_literal(const HIRExpr &expr) {
+        std::string result = expr.struct_type_name + "{";
+
+        for (size_t i = 0; i < expr.field_values.size(); i++) {
+            if (i > 0)
+                result += ", ";
+            result += generate_expr(expr.field_values[i]);  // IGNORES field_names!
+        }
+
+        result += "}";
+        return result;
+    }
+
+FIXED CODE:
+
+    std::string HIRToCpp::generate_struct_literal(const HIRExpr &expr) {
+        std::string result = expr.struct_type_name + "{";
+
+        for (size_t i = 0; i < expr.field_values.size(); i++) {
+            if (i > 0)
+                result += ", ";
+            
+            // Use designated initializer if field names available
+            if (!expr.field_names.empty() && i < expr.field_names.size()) {
+                result += "." + expr.field_names[i] + " = ";
+            }
+            
+            result += generate_expr(expr.field_values[i]);
+        }
+
+        result += "}";
+        return result;
+    }
+
+RESULTS:
+  Before: Person{, , }
+  After:  Person{.name = "Alice", .age = 25, .height = 165}
+
+4. TEST FILES
+================================================================================
+
+tests/cases/struct/struct_literal.cb
+  Line 10: Person p1 = {name: "Alice", age: 25, height: 165};  (named)
+  Line 26: Person p2 = {"Bob", 30, 180};                        (positional)
+  Status:  FAILING - generates Person{, , }
+
+tests/cases/nested_struct_init/comprehensive.cb
+  Line 24: Level3 root = {l2: {l1: {l0: {value: 999}, ...}...}}  (4-level nested)
+  Status:  FAILING - nested initialization not working
+
+tests/cases/nested_struct_init/declaration_member_access.cb
+  Line 20: Outer o1 = {val: {val: {x: 100, y: 200}, z: 300}, w: 400};
+  Status:  FAILING - member extraction with init not working
+
+5. EXECUTION PIPELINE
+================================================================================
+
+INPUT CODE:
+    Person p1 = {name: "Alice", age: 25};
+
+PARSE (AST):
+    AST_STRUCT_LITERAL
+    ├─ type_name: "Person"
+    └─ children: [AST_ASSIGN(name="name"), AST_ASSIGN(name="age")]
+
+CONVERT (HIR):
+    HIRExpr::StructLiteral
+    ├─ struct_type_name: "Person"
+    ├─ field_names: ["name", "age"]
+    └─ field_values: [Literal("Alice"), Literal(25)]
+
+GENERATE C++:
+    BEFORE FIX: Person CB_HIR_p1 = {, };     (broken)
+    AFTER FIX:  Person CB_HIR_p1 = {.name = "Alice", .age = 25};  (fixed)
+
+6. DOCUMENTATION
+================================================================================
+
+Three detailed analysis documents available:
+
+STRUCT_LITERAL_ANALYSIS.md
+  - Complete technical deep-dive
+  - All 3 issues with detailed explanations
+  - Test cases with expected output
+  - Recommended fix order
+
+STRUCT_LITERAL_FIXES_SUMMARY.txt
+  - Quick reference guide
+  - Before/after code snippets
+  - Impact assessment
+  - Priority ordering
+
+STRUCT_LITERAL_CODE_REFERENCE.txt
+  - Developer reference
+  - HIR structure definitions
+  - Code flow diagrams
+  - Enum definitions
+  - Error handling details
+
+7. NEXT STEPS
+================================================================================
+
+1. Apply Fix #1 to src/backend/codegen/hir_to_cpp.cpp
+   - 10 lines of code change
+   - Enables named field initialization
+   - Test with simple named struct
+
+2. Debug Issue #2 if needed
+   - Investigate why field_values appear empty
+   - Add logging to HIR generation
+   - Check error handling
+
+3. Validate all 3 test files
+   - struct_literal.cb (named + positional)
+   - comprehensive.cb (4-level nesting)
+   - declaration_member_access.cb (member extraction)
+
+================================================================================

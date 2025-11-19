@@ -1034,10 +1034,12 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
         !parser_->check(TokenType::TOK_BIG) &&
         !parser_->check(TokenType::TOK_QUAD)) {
 
+        // unsigned alone means unsigned int - allow proceeding
         if (isUnsigned) {
-            parser_->error("Expected type specifier after 'unsigned'");
+            // Continue to process as unsigned int
+        } else {
+            return nullptr;
         }
-        return nullptr;
     }
 
     // 型名を取得
@@ -1066,8 +1068,21 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
         base_type_name = "big";
     else if (parser_->check(TokenType::TOK_QUAD))
         base_type_name = "quad";
+    else if (isUnsigned) {
+        // unsigned alone means unsigned int
+        base_type_name = "int";
+        // Don't advance - no token to consume
+    }
 
-    parser_->advance(); // consume type
+    if (!base_type_name.empty() && !isUnsigned) {
+        parser_->advance(); // consume type token (but not for unsigned alone)
+    } else if (!base_type_name.empty() && isUnsigned && 
+               (parser_->check(TokenType::TOK_INT) ||
+                parser_->check(TokenType::TOK_LONG) ||
+                parser_->check(TokenType::TOK_SHORT) ||
+                parser_->check(TokenType::TOK_TINY))) {
+        parser_->advance(); // consume type token for "unsigned int" etc.
+    }
 
     // ポインタ修飾子のチェック
     int pointer_depth = 0;

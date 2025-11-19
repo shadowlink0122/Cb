@@ -11,10 +11,17 @@
 enum TypeInfo {
     TYPE_UNKNOWN = -1,
     TYPE_VOID = 0,
+    // 符号付き整数型
     TYPE_TINY = 1,
     TYPE_SHORT = 2,
     TYPE_INT = 3,
     TYPE_LONG = 4,
+    // 符号なし整数型
+    TYPE_UNSIGNED_TINY = 20,
+    TYPE_UNSIGNED_SHORT = 21,
+    TYPE_UNSIGNED_INT = 22,
+    TYPE_UNSIGNED_LONG = 23,
+    // その他のプリミティブ型
     TYPE_CHAR = 5,
     TYPE_STRING = 6,
     TYPE_BOOL = 7,
@@ -22,6 +29,7 @@ enum TypeInfo {
     TYPE_DOUBLE = 9,
     TYPE_BIG = 10,
     TYPE_QUAD = 11,
+    // 複合型
     TYPE_STRUCT = 12,
     TYPE_ENUM = 13,
     TYPE_INTERFACE = 14,

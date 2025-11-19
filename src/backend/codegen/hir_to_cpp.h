@@ -32,6 +32,7 @@ class HIRToCpp {
     std::vector<std::string>
         current_generic_params; // 現在のジェネリック型パラメータ
                                 // (T, K, V, etc.)
+    bool current_impl_is_for_primitive = false; // 現在のimplがプリミティブ型用か
 
     // ヘルパーメソッド
     void emit(const std::string &code);
@@ -48,16 +49,21 @@ class HIRToCpp {
     void generate_forward_declarations(const ir::hir::HIRProgram &program);
     void generate_structs(const std::vector<ir::hir::HIRStruct> &structs);
     void generate_enums(const std::vector<ir::hir::HIREnum> &enums);
+    void generate_unions(const std::vector<ir::hir::HIRUnion> &unions);
     void
     generate_interfaces(const std::vector<ir::hir::HIRInterface> &interfaces);
+    void generate_pointer_interface(const ir::hir::HIRInterface &interface);
+    void generate_value_interface(const ir::hir::HIRInterface &interface);
     void
     generate_global_vars(const std::vector<ir::hir::HIRGlobalVar> &globals);
     void generate_functions(const std::vector<ir::hir::HIRFunction> &functions);
     void generate_impls(const std::vector<ir::hir::HIRImpl> &impls);
+    void generate_primitive_type_specializations(const ir::hir::HIRProgram &program);
 
     // 個別の定義生成
     void generate_struct(const ir::hir::HIRStruct &struct_def);
     void generate_enum(const ir::hir::HIREnum &enum_def);
+    void generate_union(const ir::hir::HIRUnion &union_def);
     void generate_function(const ir::hir::HIRFunction &func);
     void generate_impl(const ir::hir::HIRImpl &impl);
 
@@ -108,6 +114,7 @@ class HIRToCpp {
     std::string generate_basic_type(const ir::hir::HIRType &type);
     std::string generate_pointer_type(const ir::hir::HIRType &type);
     std::string generate_reference_type(const ir::hir::HIRType &type);
+    std::string generate_rvalue_reference_type(const ir::hir::HIRType &type);
     std::string generate_array_type(const ir::hir::HIRType &type);
     std::string generate_function_type(const ir::hir::HIRType &type);
 

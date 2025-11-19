@@ -284,12 +284,20 @@ int main(int argc, char **argv) {
 
             if (compile_result != 0) {
                 std::cerr << "Error: C++ compilation failed" << std::endl;
-                return 1;
+                // デストラクタをスキップして終了
+                std::fflush(stdout);
+                std::fflush(stderr);
+                std::_Exit(1);
             }
 
             std::cout << "Compilation completed successfully!" << std::endl;
             std::cout << "Output binary: " << output_binary << std::endl;
-            return 0;
+
+            // 正常終了：デストラクタをスキップして即座に終了
+            // （HIRオブジェクトのデストラクタでのメモリ関連問題を回避）
+            std::fflush(stdout);
+            std::fflush(stderr);
+            std::_Exit(0);
         }
 
         // インタープリターでASTを実行
