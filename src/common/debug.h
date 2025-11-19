@@ -645,6 +645,100 @@ enum class DebugMsgId {
     HIR_GENERIC_PARAM_PROCESSING, // ジェネリックパラメータ処理
     HIR_GENERIC_CONSTRAINT,       // ジェネリック制約処理
 
+    // C++コード生成 (HIR to C++)
+    CODEGEN_CPP_START,                // C++コード生成開始
+    CODEGEN_CPP_COMPLETE,             // C++コード生成完了
+    CODEGEN_CPP_PROGRAM,              // プログラム全体の生成
+    CODEGEN_CPP_HEADER,               // ヘッダー生成
+    CODEGEN_CPP_IMPORTS,              // インポート生成
+    CODEGEN_CPP_TYPEDEFS,             // typedef生成
+    CODEGEN_CPP_FORWARD_DECL,         // 前方宣言生成
+    CODEGEN_CPP_STRUCT_START,         // 構造体生成開始
+    CODEGEN_CPP_STRUCT_COMPLETE,      // 構造体生成完了
+    CODEGEN_CPP_ENUM_START,           // enum生成開始
+    CODEGEN_CPP_ENUM_COMPLETE,        // enum生成完了
+    CODEGEN_CPP_UNION_START,          // union生成開始
+    CODEGEN_CPP_UNION_COMPLETE,       // union生成完了
+    CODEGEN_CPP_INTERFACE_START,      // interface生成開始
+    CODEGEN_CPP_INTERFACE_COMPLETE,   // interface生成完了
+    CODEGEN_CPP_FUNCTION_START,       // 関数生成開始
+    CODEGEN_CPP_FUNCTION_COMPLETE,    // 関数生成完了
+    CODEGEN_CPP_FUNCTION_SIGNATURE,   // 関数シグネチャ生成
+    CODEGEN_CPP_FUNCTION_BODY,        // 関数本体生成
+    CODEGEN_CPP_IMPL_START,           // impl生成開始
+    CODEGEN_CPP_IMPL_COMPLETE,        // impl生成完了
+    CODEGEN_CPP_IMPL_METHOD,          // implメソッド生成
+    CODEGEN_CPP_GLOBAL_VAR,           // グローバル変数生成
+    CODEGEN_CPP_FFI_FUNC,             // FFI関数生成
+    
+    // C++ステートメント生成
+    CODEGEN_CPP_STMT_START,           // ステートメント生成開始
+    CODEGEN_CPP_STMT_VAR_DECL,        // 変数宣言生成
+    CODEGEN_CPP_STMT_ASSIGNMENT,      // 代入文生成
+    CODEGEN_CPP_STMT_IF,              // if文生成
+    CODEGEN_CPP_STMT_WHILE,           // while文生成
+    CODEGEN_CPP_STMT_FOR,             // for文生成
+    CODEGEN_CPP_STMT_RETURN,          // return文生成
+    CODEGEN_CPP_STMT_BLOCK,           // ブロック生成
+    CODEGEN_CPP_STMT_SWITCH,          // switch文生成
+    CODEGEN_CPP_STMT_DEFER,           // defer文生成
+    CODEGEN_CPP_STMT_DELETE,          // delete文生成
+    CODEGEN_CPP_STMT_TRY_CATCH,       // try-catch文生成
+    CODEGEN_CPP_STMT_ASSERT,          // assert文生成
+    
+    // C++式生成
+    CODEGEN_CPP_EXPR_START,           // 式生成開始
+    CODEGEN_CPP_EXPR_LITERAL,         // リテラル式生成
+    CODEGEN_CPP_EXPR_VARIABLE,        // 変数参照生成
+    CODEGEN_CPP_EXPR_BINARY_OP,       // 二項演算生成
+    CODEGEN_CPP_EXPR_UNARY_OP,        // 単項演算生成
+    CODEGEN_CPP_EXPR_FUNC_CALL,       // 関数呼び出し生成
+    CODEGEN_CPP_EXPR_METHOD_CALL,     // メソッド呼び出し生成
+    CODEGEN_CPP_EXPR_MEMBER_ACCESS,   // メンバアクセス生成
+    CODEGEN_CPP_EXPR_ARRAY_ACCESS,    // 配列アクセス生成
+    CODEGEN_CPP_EXPR_CAST,            // キャスト生成
+    CODEGEN_CPP_EXPR_TERNARY,         // 三項演算子生成
+    CODEGEN_CPP_EXPR_LAMBDA,          // ラムダ式生成
+    CODEGEN_CPP_EXPR_STRUCT_LITERAL,  // 構造体リテラル生成
+    CODEGEN_CPP_EXPR_ARRAY_LITERAL,   // 配列リテラル生成
+    CODEGEN_CPP_EXPR_NEW,             // new式生成
+    CODEGEN_CPP_EXPR_AWAIT,           // await式生成
+    
+    // C++ポインタ操作生成
+    CODEGEN_CPP_POINTER_TYPE_START,   // ポインタ型生成開始
+    CODEGEN_CPP_POINTER_TYPE,         // ポインタ型: T*
+    CODEGEN_CPP_POINTER_CONST,        // const pointer: T* const
+    CODEGEN_CPP_POINTER_TO_CONST,     // pointer to const: const T*
+    CODEGEN_CPP_POINTER_ADDRESS_OF,   // アドレス演算子 &
+    CODEGEN_CPP_POINTER_DEREF,        // デリファレンス *
+    CODEGEN_CPP_POINTER_ARROW,        // アロー演算子 ->
+    CODEGEN_CPP_POINTER_NULL,         // nullptr生成
+    CODEGEN_CPP_POINTER_CAST,         // ポインタキャスト
+    CODEGEN_CPP_POINTER_ARITHMETIC,   // ポインタ算術演算
+    
+    // C++参照型生成
+    CODEGEN_CPP_REFERENCE_TYPE,       // 参照型 &
+    CODEGEN_CPP_RVALUE_REF_TYPE,      // 右辺値参照 &&
+    
+    // C++型生成詳細
+    CODEGEN_CPP_TYPE_START,           // 型生成開始
+    CODEGEN_CPP_TYPE_BASIC,           // 基本型生成
+    CODEGEN_CPP_TYPE_ARRAY,           // 配列型生成
+    CODEGEN_CPP_TYPE_FUNCTION,        // 関数型生成
+    CODEGEN_CPP_TYPE_GENERIC,         // ジェネリック型生成
+    CODEGEN_CPP_TYPE_COMPLETE,        // 型生成完了
+    
+    // ポインタ実装デバッグ
+    POINTER_IMPL_ALLOC,               // ポインタメモリ割り当て
+    POINTER_IMPL_FREE,                // ポインタメモリ解放
+    POINTER_IMPL_COPY,                // ポインタコピー
+    POINTER_IMPL_ASSIGN,              // ポインタ代入
+    POINTER_IMPL_COMPARE,             // ポインタ比較
+    POINTER_IMPL_NULL_CHECK,          // ポインタNULLチェック
+    POINTER_IMPL_DEREF_CHECK,         // デリファレンス前チェック
+    POINTER_IMPL_BOUNDS_CHECK,        // ポインタ境界チェック
+    POINTER_IMPL_TYPE_MISMATCH,       // ポインタ型不一致
+    
     // 汎用デバッグ（最後の手段として残す）
     GENERIC_DEBUG, // 汎用デバッグライン出力
 

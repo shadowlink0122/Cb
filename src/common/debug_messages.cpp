@@ -3,6 +3,7 @@
 #include "debug/debug_hir_messages.h"
 #include "debug/debug_interpreter_messages.h"
 #include "debug/debug_parser_messages.h"
+#include "debug/debug_codegen_cpp_messages.h"
 #include <vector>
 
 // デバッグメッセージテンプレート配列を動的に初期化する関数
@@ -16,6 +17,7 @@ static std::vector<DebugMessageTemplate> init_debug_messages() {
     DebugMessages::AST::init_ast_messages(messages);
     DebugMessages::Interpreter::init_interpreter_messages(messages);
     DebugMessages::HIR::init_hir_messages(messages);
+    DebugMessages::CodegenCpp::init_codegen_cpp_messages(messages);
 
     return messages;
 }

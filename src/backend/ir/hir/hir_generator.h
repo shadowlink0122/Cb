@@ -11,74 +11,69 @@
 namespace cb {
 namespace ir {
 
-// HIRGenerator: ASTからHIRへの変換を行うクラス
+// Forward declarations
+class HIRExprConverter;
+class HIRStmtConverter;
+class HIRDeclTypeConverter;
+
+/**
+ * @brief HIR Generator - Main coordinator for AST to HIR conversion
+ * 
+ * This class coordinates the conversion by delegating to specialized converters:
+ * - HIRExprConverter: Expression conversion
+ * - HIRStmtConverter: Statement conversion
+ * - HIRDeclTypeConverter: Declaration and type conversion
+ */
 class HIRGenerator {
   public:
     HIRGenerator();
     ~HIRGenerator();
 
-    // ASTからHIRProgramを生成
     std::unique_ptr<hir::HIRProgram>
     generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes);
 
-    // For compile mode: Generate HIR from AST nodes and parser definitions
-    // This includes imported modules' definitions
     std::unique_ptr<hir::HIRProgram> generate_with_parser_definitions(
         const std::vector<std::unique_ptr<ASTNode>> &ast_nodes,
         const std::unordered_map<std::string, StructDefinition> &struct_defs,
-        const std::unordered_map<std::string, InterfaceDefinition>
-            &interface_defs,
+        const std::unordered_map<std::string, InterfaceDefinition> &interface_defs,
         const std::vector<ImplDefinition> &impl_defs);
 
-    // For testing purposes
+    // For testing
     friend class HIRGeneratorTest;
+    friend class HIRExprConverter;
+    friend class HIRStmtConverter;
+    friend class HIRDeclTypeConverter;
+
+    // Accessors for converters
+    const std::unordered_set<std::string>& get_interface_names() const {
+        return interface_names_;
+    }
 
   private:
-    // 式の変換
+    // Converter instances
+    std::unique_ptr<HIRExprConverter> expr_converter_;
+    std::unique_ptr<HIRStmtConverter> stmt_converter_;
+    std::unique_ptr<HIRDeclTypeConverter> decl_type_converter_;
+
+    // Delegation methods (called by main generate functions)
     hir::HIRExpr convert_expr(const ASTNode *node);
-
-    // 文の変換
     hir::HIRStmt convert_stmt(const ASTNode *node);
-
-    // 関数定義の変換
     hir::HIRFunction convert_function(const ASTNode *node);
-
-    // 構造体定義の変換
     hir::HIRStruct convert_struct(const ASTNode *node);
-
-    // Enum定義の変換
     hir::HIREnum convert_enum(const ASTNode *node);
-
-    // Interface定義の変換
     hir::HIRInterface convert_interface(const ASTNode *node);
-
-    // Impl定義の変換
     hir::HIRImpl convert_impl(const ASTNode *node);
-
-    // Union定義の変換
     hir::HIRUnion convert_union(const ASTNode *node);
-
-    // 型情報の変換
-    hir::HIRType convert_type(TypeInfo type_info,
-                              const std::string &type_name = "");
-
-    // 配列型情報の変換
+    hir::HIRType convert_type(TypeInfo type_info, const std::string &type_name = "");
     hir::HIRType convert_array_type(const ArrayTypeInfo &array_info);
 
-    // ソース位置情報の変換
+    // Utility methods
     SourceLocation convert_location(const ::SourceLocation &ast_loc);
+    void report_error(const std::string &message, const ::SourceLocation &location);
 
-    // エラーレポート
-    void report_error(const std::string &message,
-                      const ::SourceLocation &location);
-
-    // 変数IDカウンタ（SSA形式のための準備）
+    // State
     uint32_t next_var_id = 0;
-
-    // エラーカウンタ
     int error_count = 0;
-
-    // v0.14.0: Interface names for value type resolution
     std::unordered_set<std::string> interface_names_;
 };
 

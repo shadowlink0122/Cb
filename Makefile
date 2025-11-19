@@ -154,13 +154,20 @@ INTERPRETER_FFI_OBJS = \
 # v0.14.0: IRオブジェクトファイル
 IR_HIR_OBJS = \
 	$(IR_HIR)/hir_generator.o \
+	$(IR_HIR)/hir_expr_converter.o \
+	$(IR_HIR)/hir_stmt_converter.o \
+	$(IR_HIR)/hir_decl_type_converter.o \
 	$(IR_HIR)/hir_node.o \
 	$(IR_HIR)/hir_builder.o
 
 # v0.14.0: Codegen (Code Generation) のオブジェクトファイル
 CODEGEN_DIR=$(BACKEND_DIR)/codegen
 CODEGEN_OBJS = \
-	$(CODEGEN_DIR)/hir_to_cpp.o
+	$(CODEGEN_DIR)/hir_to_cpp.o \
+	$(CODEGEN_DIR)/codegen_types.o \
+	$(CODEGEN_DIR)/codegen_expressions.o \
+	$(CODEGEN_DIR)/codegen_statements.o \
+	$(CODEGEN_DIR)/codegen_declarations.o
 
 # 	$(IR_HIR)/hir_visitor.o \
 # 	$(IR_HIR)/hir_dumper.o
@@ -193,7 +200,8 @@ DEBUG_OBJS = \
 	$(DEBUG_DIR)/debug_parser_messages.o \
 	$(DEBUG_DIR)/debug_ast_messages.o \
 	$(DEBUG_DIR)/debug_interpreter_messages.o \
-	$(DEBUG_DIR)/debug_hir_messages.o
+	$(DEBUG_DIR)/debug_hir_messages.o \
+	$(DEBUG_DIR)/debug_codegen_cpp_messages.o
 
 COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(DEBUG_OBJS) $(COMMON_DIR)/ast.o $(PLATFORM_OBJS)
 
