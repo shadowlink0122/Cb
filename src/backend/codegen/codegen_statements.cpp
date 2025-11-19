@@ -159,10 +159,34 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
 }
 
 void HIRToCpp::generate_assignment(const HIRStmt &stmt) {
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_ASSIGN] Assignment: has_lhs=" << (stmt.lhs != nullptr)
+                  << ", has_rhs=" << (stmt.rhs != nullptr) << std::endl;
+    }
+    
     emit_indent();
-    emit(generate_expr(*stmt.lhs));
-    emit(" = ");
-    emit(generate_expr(*stmt.rhs));
+    
+    if (!stmt.lhs) {
+        std::cerr << "[ERROR] Assignment has null lhs!" << std::endl;
+        emit("/* null lhs */ = ");
+    } else {
+        emit(generate_expr(*stmt.lhs));
+        if (debug_mode) {
+            std::cerr << "[CODEGEN_ASSIGN] LHS generated" << std::endl;
+        }
+        emit(" = ");
+    }
+    
+    if (!stmt.rhs) {
+        std::cerr << "[ERROR] Assignment has null rhs!" << std::endl;
+        emit("/* null rhs */");
+    } else {
+        emit(generate_expr(*stmt.rhs));
+        if (debug_mode) {
+            std::cerr << "[CODEGEN_ASSIGN] RHS generated" << std::endl;
+        }
+    }
+    
     emit(";\n");
 }
 
@@ -447,8 +471,24 @@ void HIRToCpp::generate_defer(const HIRStmt &stmt) {
 }
 
 void HIRToCpp::generate_delete(const HIRStmt &stmt) {
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_DELETE] Delete statement: has_expr=" 
+                  << (stmt.delete_expr != nullptr) << std::endl;
+    }
+    
+    if (!stmt.delete_expr) {
+        std::cerr << "[ERROR] Delete statement has null delete_expr!" << std::endl;
+        emit_indent();
+        emit("delete /* null expr */;\n");
+        return;
+    }
+    
     std::string expr_str = generate_expr(*stmt.delete_expr);
     debug_msg(DebugMsgId::CODEGEN_CPP_STMT_DELETE, expr_str.c_str());
+    
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_DELETE] Generated: delete " << expr_str << std::endl;
+    }
     
     emit_indent();
     // 配列の場合は delete[] を使用

@@ -377,9 +377,18 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
 
     case ASTNodeType::AST_DELETE_EXPR: {
         stmt.kind = HIRStmt::StmtKind::Delete;
-        if (node->left) {
+        if (debug_mode) {
+            std::cerr << "[HIR_STMT] Delete expression: has_delete_expr=" 
+                      << (node->delete_expr != nullptr) << std::endl;
+        }
+        if (node->delete_expr) {
             stmt.delete_expr =
-                std::make_unique<HIRExpr>(generator_->convert_expr(node->left.get()));
+                std::make_unique<HIRExpr>(generator_->convert_expr(node->delete_expr.get()));
+            if (debug_mode) {
+                std::cerr << "[HIR_STMT] Delete expr converted successfully" << std::endl;
+            }
+        } else {
+            std::cerr << "[HIR_ERROR] Delete expression has null delete_expr!" << std::endl;
         }
         break;
     }

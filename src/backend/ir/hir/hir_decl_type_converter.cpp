@@ -604,20 +604,37 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
                 inner_type_name.pop_back();
             }
 
-            // 内部型を推測して設定
-            hir_type.inner_type = std::make_unique<HIRType>();
+            if (debug_mode) {
+                std::cerr << "[HIR_TYPE] Pointer: extracting inner type from '" 
+                          << actual_type_name << "' -> '" << inner_type_name << "'" << std::endl;
+            }
 
-            // 基本型か構造体型かを判定
-            if (inner_type_name == "void") {
-                hir_type.inner_type->kind = HIRType::TypeKind::Void;
-            } else if (inner_type_name == "int") {
-                hir_type.inner_type->kind = HIRType::TypeKind::Int;
-            } else if (inner_type_name == "char") {
-                hir_type.inner_type->kind = HIRType::TypeKind::Char;
-            } else {
-                // それ以外は構造体として扱う
-                hir_type.inner_type->kind = HIRType::TypeKind::Struct;
-                hir_type.inner_type->name = inner_type_name;
+            // 内部型の TypeInfo を推測
+            TypeInfo inner_type_info = TYPE_STRUCT; // デフォルト
+            if (inner_type_name == "void") inner_type_info = TYPE_VOID;
+            else if (inner_type_name == "int") inner_type_info = TYPE_INT;
+            else if (inner_type_name == "long") inner_type_info = TYPE_LONG;
+            else if (inner_type_name == "short") inner_type_info = TYPE_SHORT;
+            else if (inner_type_name == "tiny") inner_type_info = TYPE_TINY;
+            else if (inner_type_name == "char") inner_type_info = TYPE_CHAR;
+            else if (inner_type_name == "bool") inner_type_info = TYPE_BOOL;
+            else if (inner_type_name == "float") inner_type_info = TYPE_FLOAT;
+            else if (inner_type_name == "double") inner_type_info = TYPE_DOUBLE;
+            else if (inner_type_name == "string") inner_type_info = TYPE_STRING;
+            
+            // ポインタのポインタ（int** など）の場合
+            if (inner_type_name.back() == '*') {
+                inner_type_info = TYPE_POINTER;
+            }
+
+            // 再帰的に内部型を変換
+            hir_type.inner_type = std::make_unique<HIRType>(
+                generator_->convert_type(inner_type_info, inner_type_name)
+            );
+            
+            if (debug_mode) {
+                std::cerr << "[HIR_TYPE] Pointer inner type set: kind=" 
+                          << static_cast<int>(hir_type.inner_type->kind) << std::endl;
             }
         }
         break;

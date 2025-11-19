@@ -597,8 +597,23 @@ std::string HIRToCpp::generate_address_of(const HIRExpr &expr) {
 }
 
 std::string HIRToCpp::generate_dereference(const HIRExpr &expr) {
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_DEREF] Dereference: has_operand=" 
+                  << (expr.operand != nullptr) << std::endl;
+    }
+    
+    if (!expr.operand) {
+        std::cerr << "[ERROR] Dereference expression has null operand!" << std::endl;
+        return "*(nullptr /* ERROR */)";
+    }
+    
     std::string operand_str = generate_expr(*expr.operand);
     debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_DEREF, operand_str.c_str());
+    
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_DEREF] Generated: *(" << operand_str << ")" << std::endl;
+    }
+    
     return "*(" + operand_str + ")";
 }
 
@@ -615,8 +630,18 @@ std::string HIRToCpp::generate_sizeof(const HIRExpr &expr) {
 }
 
 std::string HIRToCpp::generate_new(const HIRExpr &expr) {
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_NEW] Starting: kind=" << static_cast<int>(expr.new_type.kind)
+                  << ", name=" << expr.new_type.name 
+                  << ", has_inner=" << (expr.new_type.inner_type != nullptr) << std::endl;
+    }
+    
     std::string type_str = generate_type(expr.new_type);
     debug_msg(DebugMsgId::CODEGEN_CPP_EXPR_NEW, type_str.c_str());
+    
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_NEW] Type generated: " << type_str << std::endl;
+    }
     
     std::string result = "new " + type_str;
 
