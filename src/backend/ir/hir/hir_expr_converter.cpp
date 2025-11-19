@@ -409,6 +409,11 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
         // new式は new_type_nameを使用
         std::string type_name = node->new_type_name.empty() ? node->type_name : node->new_type_name;
         
+        if (debug_mode) {
+            std::cerr << "[HIR_EXPR] New expression: type_name=" << type_name 
+                      << ", type_info=" << node->type_info << std::endl;
+        }
+        
         // 型情報を推測
         TypeInfo type_info = node->type_info;
         if (type_info == -1 || type_info == 0) {
@@ -425,6 +430,10 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
             else type_info = TYPE_STRUCT;  // デフォルトは構造体
         }
         
+        if (debug_mode) {
+            std::cerr << "[HIR_EXPR] New resolved type_info=" << type_info << std::endl;
+        }
+        
         // 配列の場合、型名に[] を追加
         if (node->is_array_new && node->new_array_size) {
             // 配列サイズを取得（リテラルの場合）
@@ -432,7 +441,16 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
             type_name += "[]";
         }
         
+        if (debug_mode) {
+            std::cerr << "[HIR_EXPR] Converting type for new: type_info=" << type_info 
+                      << ", type_name=" << type_name << std::endl;
+        }
+        
         expr.new_type = generator_->convert_type(type_info, type_name);
+        
+        if (debug_mode) {
+            std::cerr << "[HIR_EXPR] New type converted successfully" << std::endl;
+        }
         
         // コンストラクタ引数
         for (const auto &arg : node->arguments) {

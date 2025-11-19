@@ -10,6 +10,11 @@ namespace codegen {
 using namespace ir::hir;
 
 std::string HIRToCpp::generate_type(const HIRType &type) {
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_TYPE] Generating type: kind=" << static_cast<int>(type.kind) 
+                  << ", name=" << type.name << std::endl;
+    }
+    
     std::string result;
     
     // static修飾子
@@ -72,6 +77,9 @@ std::string HIRToCpp::generate_type(const HIRType &type) {
         result += type.name;
         break;
     case HIRType::TypeKind::Pointer:
+        if (debug_mode) {
+            std::cerr << "[CODEGEN_TYPE] Delegating to generate_pointer_type" << std::endl;
+        }
         return generate_pointer_type(type);
     case HIRType::TypeKind::Reference:
         return generate_reference_type(type);
@@ -111,18 +119,32 @@ std::string HIRToCpp::generate_pointer_type(const HIRType &type) {
     std::string inner_type_name = type.inner_type ? generate_type(*type.inner_type) : type.name;
     debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TYPE_START, inner_type_name.c_str());
     
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_PTR] Pointer type: has_inner=" << (type.inner_type != nullptr)
+                  << ", name=" << type.name << std::endl;
+    }
+    
     std::string result;
     
     // const T* (pointer to const)
     if (type.is_pointee_const && type.inner_type) {
+        if (debug_mode) {
+            std::cerr << "[CODEGEN_PTR] Generating const T* (recursive call)" << std::endl;
+        }
         result = "const " + generate_type(*type.inner_type) + "*";
         debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TO_CONST, 
                   generate_type(*type.inner_type).c_str());
     } else if (type.inner_type) {
+        if (debug_mode) {
+            std::cerr << "[CODEGEN_PTR] Generating T* (recursive call)" << std::endl;
+        }
         result = generate_type(*type.inner_type) + "*";
         debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TYPE, 
                   generate_type(*type.inner_type).c_str());
     } else if (!type.name.empty()) {
+        if (debug_mode) {
+            std::cerr << "[CODEGEN_PTR] Using type.name=" << type.name << std::endl;
+        }
         // If name contains "*", it's already a pointer type with the * in the name
         if (type.name.back() == '*') {
             result = type.name;
@@ -131,6 +153,9 @@ std::string HIRToCpp::generate_pointer_type(const HIRType &type) {
         }
         debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TYPE, type.name.c_str());
     } else {
+        if (debug_mode) {
+            std::cerr << "[CODEGEN_PTR] Fallback to void*" << std::endl;
+        }
         result = "void*";
         debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TYPE, "void");
     }
