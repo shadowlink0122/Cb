@@ -11,6 +11,7 @@ import parserAndTest from './slides/04_parser_test';
 import roadmap from './slides/05_roadmap';
 import docsAndRelease from './slides/06_docs_release';
 import section1Cover from './slides/section1_cover';
+import languageFeatures from './slides/07_language_features';
 import section2Cover from './slides/section2_cover';
 import section3Cover from './slides/section3_cover';
 import section4Cover from './slides/section4_cover';
@@ -20,6 +21,7 @@ const slideModules = [
     titleSlide,
     introSlide,
     cbOverviewSlide,
+    languageFeatures,
     cbVision,
     currentFocus,
     hirArchitecture,

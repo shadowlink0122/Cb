@@ -45,7 +45,7 @@ import "network.so";<br/>
 <br/>
 void main() {<br/>
 &nbsp;// 既存関数を呼び出し<br/>
-&nbsp;let result=calc(10,20);<br/>
+&nbsp;int res = calc(10,20);<br/>
 }
                             </code>
                         </div>
