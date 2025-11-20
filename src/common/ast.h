@@ -56,6 +56,7 @@ struct ArrayDimension {
 struct ArrayTypeInfo {
     TypeInfo base_type;                     // 基底型
     std::vector<ArrayDimension> dimensions; // 各次元の情報
+    std::string element_type_name;          // v0.14.0: ポインタ配列用の要素型名 (例: "int*")
 
     ArrayTypeInfo() : base_type(TYPE_UNKNOWN) {}
     ArrayTypeInfo(TypeInfo base, const std::vector<ArrayDimension> &dims)

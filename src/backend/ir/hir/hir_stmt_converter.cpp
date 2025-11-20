@@ -71,10 +71,22 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
         if (debug_mode) {
             std::cerr << "[HIR_STMT] VarDecl type conversion - type_name: " << node->type_name
                       << ", original_type_name: " << node->original_type_name
-                      << ", using: " << type_name_to_use << std::endl;
+                      << ", using: " << type_name_to_use
+                      << ", is_array: " << (node->is_array ? "true" : "false") << std::endl;
         }
 
-        stmt.var_type = generator_->convert_type(adjusted_type_info, type_name_to_use);
+        // v0.14.0: Use array_type_info if this is an array
+        if (node->is_array && node->array_type_info.is_array()) {
+            if (debug_mode) {
+                std::cerr << "[HIR_STMT] Converting as array type with element_type_name: '"
+                          << node->array_type_info.element_type_name << "'" << std::endl;
+                std::cerr << "[HIR_STMT]   base_type: " << node->array_type_info.base_type
+                          << ", dimensions: " << node->array_type_info.dimensions.size() << std::endl;
+            }
+            stmt.var_type = generator_->convert_array_type(node->array_type_info);
+        } else {
+            stmt.var_type = generator_->convert_type(adjusted_type_info, type_name_to_use);
+        }
         stmt.is_const = node->is_const;
         if (debug_mode) {
             DEBUG_PRINT(DebugMsgId::HIR_STMT_VAR_DECL, node->name.c_str());
@@ -166,8 +178,13 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
                 default: break;
                 }
             }
-            
-            stmt.var_type = generator_->convert_type(adjusted_type_info, first_var->type_name);
+
+            // v0.14.0: Use array_type_info if this is an array
+            if (first_var->is_array && first_var->array_type_info.is_array()) {
+                stmt.var_type = generator_->convert_array_type(first_var->array_type_info);
+            } else {
+                stmt.var_type = generator_->convert_type(adjusted_type_info, first_var->type_name);
+            }
             stmt.is_const = first_var->is_const;
             if (first_var->right) {
                 stmt.init_expr = std::make_unique<HIRExpr>(
@@ -198,8 +215,13 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
                         default: break;
                         }
                     }
-                    
-                    var_stmt.var_type = generator_->convert_type(adj_type, var_node->type_name);
+
+                    // v0.14.0: Use array_type_info if this is an array
+                    if (var_node->is_array && var_node->array_type_info.is_array()) {
+                        var_stmt.var_type = generator_->convert_array_type(var_node->array_type_info);
+                    } else {
+                        var_stmt.var_type = generator_->convert_type(adj_type, var_node->type_name);
+                    }
                     var_stmt.is_const = var_node->is_const;
                     if (var_node->right) {
                         var_stmt.init_expr = std::make_unique<HIRExpr>(
@@ -216,6 +238,18 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
     case ASTNodeType::AST_ARRAY_DECL: {
         stmt.kind = HIRStmt::StmtKind::VarDecl;
         stmt.var_name = node->name;
+
+        // v0.14.0: Debug array declaration
+        if (debug_mode) {
+            std::cerr << "[HIR_STMT] AST_ARRAY_DECL: " << node->name
+                      << ", type_name: " << node->type_name << std::endl;
+            if (node->array_type_info.is_array()) {
+                std::cerr << "[HIR_STMT]   array_type_info.element_type_name: '"
+                          << node->array_type_info.element_type_name << "'" << std::endl;
+                std::cerr << "[HIR_STMT]   array_type_info.base_type: "
+                          << node->array_type_info.base_type << std::endl;
+            }
+        }
 
         // Use array_type_info if available
         if (node->array_type_info.is_array()) {

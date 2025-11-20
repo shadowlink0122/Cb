@@ -1377,6 +1377,14 @@ ASTNode *StatementParser::parseArrayDeclaration(
     }
     node->array_type_info = ArrayTypeInfo(base_type_info, dimensions);
 
+    // v0.14.0: ポインタ配列の場合、element_type_nameを設定
+    if (pointer_depth > 0) {
+        // type_nameからポインタ型部分を抽出（例: "int*[3]" -> "int*"）
+        std::string element_type = type_name;  // type_nameは配列部分を除いた型名
+        node->array_type_info.element_type_name = element_type;
+        node->array_type_info.base_type = TYPE_POINTER;
+    }
+
     // 配列次元をASTノードに設定
     for (const auto &size : array_sizes) {
         if (!size.empty()) {

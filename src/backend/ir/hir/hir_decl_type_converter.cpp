@@ -418,7 +418,19 @@ HIRType HIRDeclTypeConverter::convert_array_type(const ArrayTypeInfo &array_info
     // 基底型を変換
     if (array_info.base_type != TYPE_UNKNOWN) {
         hir_type.inner_type = std::make_unique<HIRType>();
-        *hir_type.inner_type = generator_->convert_type(array_info.base_type);
+
+        // v0.14.0: ポインタ配列の場合、element_type_nameを使用
+        if (array_info.base_type == TYPE_POINTER && !array_info.element_type_name.empty()) {
+            if (debug_mode) {
+                std::cerr << "[HIR_ARRAY] Using element_type_name: " << array_info.element_type_name << std::endl;
+            }
+            *hir_type.inner_type = generator_->convert_type(array_info.base_type, array_info.element_type_name);
+        } else {
+            if (debug_mode && array_info.base_type == TYPE_POINTER) {
+                std::cerr << "[HIR_ARRAY] element_type_name is empty for pointer array!" << std::endl;
+            }
+            *hir_type.inner_type = generator_->convert_type(array_info.base_type);
+        }
     }
 
     // 多次元配列のサポート
@@ -536,19 +548,27 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
         
         // 要素型を設定
         hir_type.inner_type = std::make_unique<HIRType>();
-        TypeInfo element_type_info = TYPE_INT;
-        if (element_type_str == "int") element_type_info = TYPE_INT;
-        else if (element_type_str == "long") element_type_info = TYPE_LONG;
-        else if (element_type_str == "short") element_type_info = TYPE_SHORT;
-        else if (element_type_str == "tiny") element_type_info = TYPE_TINY;
-        else if (element_type_str == "char") element_type_info = TYPE_CHAR;
-        else if (element_type_str == "bool") element_type_info = TYPE_BOOL;
-        else if (element_type_str == "float") element_type_info = TYPE_FLOAT;
-        else if (element_type_str == "double") element_type_info = TYPE_DOUBLE;
-        else if (element_type_str == "string") element_type_info = TYPE_STRING;
-        else element_type_info = TYPE_STRUCT;
-        
-        *hir_type.inner_type = generator_->convert_type(element_type_info, element_type_str);
+
+        // v0.14.0: ポインタ配列のチェック (e.g., "int*", "double*")
+        if (element_type_str.back() == '*') {
+            // ポインタ型として処理
+            *hir_type.inner_type = generator_->convert_type(TYPE_POINTER, element_type_str);
+        } else {
+            // 基本型として処理
+            TypeInfo element_type_info = TYPE_INT;
+            if (element_type_str == "int") element_type_info = TYPE_INT;
+            else if (element_type_str == "long") element_type_info = TYPE_LONG;
+            else if (element_type_str == "short") element_type_info = TYPE_SHORT;
+            else if (element_type_str == "tiny") element_type_info = TYPE_TINY;
+            else if (element_type_str == "char") element_type_info = TYPE_CHAR;
+            else if (element_type_str == "bool") element_type_info = TYPE_BOOL;
+            else if (element_type_str == "float") element_type_info = TYPE_FLOAT;
+            else if (element_type_str == "double") element_type_info = TYPE_DOUBLE;
+            else if (element_type_str == "string") element_type_info = TYPE_STRING;
+            else element_type_info = TYPE_STRUCT;
+
+            *hir_type.inner_type = generator_->convert_type(element_type_info, element_type_str);
+        }
         
         if (debug_mode) {
             std::cerr << "[HIR_TYPE] Array type: " << element_type_str 

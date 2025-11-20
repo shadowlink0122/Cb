@@ -146,6 +146,13 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
                 array_info.base_type = var_parsed.is_pointer
                                            ? TYPE_POINTER
                                            : var_parsed.base_type_info;
+                // v0.14.0: ポインタ配列の場合、元の型名を保存
+                if (var_parsed.is_pointer) {
+                    array_info.element_type_name = var_parsed.full_type;
+                    if (debug_mode) {
+                        debug_log_line("[PTR_ARRAY] Setting element_type_name: " + var_parsed.full_type);
+                    }
+                }
             }
 
             while (parser_->check(TokenType::TOK_LBRACKET)) {
@@ -169,6 +176,10 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
             array_info.base_type = var_parsed.is_pointer
                                        ? TYPE_POINTER
                                        : var_parsed.base_type_info;
+            // v0.14.0: ポインタ配列の場合、元の型名を保存
+            if (var_parsed.is_pointer) {
+                array_info.element_type_name = var_parsed.full_type;
+            }
         }
 
         // デバッグ出力: 配列の基本型を確認
