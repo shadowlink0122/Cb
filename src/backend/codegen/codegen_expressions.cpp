@@ -535,7 +535,35 @@ std::string HIRToCpp::generate_lambda(const HIRExpr &expr) {
 
     result += ") -> ";
     result += generate_type(expr.lambda_return_type);
-    result += " { /* lambda body */ }";
+    result += " { ";
+
+    // Generate lambda body if it exists
+    if (expr.lambda_body) {
+        // For now, generate a simplified body
+        // TODO: Properly generate complex lambda bodies
+        if (expr.lambda_body->kind == HIRStmt::StmtKind::Return &&
+            expr.lambda_body->return_expr) {
+            result += "return ";
+            result += generate_expr(*expr.lambda_body->return_expr);
+            result += "; ";
+        } else if (expr.lambda_body->kind == HIRStmt::StmtKind::Block) {
+            // Handle block statements
+            for (const auto& stmt : expr.lambda_body->block_stmts) {
+                if (stmt.kind == HIRStmt::StmtKind::Return && stmt.return_expr) {
+                    result += "return ";
+                    result += generate_expr(*stmt.return_expr);
+                    result += "; ";
+                    break;  // Only handle first return for now
+                }
+            }
+        } else {
+            result += "/* complex lambda body */ ";
+        }
+    } else {
+        result += "/* empty lambda */ ";
+    }
+
+    result += "}";
 
     return result;
 }
