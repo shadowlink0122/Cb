@@ -234,7 +234,7 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
                         hir_param.name = param.name;
                         hir_param.type =
                             convert_type(param.type, param.type_name);
-                        hir_ffi.parameters.push_back(hir_param);
+                        hir_ffi.parameters.push_back(std::move(hir_param));
                     }
 
                     hir_ffi.location = convert_location(node->location);
@@ -536,10 +536,10 @@ std::unique_ptr<HIRProgram> HIRGenerator::generate_with_parser_definitions(
                         }
 
                         hir_param.is_const = false;
-                        hir_method.parameters.push_back(hir_param);
+                        hir_method.parameters.push_back(std::move(hir_param));
                     }
 
-                    existing_interface_ptr->methods.push_back(hir_method);
+                    existing_interface_ptr->methods.push_back(std::move(hir_method));
                 }
             }
         } else if (!already_exists) {
@@ -609,10 +609,10 @@ std::unique_ptr<HIRProgram> HIRGenerator::generate_with_parser_definitions(
 
                     hir_param.is_const =
                         false; // InterfaceMember doesn't store this
-                    hir_method.parameters.push_back(hir_param);
+                    hir_method.parameters.push_back(std::move(hir_param));
                 }
 
-                hir_interface.methods.push_back(hir_method);
+                hir_interface.methods.push_back(std::move(hir_method));
             }
 
             program->interfaces.push_back(std::move(hir_interface));

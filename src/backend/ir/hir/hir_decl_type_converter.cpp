@@ -148,13 +148,14 @@ skip_normal_conversion:
         hir_param.type = generator_->convert_type(param->type_info, param->type_name);
         hir_param.is_const = param->is_const;
 
-        // TODO: デフォルト引数は将来実装
-        // if (param->default_value) {
-        //     hir_param.default_value =
-        //     std::make_unique<HIRExpr>(generator_->convert_expr(param->default_value.get()));
-        // }
+        // デフォルト引数のサポート (v0.14.0)
+        if (param->has_default_value && param->default_value) {
+            hir_param.has_default = true;
+            hir_param.default_value =
+                std::make_unique<HIRExpr>(generator_->convert_expr(param->default_value.get()));
+        }
 
-        func.parameters.push_back(hir_param);
+        func.parameters.push_back(std::move(hir_param));
     }
 
     // 関数本体の変換
@@ -365,10 +366,10 @@ HIRInterface HIRDeclTypeConverter::convert_interface(const ASTNode *node) {
                 hir_param.name = param->name;
                 hir_param.type =
                     generator_->convert_type(param->type_info, param->type_name);
-                method.parameters.push_back(hir_param);
+                method.parameters.push_back(std::move(hir_param));
             }
 
-            interface_def.methods.push_back(method);
+            interface_def.methods.push_back(std::move(method));
         }
     }
 

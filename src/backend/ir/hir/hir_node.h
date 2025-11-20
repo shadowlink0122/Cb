@@ -291,8 +291,20 @@ struct HIRFunction {
         std::string name;
         HIRType type;
         bool is_const = false;
-        // TODO: デフォルト引数は将来実装
-        // std::unique_ptr<HIRExpr> default_value;
+        // デフォルト引数サポート (v0.14.0)
+        std::unique_ptr<HIRExpr> default_value;
+        bool has_default = false;
+        
+        // デフォルトコンストラクタ
+        Parameter() = default;
+        
+        // ムーブコンストラクタとムーブ代入演算子を明示的に定義
+        Parameter(Parameter&&) = default;
+        Parameter& operator=(Parameter&&) = default;
+        
+        // コピーコンストラクタとコピー代入演算子を削除
+        Parameter(const Parameter&) = delete;
+        Parameter& operator=(const Parameter&) = delete;
     };
 
     std::string name;
@@ -342,6 +354,15 @@ struct HIRInterface {
         std::string name;
         std::vector<HIRFunction::Parameter> parameters;
         HIRType return_type;
+        
+        // ムーブコンストラクタとムーブ代入演算子を明示的に定義
+        MethodSignature() = default;
+        MethodSignature(MethodSignature&&) = default;
+        MethodSignature& operator=(MethodSignature&&) = default;
+        
+        // コピーコンストラクタとコピー代入演算子を削除
+        MethodSignature(const MethodSignature&) = delete;
+        MethodSignature& operator=(const MethodSignature&) = delete;
     };
 
     std::string name;

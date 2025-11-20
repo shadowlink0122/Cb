@@ -905,6 +905,12 @@ void HIRToCpp::generate_function(const HIRFunction &func) {
             emit("const ");
         emit(generate_type(param.type));
         emit(" " + add_hir_prefix(param.name));
+        
+        // デフォルト引数のサポート (v0.14.0)
+        if (param.has_default && param.default_value) {
+            emit(" = ");
+            emit(generate_expr(*param.default_value));
+        }
     }
 
     emit(") {\n");
