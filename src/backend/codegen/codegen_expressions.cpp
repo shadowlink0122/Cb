@@ -639,33 +639,47 @@ std::string HIRToCpp::generate_new(const HIRExpr &expr) {
                   << ", has_inner=" << (expr.new_type.inner_type != nullptr) << std::endl;
     }
     
-    std::string type_str = generate_type(expr.new_type);
-    debug_msg(DebugMsgId::CODEGEN_CPP_EXPR_NEW, type_str.c_str());
+    std::string result = "new ";
     
-    if (debug_mode) {
-        std::cerr << "[CODEGEN_NEW] Type generated: " << type_str << std::endl;
-    }
-    
-    std::string result = "new " + type_str;
-
-    // 配列の場合はサイズを含める
-    if (expr.new_type.kind == HIRType::TypeKind::Array && 
-        expr.new_type.array_size > 0) {
-        result += "[" + std::to_string(expr.new_type.array_size) + "]";
-    }
-    // コンストラクタ引数がある場合
-    else if (!expr.new_args.empty()) {
-        result += "(";
-        for (size_t i = 0; i < expr.new_args.size(); i++) {
-            if (i > 0)
-                result += ", ";
-            result += generate_expr(expr.new_args[i]);
+    // 配列の場合は要素型だけ取得
+    if (expr.new_type.kind == HIRType::TypeKind::Array && expr.new_type.inner_type) {
+        std::string element_type = generate_type(*expr.new_type.inner_type);
+        result += element_type;
+        
+        if (debug_mode) {
+            std::cerr << "[CODEGEN_NEW] Array element type: " << element_type << std::endl;
         }
-        result += ")";
-    }
-    // デフォルト初期化（値初期化）
-    else {
-        result += "()";  // zero-initialization for primitives
+        
+        // 配列サイズを追加
+        if (expr.new_type.array_size > 0) {
+            result += "[" + std::to_string(expr.new_type.array_size) + "]";
+        } else if (!expr.new_type.array_dimensions.empty() && expr.new_type.array_dimensions[0] > 0) {
+            result += "[" + std::to_string(expr.new_type.array_dimensions[0]) + "]";
+        }
+    } else {
+        std::string type_str = generate_type(expr.new_type);
+        debug_msg(DebugMsgId::CODEGEN_CPP_EXPR_NEW, type_str.c_str());
+        
+        if (debug_mode) {
+            std::cerr << "[CODEGEN_NEW] Type generated: " << type_str << std::endl;
+        }
+        
+        result += type_str;
+
+        // コンストラクタ引数がある場合
+        if (!expr.new_args.empty()) {
+            result += "(";
+            for (size_t i = 0; i < expr.new_args.size(); i++) {
+                if (i > 0)
+                    result += ", ";
+                result += generate_expr(expr.new_args[i]);
+            }
+            result += ")";
+        }
+        // デフォルト初期化（値初期化）
+        else {
+            result += "()";  // zero-initialization for primitives
+        }
     }
 
     return result;
