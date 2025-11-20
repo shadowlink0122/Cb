@@ -25,10 +25,14 @@ function initPresentation() {
             hash: true,
             controls: true,
             progress: true,
-            center: true,
+            center: false,  // Don't center vertically to allow scrolling
             transition: 'slide',
             transitionSpeed: 'default',
             backgroundTransition: 'fade',
+
+            // Enable scrolling
+            scrollActivationWidth: null,
+            scrollProgress: true,
 
             // Disable features that might cause rendering issues
             preloadIframes: false,
@@ -55,8 +59,8 @@ function initPresentation() {
             if (event.key === 'f' && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
                 // @ts-ignore - toggleFullscreen might not be in types
-                if (deck.toggleFullscreen) {
-                    deck.toggleFullscreen();
+                if ((deck as any).toggleFullscreen) {
+                    (deck as any).toggleFullscreen();
                 }
             }
         });

@@ -2,6 +2,14 @@
 import titleSlide from './slides/00_title';
 import introSlide from './slides/01_intro';
 import cbOverviewSlide from './slides/02_cb_overview';
+import cbVision from './slides/02b_cb_vision';
+import currentFocus from './slides/02c_current_focus';
+import hirArchitecture from './slides/02d_hir_architecture';
+import techStack from './slides/03_tech_stack';
+import architectureDiagram from './slides/03b_architecture';
+import parserAndTest from './slides/04_parser_test';
+import roadmap from './slides/05_roadmap';
+import docsAndRelease from './slides/06_docs_release';
 import section1Cover from './slides/section1_cover';
 import section2Cover from './slides/section2_cover';
 import section3Cover from './slides/section3_cover';
@@ -12,6 +20,14 @@ const slideModules = [
     titleSlide,
     introSlide,
     cbOverviewSlide,
+    cbVision,
+    currentFocus,
+    hirArchitecture,
+    techStack,
+    architectureDiagram,
+    parserAndTest,
+    roadmap,
+    docsAndRelease,
     section1Cover,
     section2Cover,
     section3Cover,
