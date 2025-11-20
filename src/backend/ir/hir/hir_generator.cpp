@@ -253,6 +253,12 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
 
         // グローバル配列宣言
         case ASTNodeType::AST_ARRAY_DECL: {
+            if (debug_mode) {
+                std::cerr << "[HIR_GLOBAL] Processing AST_ARRAY_DECL: " << node->name
+                          << ", type_info=" << node->type_info 
+                          << ", type_name=" << node->type_name << std::endl;
+            }
+            
             HIRGlobalVar global_var;
             global_var.name = node->name;
             global_var.type = convert_type(node->type_info, node->type_name);
@@ -260,11 +266,14 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
             global_var.is_exported = node->is_exported;
             // 配列のサイズ情報は型に含まれる
             global_var.location = convert_location(node->location);
-            program->global_vars.push_back(std::move(global_var));
             
             if (debug_mode) {
-                std::cerr << "[HIR_GLOBAL] Global array: " << node->name << std::endl;
+                std::cerr << "[HIR_GLOBAL] Global array: " << node->name 
+                          << ", array_dimensions.size=" << global_var.type.array_dimensions.size()
+                          << ", array_size=" << global_var.type.array_size << std::endl;
             }
+            
+            program->global_vars.push_back(std::move(global_var));
             break;
         }
 

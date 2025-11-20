@@ -504,6 +504,59 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
         actual_type_name = type_name.substr(17); // "function_pointer:" の長さ = 17
     }
 
+    // 配列型の特別処理（型名に[がある場合）
+    if (actual_type_name.find('[') != std::string::npos) {
+        size_t bracket_pos = actual_type_name.find('[');
+        std::string element_type_str = actual_type_name.substr(0, bracket_pos);
+        
+        // 配列サイズを抽出
+        std::vector<int> dimensions;
+        size_t pos = bracket_pos;
+        while (pos != std::string::npos && pos < actual_type_name.length()) {
+            size_t close_bracket = actual_type_name.find(']', pos);
+            if (close_bracket == std::string::npos) break;
+            
+            std::string size_str = actual_type_name.substr(pos + 1, close_bracket - pos - 1);
+            if (!size_str.empty()) {
+                dimensions.push_back(std::stoi(size_str));
+            } else {
+                dimensions.push_back(-1); // 動的配列
+            }
+            
+            pos = actual_type_name.find('[', close_bracket);
+        }
+        
+        // 配列型を構築
+        hir_type.kind = HIRType::TypeKind::Array;
+        hir_type.array_dimensions = dimensions;
+        if (!dimensions.empty()) {
+            hir_type.array_size = dimensions[0];
+        }
+        
+        // 要素型を設定
+        hir_type.inner_type = std::make_unique<HIRType>();
+        TypeInfo element_type_info = TYPE_INT;
+        if (element_type_str == "int") element_type_info = TYPE_INT;
+        else if (element_type_str == "long") element_type_info = TYPE_LONG;
+        else if (element_type_str == "short") element_type_info = TYPE_SHORT;
+        else if (element_type_str == "tiny") element_type_info = TYPE_TINY;
+        else if (element_type_str == "char") element_type_info = TYPE_CHAR;
+        else if (element_type_str == "bool") element_type_info = TYPE_BOOL;
+        else if (element_type_str == "float") element_type_info = TYPE_FLOAT;
+        else if (element_type_str == "double") element_type_info = TYPE_DOUBLE;
+        else if (element_type_str == "string") element_type_info = TYPE_STRING;
+        else element_type_info = TYPE_STRUCT;
+        
+        *hir_type.inner_type = generator_->convert_type(element_type_info, element_type_str);
+        
+        if (debug_mode) {
+            std::cerr << "[HIR_TYPE] Array type: " << element_type_str 
+                      << ", dimensions=" << dimensions.size() << std::endl;
+        }
+        
+        return hir_type;
+    }
+
     // 基本型の変換
     switch (actual_type_info) {
     case TYPE_VOID:
