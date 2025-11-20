@@ -33,6 +33,7 @@ class HIRToCpp {
         current_generic_params; // 現在のジェネリック型パラメータ
                                 // (T, K, V, etc.)
     bool current_impl_is_for_primitive = false; // 現在のimplがプリミティブ型用か
+    int discard_variable_counter = 0; // 破棄変数のユニークID生成用カウンタ
 
     // ヘルパーメソッド
     void emit(const std::string &code);

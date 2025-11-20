@@ -201,6 +201,10 @@ std::string HIRToCpp::add_hir_prefix(const std::string &name) {
     if (name == "main") {
         return name;
     }
+    // 破棄変数(_)は毎回ユニークな名前を生成
+    if (name == "_") {
+        return "CB_HIR__discard_" + std::to_string(discard_variable_counter++);
+    }
     // 修飾名(::を含む)はそのまま返す
     if (name.find("::") != std::string::npos) {
         return name;
