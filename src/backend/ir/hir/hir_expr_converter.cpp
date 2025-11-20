@@ -515,6 +515,45 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
         break;
     }
 
+    case ASTNodeType::AST_ENUM_CONSTRUCT: {
+        // v0.14.0: Handle enum construction (e.g., Option<int>::Some(42))
+        expr.kind = HIRExpr::ExprKind::FunctionCall;
+
+        // Build the full enum constructor name (e.g., "Option<int>::Some")
+        std::string full_name = node->enum_name;
+
+        // For built-in types like Option and Result, we need to handle them specially
+        if (node->enum_name.find("Option") == 0 || node->enum_name.find("Result") == 0) {
+            // Extract the generic type arguments from the enum name
+            // e.g., "Option<int>" -> base = "Option", args = "int"
+            size_t angle_pos = node->enum_name.find('<');
+            if (angle_pos != std::string::npos) {
+                std::string base_name = node->enum_name.substr(0, angle_pos);
+                std::string type_args = node->enum_name.substr(angle_pos);
+
+                // Build the constructor call (e.g., "Option<int>::Some")
+                full_name = base_name + type_args + "::" + node->enum_member;
+            } else {
+                full_name = node->enum_name + "::" + node->enum_member;
+            }
+        } else {
+            full_name = node->enum_name + "::" + node->enum_member;
+        }
+
+        expr.func_name = full_name;
+
+        // Convert the arguments for the enum variant's associated values
+        for (const auto &arg : node->arguments) {
+            expr.arguments.push_back(generator_->convert_expr(arg.get()));
+        }
+
+        if (debug_mode) {
+            std::cerr << "[HIR_EXPR] Enum construct: " << full_name
+                      << " with " << node->arguments.size() << " arguments" << std::endl;
+        }
+        break;
+    }
+
     default: {
         std::string error_msg =
             "Unsupported expression type in HIR generation: AST node type " +

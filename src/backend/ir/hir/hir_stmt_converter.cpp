@@ -60,7 +60,21 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
             }
         }
         
-        stmt.var_type = generator_->convert_type(adjusted_type_info, node->type_name);
+        // v0.14.0: For Option and Result types, use original_type_name to preserve generic syntax
+        std::string type_name_to_use = node->type_name;
+        if (!node->original_type_name.empty() &&
+            (node->original_type_name.find("Option<") == 0 ||
+             node->original_type_name.find("Result<") == 0)) {
+            type_name_to_use = node->original_type_name;
+        }
+
+        if (debug_mode) {
+            std::cerr << "[HIR_STMT] VarDecl type conversion - type_name: " << node->type_name
+                      << ", original_type_name: " << node->original_type_name
+                      << ", using: " << type_name_to_use << std::endl;
+        }
+
+        stmt.var_type = generator_->convert_type(adjusted_type_info, type_name_to_use);
         stmt.is_const = node->is_const;
         if (debug_mode) {
             DEBUG_PRINT(DebugMsgId::HIR_STMT_VAR_DECL, node->name.c_str());

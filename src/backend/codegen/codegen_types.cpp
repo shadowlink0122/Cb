@@ -74,7 +74,33 @@ std::string HIRToCpp::generate_type(const HIRType &type) {
     case HIRType::TypeKind::Struct:
     case HIRType::TypeKind::Enum:
     case HIRType::TypeKind::Interface:
-        result += type.name;
+        // v0.14.0: Handle Option and Result generic types specially
+        // Convert mangled names like "Option_int" to proper generic syntax "Option<int>"
+        if (type.name.find("Option_") == 0) {
+            // Extract the type argument from the mangled name
+            std::string type_arg = type.name.substr(7); // Remove "Option_"
+
+            // Convert underscored type names back to proper types
+            if (type_arg == "int") result += "Option<int>";
+            else if (type_arg == "string") result += "Option<std::string>";
+            else if (type_arg == "bool") result += "Option<bool>";
+            else if (type_arg == "float") result += "Option<float>";
+            else if (type_arg == "double") result += "Option<double>";
+            else result += "Option<" + type_arg + ">";
+        }
+        else if (type.name.find("Result_") == 0) {
+            // Extract type arguments for Result<T, E>
+            std::string args = type.name.substr(7); // Remove "Result_"
+
+            // Simple parsing for common cases
+            // This is a simplified approach - a full solution would need proper parsing
+            if (args == "int_string") result += "Result<int, std::string>";
+            else if (args == "string_string") result += "Result<std::string, std::string>";
+            else result += type.name; // Fall back to mangled name if we can't parse it
+        }
+        else {
+            result += type.name;
+        }
         break;
     case HIRType::TypeKind::Pointer:
         if (debug_mode) {

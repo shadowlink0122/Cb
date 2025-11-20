@@ -234,8 +234,14 @@ std::string TypeUtilityParser::parseType() {
                 // ジェネリックenumをインスタンス化
                 parser_->instantiateGenericEnum(identifier, type_arguments);
 
-                // インスタンス化された型名を返す
-                set_base_type(instantiated_name);
+                // v0.14.0: For Option and Result types, use the original generic syntax
+                // instead of the mangled name for better C++ codegen compatibility
+                if (identifier == "Option" || identifier == "Result") {
+                    set_base_type(original_type);  // Use "Option<int>" format
+                } else {
+                    // For other generic types, use the instantiated name
+                    set_base_type(instantiated_name);
+                }
             } else {
                 // 非ジェネリックenumまたはジェネリックでも型引数なし
                 original_type = identifier;
