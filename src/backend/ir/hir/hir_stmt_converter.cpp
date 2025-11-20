@@ -398,9 +398,10 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
     case ASTNodeType::AST_ASSERT_STMT: {
         // assert文をHIRに変換
         stmt.kind = HIRStmt::StmtKind::Assert;
-        if (node->condition) {
+        // assert condition is stored in node->left
+        if (node->left) {
             stmt.assert_expr =
-                std::make_unique<HIRExpr>(generator_->convert_expr(node->condition.get()));
+                std::make_unique<HIRExpr>(generator_->convert_expr(node->left.get()));
         }
         if (!node->name.empty()) {
             stmt.assert_message = node->name;
