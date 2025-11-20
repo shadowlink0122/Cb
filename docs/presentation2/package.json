@@ -1,0 +1,20 @@
+{
+  "name": "cb-presentation",
+  "version": "1.0.0",
+  "description": "Cb Programming Language Presentation",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/reveal.js": "^4.4.2",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
+  },
+  "dependencies": {
+    "reveal.js": "^4.6.0"
+  }
+}

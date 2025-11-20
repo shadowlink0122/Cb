@@ -1,0 +1,72 @@
+import Reveal from 'reveal.js';
+import RevealHighlight from 'reveal.js/plugin/highlight/highlight';
+import RevealNotes from 'reveal.js/plugin/notes/notes';
+import RevealMath from 'reveal.js/plugin/math/math';
+
+// Import slides
+import { loadSlides } from './slide-loader';
+
+// Initialize Reveal.js
+function initPresentation() {
+    // Load all slides
+    const slidesContainer = document.getElementById('slides-container');
+    if (!slidesContainer) {
+        console.error('Slides container not found');
+        return;
+    }
+
+    // Load slides synchronously before initializing Reveal
+    loadSlides(slidesContainer);
+
+    // Small delay to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
+        // Initialize Reveal
+        const deck = new Reveal({
+            hash: true,
+            controls: true,
+            progress: true,
+            center: true,
+            transition: 'slide',
+            transitionSpeed: 'default',
+            backgroundTransition: 'fade',
+
+            // Disable features that might cause rendering issues
+            preloadIframes: false,
+            autoPlayMedia: false,
+
+            // View settings
+            width: 1280,
+            height: 720,
+            margin: 0.1,
+            minScale: 0.2,
+            maxScale: 2.0,
+
+            // Plugins
+            plugins: [RevealHighlight, RevealNotes, RevealMath]
+        });
+
+        deck.initialize().then(() => {
+            // Presentation is ready
+            console.log('Reveal.js initialized successfully');
+        });
+
+        // Add keyboard shortcuts after initialization
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'f' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                // @ts-ignore - toggleFullscreen might not be in types
+                if (deck.toggleFullscreen) {
+                    deck.toggleFullscreen();
+                }
+            }
+        });
+    });
+}
+
+// Start the presentation when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPresentation);
+} else {
+    // Use setTimeout to ensure all resources are loaded
+    setTimeout(initPresentation, 0);
+}
