@@ -219,22 +219,25 @@ std::string HIRToCpp::generate_array_type(const HIRType &type) {
 }
 
 std::string HIRToCpp::generate_function_type(const HIRType &type) {
-    std::string result = "std::function<";
-
+    // Generate function pointer type: RetType (*)(Param1, Param2, ...)
+    // Note: The actual pointer syntax with name is handled in var_decl
+    
+    std::string result;
+    
     if (type.return_type) {
         result += generate_type(*type.return_type);
     } else {
         result += "void";
     }
-
-    result += "(";
+    
+    result += " (*)(";
     for (size_t i = 0; i < type.param_types.size(); i++) {
         if (i > 0)
             result += ", ";
         result += generate_type(type.param_types[i]);
     }
-    result += ")>";
-
+    result += ")";
+    
     return result;
 }
 

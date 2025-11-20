@@ -115,6 +115,22 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
             emit(generate_type(stmt.var_type));
             emit(" " + add_hir_prefix(stmt.var_name));
         }
+    } else if (stmt.var_type.kind == HIRType::TypeKind::Function) {
+        // Special handling for function pointers: RetType (*name)(Params)
+        std::string return_type;
+        if (stmt.var_type.return_type) {
+            return_type = generate_type(*stmt.var_type.return_type);
+        } else {
+            return_type = "void";
+        }
+        
+        emit(return_type);
+        emit(" (*" + add_hir_prefix(stmt.var_name) + ")(");
+        for (size_t i = 0; i < stmt.var_type.param_types.size(); i++) {
+            if (i > 0) emit(", ");
+            emit(generate_type(stmt.var_type.param_types[i]));
+        }
+        emit(")");
     } else {
         emit(generate_type(stmt.var_type));
         emit(" " + add_hir_prefix(stmt.var_name));

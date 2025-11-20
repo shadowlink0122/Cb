@@ -48,6 +48,9 @@ class HIRGenerator {
     const std::unordered_set<std::string>& get_interface_names() const {
         return interface_names_;
     }
+    
+    // Function lookup for type inference
+    const ASTNode* lookup_function(const std::string& name) const;
 
   private:
     // Converter instances
@@ -75,6 +78,9 @@ class HIRGenerator {
     uint32_t next_var_id = 0;
     int error_count = 0;
     std::unordered_set<std::string> interface_names_;
+    
+    // AST nodes for lookup during conversion
+    const std::vector<std::unique_ptr<ASTNode>>* ast_nodes_ = nullptr;
 };
 
 } // namespace ir

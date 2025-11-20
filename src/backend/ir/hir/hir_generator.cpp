@@ -94,6 +94,18 @@ void HIRGenerator::report_error(const std::string &message,
     error_count++;
 }
 
+const ASTNode* HIRGenerator::lookup_function(const std::string& name) const {
+    if (!ast_nodes_) return nullptr;
+    
+    for (const auto& node : *ast_nodes_) {
+        if (node && node->node_type == ASTNodeType::AST_FUNC_DECL &&
+            node->name == name) {
+            return node.get();
+        }
+    }
+    return nullptr;
+}
+
 // ============================================================================
 // SECTION 4: Main Entry Points - HIR Program Generation
 // ============================================================================
@@ -106,6 +118,9 @@ void HIRGenerator::report_error(const std::string &message,
 std::unique_ptr<HIRProgram>
 HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
     DEBUG_PRINT(DebugMsgId::HIR_GENERATION_START);
+
+    // Store AST nodes for lookup during conversion
+    ast_nodes_ = &ast_nodes;
 
     auto program = std::make_unique<HIRProgram>();
 

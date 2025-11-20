@@ -65,10 +65,13 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
         if (debug_mode) {
             DEBUG_PRINT(DebugMsgId::HIR_STMT_VAR_DECL, node->name.c_str());
         }
+        
         // v0.14.0: init_exprを優先的に使用（新しいパーサーフォーマット）
+        ASTNode* init_node = nullptr;
         if (node->init_expr) {
             stmt.init_expr =
                 std::make_unique<HIRExpr>(generator_->convert_expr(node->init_expr.get()));
+            init_node = node->init_expr.get();
             if (debug_mode) {
                 std::cerr
                     << "[HIR_STMT]     Has initializer expression (init_expr)"
@@ -77,6 +80,7 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
         } else if (node->right) {
             stmt.init_expr =
                 std::make_unique<HIRExpr>(generator_->convert_expr(node->right.get()));
+            init_node = node->right.get();
             if (debug_mode) {
                 std::cerr << "[HIR_STMT]     Has initializer expression (right)"
                           << std::endl;
@@ -85,6 +89,45 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
             std::cerr << "[HIR_STMT]     No initializer expression"
                       << std::endl;
         }
+        
+        // Function pointer type inference: if initializer is &function_name,
+        // infer function pointer type
+        if (init_node && init_node->node_type == ASTNodeType::AST_UNARY_OP &&
+            (init_node->op == "&" || init_node->op == "ADDRESS_OF") && 
+            init_node->left &&
+            init_node->left->node_type == ASTNodeType::AST_VARIABLE) {
+            std::string func_name = init_node->left->name;
+            
+            if (debug_mode) {
+                std::cerr << "[HIR_STMT]     Checking function pointer inference for &"
+                          << func_name << std::endl;
+            }
+            
+            const ASTNode* func_node = generator_->lookup_function(func_name);
+            if (func_node) {
+                // Create function pointer type
+                stmt.var_type.kind = HIRType::TypeKind::Function;
+                
+                // Convert return type
+                stmt.var_type.return_type = std::make_unique<HIRType>(
+                    generator_->convert_type(func_node->type_info, func_node->return_type_name));
+                
+                // Convert parameter types
+                for (const auto& param_node : func_node->parameters) {
+                    HIRType param_type = generator_->convert_type(
+                        param_node->type_info, param_node->type_name);
+                    stmt.var_type.param_types.push_back(param_type);
+                }
+                
+                if (debug_mode) {
+                    std::cerr << "[HIR_STMT]     ✓ Inferred function pointer type for &"
+                              << func_name << std::endl;
+                }
+            } else if (debug_mode) {
+                std::cerr << "[HIR_STMT]     ✗ Function not found: " << func_name << std::endl;
+            }
+        }
+        
         break;
     }
 
