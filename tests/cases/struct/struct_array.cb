@@ -19,39 +19,39 @@ int main() {
     
     // Verify struct array element assignments
     if (team[0].salary != 50000) {
-        println("ERROR: team[0].salary should be 50000, got %d", team[0].salary);
+        println("ERROR: team[0].salary should be 50000, got {team[0].salary}");
         return 1;
     }
     
     if (team[0].department_id != 0) {
-        println("ERROR: team[0].department_id should be 0, got %d", team[0].department_id);
+        println("ERROR: team[0].department_id should be 0, got {team[0].department_id}");
         return 1;
     }
     
     if (team[1].salary != 55000) {
-        println("ERROR: team[1].salary should be 55000, got %d", team[1].salary);
+        println("ERROR: team[1].salary should be 55000, got {team[1].salary}");
         return 1;
     }
     
     if (team[1].department_id != 2) {
-        println("ERROR: team[1].department_id should be 2, got %d", team[1].department_id);
+        println("ERROR: team[1].department_id should be 2, got {team[1].department_id}");
         return 1;
     }
     
     if (team[2].salary != 60000) {
-        println("ERROR: team[2].salary should be 60000, got %d", team[2].salary);
+        println("ERROR: team[2].salary should be 60000, got {team[2].salary}");
         return 1;
     }
     
     if (team[2].department_id != 1) {
-        println("ERROR: team[2].department_id should be 1, got %d", team[2].department_id);
+        println("ERROR: team[2].department_id should be 1, got {team[2].department_id}");
         return 1;
     }
     
     println("Team Members:");
-    println("1. %s - $%d (Dept: %s)", team[0].name, team[0].salary, department[team[0].department_id]);
-    println("2. %s - $%d (Dept: %s)", team[1].name, team[1].salary, department[team[1].department_id]);
-    println("3. %s - $%d (Dept: %s)", team[2].name, team[2].salary, department[team[2].department_id]);
+    println("1. {team[0].name} - ${team[0].salary} (Dept: {department[team[0].department_id]})");
+    println("2. {team[1].name} - ${team[1].salary} (Dept: {department[team[1].department_id]})");
+    println("3. {team[2].name} - ${team[2].salary} (Dept: {department[team[2].department_id]})");
     
     // 総給与計算
     int total_salary = 0;
@@ -61,20 +61,20 @@ int main() {
     
     // Verify total salary calculation
     if (total_salary != 165000) {
-        println("ERROR: total_salary should be 165000, got %d", total_salary);
+        println("ERROR: total_salary should be 165000, got {total_salary}");
         return 1;
     }
     
-    println("Total salary: $%d", total_salary);
+    println("Total salary: ${total_salary}");
     
     // Test modification of struct array members
     team[0].salary = team[0].salary + 5000;
     if (team[0].salary != 55000) {
-        println("ERROR: After modification, team[0].salary should be 55000, got %d", team[0].salary);
+        println("ERROR: After modification, team[0].salary should be 55000, got {team[0].salary}");
         return 1;
     }
     
-    println("Updated Alice's salary: $%d", team[0].salary);
+    println("Updated Alice's salary: ${team[0].salary}");
     println("Struct array test passed");
     return 0;
 }

@@ -15,31 +15,31 @@ int main(){
     
     // 値の検証
     if (result1 != 1) {
-        println("ERROR: First counter() should be 1, got %d", result1);
+        println("ERROR: First counter() should be 1, got {result1}");
         return 1;
     }
     if (result2 != 2) {
-        println("ERROR: Second counter() should be 2, got %d", result2);
+        println("ERROR: Second counter() should be 2, got {result2}");
         return 1;
     }
     if (result3 != 3) {
-        println("ERROR: Third counter() should be 3, got %d", result3);
+        println("ERROR: Third counter() should be 3, got {result3}");
         return 1;
     }
     if (result4 != 4) {
-        println("ERROR: Fourth counter() should be 4, got %d", result4);
+        println("ERROR: Fourth counter() should be 4, got {result4}");
         return 1;
     }
     if (result5 != 5) {
-        println("ERROR: Fifth counter() should be 5, got %d", result5);
+        println("ERROR: Fifth counter() should be 5, got {result5}");
         return 1;
     }
     
-    println("%d", result1); // 1
-    println("%d", result2); // 2
-    println("%d", result3); // 3
-    println("%d", result4); // 4
-    println("%d", result5); // 5
+    println("{result1}"); // 1
+    println("{result2}"); // 2
+    println("{result3}"); // 3
+    println("{result4}"); // 4
+    println("{result5}"); // 5
     println("Basic static test passed");
     return 0;
 }

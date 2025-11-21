@@ -3,27 +3,27 @@
 
 async void background_task() {
     for (int i = 0; i < 8; i = i + 1) {
-        println("[BG] Step %d", i);
+        println("[BG] Step {i}");
     }
     return;
 }
 
 int inner_function(int x) {
-    println("  [Inner] x=%d", x);
+    println("  [Inner] x={x}");
     return x * 2;
 }
 
 int middle_function(int n) {
-    println(" [Middle] n=%d", n);
+    println(" [Middle] n={n}");
     int result = inner_function(n);
-    println(" [Middle] Got result=%d", result);
+    println(" [Middle] Got result={result}");
     return result + 1;
 }
 
 int outer_function(int value) {
-    println("[Outer] value=%d", value);
+    println("[Outer] value={value}");
     int temp = middle_function(value);
-    println("[Outer] Got temp=%d", temp);
+    println("[Outer] Got temp={temp}");
     return temp * 3;
 }
 
@@ -34,7 +34,7 @@ void main() {
     
     println("[Main] Calling outer_function");
     int final_result = outer_function(5);
-    println("[Main] Final result: %d\n", final_result);
+    println("[Main] Final result: {final_result}\n");
     
     await f;
     println("[Main] Done");

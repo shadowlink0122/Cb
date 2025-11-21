@@ -27,7 +27,7 @@ int main() {
         v11 * v12 + v13 - v14 * v15 / v16 + v17 % v18 +
         v19 + v20 - v1 * v2 + v3 / 2 - v4 % 3;
     
-    println("Huge calculation result: %d", huge_calc);
+    println("Huge calculation result: {huge_calc}");
     
     // 多重配列アクセス（型推論エンジンの負荷テスト）
     int array_sum = 
@@ -36,7 +36,7 @@ int main() {
         get_large_array()[6] + get_large_array()[7] + get_large_array()[8] +
         get_large_array()[9];
     
-    println("Array sum: %d", array_sum);
+    println("Array sum: {array_sum}");
     
     // 深い関数ネスト（呼び出しスタック効率性）
     int nested_result = mega_calc(
@@ -47,7 +47,7 @@ int main() {
         mega_calc(v1 + v2, v3 + v4, v5 + v6, v7 + v8, v9 + v10)
     );
     
-    println("Nested function result: %d", nested_result);
+    println("Nested function result: {nested_result}");
     
     // 複雑な三項演算子チェーン（右結合性の大規模テスト）
     int complex_ternary = 
@@ -59,12 +59,12 @@ int main() {
                 (v15 > v16 ? v17 : v18) :
                 (v19 > v20 ? v1 + v2 : v3 + v4));
     
-    println("Complex ternary: %d", complex_ternary);
+    println("Complex ternary: {complex_ternary}");
     
     // 動的配列インデックス計算（式評価の複雑性）
     int dynamic_idx = (v1 + v2 + v3) % 10;
     int dynamic_result = get_large_array()[dynamic_idx];
-    println("Dynamic indexing: array[%d] = %d", dynamic_idx, dynamic_result);
+    println("Dynamic indexing: array[{dynamic_idx}] = {dynamic_result}");
     
     // 複合代入の大規模チェーン
     int compound_test = 100;
@@ -79,7 +79,7 @@ int main() {
     compound_test |= v8;
     compound_test ^= v9;
     
-    println("Compound chain result: %d", compound_test);
+    println("Compound chain result: {compound_test}");
     
     // 論理演算の短絡評価（効率性確認）
     bool short_circuit = 
@@ -88,7 +88,8 @@ int main() {
         (v13 == v14 && v15 != v16 && v17 <= v18) ||
         (v19 >= v20 && v1 != 0 && v2 != 0);
     
-    println("Short circuit result: %d", short_circuit ? 1 : 0);
+    int short_circuit_result = short_circuit ? 1 : 0;
+    println("Short circuit result: {short_circuit_result}");
     
     // 最終的な超複雑式（全機能統合）
     int ultimate_test = 
@@ -99,7 +100,7 @@ int main() {
         ((compound_test & 255) | (nested_result ^ 15)) +
         (short_circuit ? huge_calc : array_sum);
     
-    println("Ultimate expression: %d", ultimate_test);
+    println("Ultimate expression: {ultimate_test}");
     
     println("=== Test completed successfully ===");
     return 0;

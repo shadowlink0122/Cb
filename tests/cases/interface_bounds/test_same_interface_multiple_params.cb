@@ -16,7 +16,7 @@ struct Allocator2 {
 
 impl Allocator for Allocator1 {
     void* allocate(int size) {
-        println("Allocator1.allocate(%d)", size);
+        println("Allocator1.allocate({size})");
         return nullptr;
     }
     
@@ -27,7 +27,7 @@ impl Allocator for Allocator1 {
 
 impl Allocator for Allocator2 {
     void* allocate(int size) {
-        println("Allocator2.allocate(%d)", size);
+        println("Allocator2.allocate({size})");
         return nullptr;
     }
     
@@ -44,5 +44,5 @@ struct BiAllocator<A1: Allocator, A2: Allocator> {
 void main() {
     BiAllocator<Allocator1, Allocator2> ba;
     ba.size = 100;
-    println("Same interface for multiple params: size=%d", ba.size);
+    println("Same interface for multiple params: size={ba.size}");
 }

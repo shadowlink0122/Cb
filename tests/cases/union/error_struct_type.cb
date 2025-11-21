@@ -14,8 +14,8 @@ int main() {
     PointUnion validUnion = validPoint;
     
     println("Valid assignments:");
-    println("  Point: (%d, %d)", validPoint.x, validPoint.y);
-    println("  Person: %s, %d", validPerson.name, validPerson.age);
+    println("  Point: ({validPoint.x}, {validPoint.y})");
+    println("  Person: {validPerson.name}, {validPerson.age}");
     println("  PointUnion (Point): assigned successfully");
     
     // エラーケース: 許可されていない構造体型を代入

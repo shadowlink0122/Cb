@@ -118,6 +118,8 @@ ASTNode *PrimaryExpressionParser::parsePrimary() {
         } else {
             node->int_value = 0;
         }
+        node->literal_type = TYPE_CHAR; // Mark as char literal
+        node->type_info = TYPE_CHAR;
         return node;
     }
 
@@ -971,21 +973,6 @@ PrimaryExpressionParser::parseInterpolatedString(const std::string &str) {
     std::string current_text;
 
     while (pos < str.length()) {
-        // v0.12.0: ${variable} 構文のサポート
-        if (str[pos] == '$' && pos + 1 < str.length() && str[pos + 1] == '{') {
-            // ${ を検出 - $ はスキップして { から処理
-            if (!current_text.empty()) {
-                ASTNode *text_segment =
-                    new ASTNode(ASTNodeType::AST_STRING_INTERPOLATION_SEGMENT);
-                text_segment->is_interpolation_text = true;
-                text_segment->str_value = current_text;
-                node->interpolation_segments.push_back(
-                    std::unique_ptr<ASTNode>(text_segment));
-                current_text.clear();
-            }
-            pos++; // skip $, fall through to { processing
-        }
-
         if (str[pos] == '{') {
             if (pos + 1 < str.length() && str[pos + 1] == '{') {
                 // エスケープシーケンス {{

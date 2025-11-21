@@ -9,6 +9,7 @@
 #include "../types/manager.h"
 #include "../variables/manager.h"
 #include <functional>
+#include <inttypes.h>
 #include <map>
 #include <stdexcept>
 
@@ -697,7 +698,7 @@ void StructAssignmentManager::assign_struct_member_array_element(
         {
             char dbg_buf[512];
             snprintf(dbg_buf, sizeof(dbg_buf),
-                     "Assignment completed, array_values[%d] = %lld", index,
+                     "Assignment completed, array_values[%d] = %" PRId64, index,
                      member_var->array_values[index]);
             debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
         }
@@ -960,11 +961,12 @@ void StructAssignmentManager::assign_struct_member_array_literal(
                             size_t flat_index = r * cols + c;
                             {
                                 char dbg_buf[512];
-                                snprintf(
-                                    dbg_buf, sizeof(dbg_buf),
-                                    "  [%zu][%zu] = %lld (flat_index: %zu)", r,
-                                    c, member_var->array_values[flat_index],
-                                    flat_index);
+                                snprintf(dbg_buf, sizeof(dbg_buf),
+                                         "  [%zu][%zu] = %" PRId64
+                                         " (flat_index: %zu)",
+                                         r, c,
+                                         member_var->array_values[flat_index],
+                                         flat_index);
                                 debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
                             }
                         }

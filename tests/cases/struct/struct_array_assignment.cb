@@ -18,12 +18,12 @@ int test_struct_variable_assignment() {
     
     // 検証
     if (tasks[0].task_id != 42) {
-        println("ERROR: test_struct_variable_assignment - tasks[0].task_id should be 42, got %d", tasks[0].task_id);
+        println("ERROR: test_struct_variable_assignment - tasks[0].task_id should be 42, got {tasks[0].task_id}");
         return 1;
     }
     
     if (tasks[0].priority != 5) {
-        println("ERROR: test_struct_variable_assignment - tasks[0].priority should be 5, got %d", tasks[0].priority);
+        println("ERROR: test_struct_variable_assignment - tasks[0].priority should be 5, got {tasks[0].priority}");
         return 1;
     }
     
@@ -39,12 +39,12 @@ int test_struct_literal_assignment() {
     
     // 検証
     if (tasks[0].task_id != 100) {
-        println("ERROR: test_struct_literal_assignment - tasks[0].task_id should be 100, got %d", tasks[0].task_id);
+        println("ERROR: test_struct_literal_assignment - tasks[0].task_id should be 100, got {tasks[0].task_id}");
         return 1;
     }
     
     if (tasks[0].priority != 10) {
-        println("ERROR: test_struct_literal_assignment - tasks[0].priority should be 10, got %d", tasks[0].priority);
+        println("ERROR: test_struct_literal_assignment - tasks[0].priority should be 10, got {tasks[0].priority}");
         return 1;
     }
     
@@ -64,12 +64,12 @@ int test_loop_assignment() {
     // 検証
     for (int i = 0; i < 10; i++) {
         if (tasks[i].task_id != i) {
-            println("ERROR: test_loop_assignment - tasks[%d].task_id should be %d, got %d", i, i, tasks[i].task_id);
+            println("ERROR: test_loop_assignment - tasks[{i}].task_id should be {i}, got {tasks[i].task_id}");
             return 1;
         }
         
         if (tasks[i].priority != i * 2) {
-            println("ERROR: test_loop_assignment - tasks[%d].priority should be %d, got %d", i, i * 2, tasks[i].priority);
+            println("ERROR: test_loop_assignment - tasks[{i}].priority should be {i * 2}, got {tasks[i].priority}");
             return 1;
         }
     }
@@ -92,22 +92,22 @@ int test_array_element_copy() {
     
     // 検証
     if (dst[0].task_id != 1) {
-        println("ERROR: test_array_element_copy - dst[0].task_id should be 1, got %d", dst[0].task_id);
+        println("ERROR: test_array_element_copy - dst[0].task_id should be 1, got {dst[0].task_id}");
         return 1;
     }
     
     if (dst[1].task_id != 2) {
-        println("ERROR: test_array_element_copy - dst[1].task_id should be 2, got %d", dst[1].task_id);
+        println("ERROR: test_array_element_copy - dst[1].task_id should be 2, got {dst[1].task_id}");
         return 1;
     }
     
     if (dst[0].priority != 10) {
-        println("ERROR: test_array_element_copy - dst[0].priority should be 10, got %d", dst[0].priority);
+        println("ERROR: test_array_element_copy - dst[0].priority should be 10, got {dst[0].priority}");
         return 1;
     }
     
     if (dst[1].priority != 20) {
-        println("ERROR: test_array_element_copy - dst[1].priority should be 20, got %d", dst[1].priority);
+        println("ERROR: test_array_element_copy - dst[1].priority should be 20, got {dst[1].priority}");
         return 1;
     }
     
@@ -129,22 +129,22 @@ int test_function_return_assignment() {
     
     // 検証
     if (tasks[0].task_id != 999) {
-        println("ERROR: test_function_return_assignment - tasks[0].task_id should be 999, got %d", tasks[0].task_id);
+        println("ERROR: test_function_return_assignment - tasks[0].task_id should be 999, got {tasks[0].task_id}");
         return 1;
     }
     
     if (tasks[0].priority != 88) {
-        println("ERROR: test_function_return_assignment - tasks[0].priority should be 88, got %d", tasks[0].priority);
+        println("ERROR: test_function_return_assignment - tasks[0].priority should be 88, got {tasks[0].priority}");
         return 1;
     }
     
     if (tasks[1].task_id != 888) {
-        println("ERROR: test_function_return_assignment - tasks[1].task_id should be 888, got %d", tasks[1].task_id);
+        println("ERROR: test_function_return_assignment - tasks[1].task_id should be 888, got {tasks[1].task_id}");
         return 1;
     }
     
     if (tasks[1].priority != 77) {
-        println("ERROR: test_function_return_assignment - tasks[1].priority should be 77, got %d", tasks[1].priority);
+        println("ERROR: test_function_return_assignment - tasks[1].priority should be 77, got {tasks[1].priority}");
         return 1;
     }
     
@@ -164,22 +164,22 @@ int test_same_array_copy() {
     
     // 検証
     if (tasks[1].task_id != 100) {
-        println("ERROR: test_same_array_copy - tasks[1].task_id should be 100, got %d", tasks[1].task_id);
+        println("ERROR: test_same_array_copy - tasks[1].task_id should be 100, got {tasks[1].task_id}");
         return 1;
     }
     
     if (tasks[2].task_id != 100) {
-        println("ERROR: test_same_array_copy - tasks[2].task_id should be 100, got %d", tasks[2].task_id);
+        println("ERROR: test_same_array_copy - tasks[2].task_id should be 100, got {tasks[2].task_id}");
         return 1;
     }
     
     if (tasks[1].priority != 50) {
-        println("ERROR: test_same_array_copy - tasks[1].priority should be 50, got %d", tasks[1].priority);
+        println("ERROR: test_same_array_copy - tasks[1].priority should be 50, got {tasks[1].priority}");
         return 1;
     }
     
     if (tasks[2].priority != 50) {
-        println("ERROR: test_same_array_copy - tasks[2].priority should be 50, got %d", tasks[2].priority);
+        println("ERROR: test_same_array_copy - tasks[2].priority should be 50, got {tasks[2].priority}");
         return 1;
     }
     
@@ -258,7 +258,7 @@ int main() {
         println("All 6 tests PASSED");
         return 0;
     } else {
-        println("%d test(s) FAILED", failed);
+        println("{failed} test(s) FAILED");
         return 1;
     }
 }

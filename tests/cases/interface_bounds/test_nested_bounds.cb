@@ -30,5 +30,5 @@ struct Container<T, A: Allocator> {
 void main() {
     Container<int, SystemAllocator> c;
     c.inner.value = 42;
-    println("Nested generic with bounds: value=%d", c.inner.value);
+    println("Nested generic with bounds: value={c.inner.value}");
 }

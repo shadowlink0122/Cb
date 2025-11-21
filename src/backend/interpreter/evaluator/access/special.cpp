@@ -5,6 +5,7 @@
 #include "../../managers/types/manager.h"
 #include "../core/evaluator.h"
 #include <functional>
+#include <inttypes.h>
 #include <iostream>
 #include <stdexcept>
 
@@ -895,10 +896,11 @@ int64_t evaluate_arrow_access(
                     int64_t value = static_cast<int64_t>(*int_ptr);
                     {
                         char dbg_buf[512];
-                        snprintf(
-                            dbg_buf, sizeof(dbg_buf),
-                            "[ARROW_OP] Read int32_t value: %lld from 0x%lx",
-                            value, reinterpret_cast<uintptr_t>(member_ptr));
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "[ARROW_OP] Read int32_t value: %" PRId64
+                                 " from 0x%lx",
+                                 value,
+                                 reinterpret_cast<uintptr_t>(member_ptr));
                         debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
                     }
                     return value;
@@ -907,10 +909,11 @@ int64_t evaluate_arrow_access(
                     int64_t value = *int_ptr;
                     {
                         char dbg_buf[512];
-                        snprintf(
-                            dbg_buf, sizeof(dbg_buf),
-                            "[ARROW_OP] Read int64_t value: %lld from 0x%lx",
-                            value, reinterpret_cast<uintptr_t>(member_ptr));
+                        snprintf(dbg_buf, sizeof(dbg_buf),
+                                 "[ARROW_OP] Read int64_t value: %" PRId64
+                                 " from 0x%lx",
+                                 value,
+                                 reinterpret_cast<uintptr_t>(member_ptr));
                         debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
                     }
                     return value;
@@ -987,7 +990,7 @@ variable_access:
         {
             char dbg_buf[512];
             snprintf(dbg_buf, sizeof(dbg_buf),
-                     "[ARROW_OP] struct_var=%p member='%s' value=%lld "
+                     "[ARROW_OP] struct_var=%p member='%s' value=%" PRId64 " "
                      "is_assigned=%d",
                      static_cast<void *>(struct_var), member_name.c_str(),
                      member_it->second.value,

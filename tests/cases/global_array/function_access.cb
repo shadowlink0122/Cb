@@ -18,6 +18,6 @@ int sum_data() {
 int main() {
     init_data();
     int result = sum_data();
-    println("Sum of squares 0-9: %d", result);
+    println("Sum of squares 0-9: {result}");
     return 0;
 }

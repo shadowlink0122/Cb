@@ -106,7 +106,7 @@ public:
 inline std::pair<std::string, int> run_cb_test(const std::string& test_file) {
     // tests/stdlib/ から実行される場合、ルートディレクトリに移動してから実行
     // これにより、import "stdlib/..." のパス解決が正しく動作する
-    std::string command = "cd ../.. && ./main " + test_file + " 2>&1";
+    std::string command = "cd ../.. && ./cb " + test_file + " 2>&1";
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
         return {"", -1};

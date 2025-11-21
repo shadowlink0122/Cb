@@ -17,7 +17,7 @@ int main() {
         println("ERROR: p1.id failed");
         return 1;
     }
-    println("Person: id=%d, name=%s", p1.id, p1.name);
+    println("Person: id={p1.id}, name={p1.name}");
     
     println("\n=== Test 2: Individual member assignment ===");
     Person p2;
@@ -27,7 +27,7 @@ int main() {
         println("ERROR: p2.id assignment failed");
         return 1;
     }
-    println("Person2: id=%d, name=%s", p2.id, p2.name);
+    println("Person2: id={p2.id}, name={p2.name}");
     
     println("\n=== Test 3: Typedef struct array ===");
     Person[3] people;
@@ -43,9 +43,9 @@ int main() {
         return 1;
     }
     
-    println("people[0]: id=%d, name=%s", people[0].id, people[0].name);
-    println("people[1]: id=%d, name=%s", people[1].id, people[1].name);
-    println("people[2]: id=%d, name=%s", people[2].id, people[2].name);
+    println("people[0]: id={people[0].id}, name={people[0].name}");
+    println("people[1]: id={people[1].id}, name={people[1].name}");
+    println("people[2]: id={people[2].id}, name={people[2].name}");
     
     println("\n=== Test 4: Primitive array member in typedef struct ===");
     ClassRoom room = {[85, 90, 78], "Math101"};
@@ -53,8 +53,8 @@ int main() {
         println("ERROR: Primitive array initialization failed");
         return 1;
     }
-    println("ClassRoom: %s", room.class_name);
-    println("  Scores: [%d, %d, %d]", room.scores[0], room.scores[1], room.scores[2]);
+    println("ClassRoom: {room.class_name}");
+    println("  Scores: [{room.scores[0]}, {room.scores[1]}, {room.scores[2]}]");
     
     println("\n=== Test 5: Individual primitive array assignment ===");
     ClassRoom room2;
@@ -68,8 +68,8 @@ int main() {
         return 1;
     }
     
-    println("ClassRoom2: %s", room2.class_name);
-    println("  Scores: [%d, %d, %d]", room2.scores[0], room2.scores[1], room2.scores[2]);
+    println("ClassRoom2: {room2.class_name}");
+    println("  Scores: [{room2.scores[0]}, {room2.scores[1]}, {room2.scores[2]}]");
     
     println("\n=== All typedef struct tests passed! ===");
     return 0;

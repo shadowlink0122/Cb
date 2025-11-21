@@ -28,8 +28,8 @@ int main() {
     Printable p3 = int3;
     string str3 = p3.toString();
     int val3 = p3.getValue();
-    println("INT3 toString: %s", str3);
-    println("INT3 getValue: %d", val3);
+    println("INT3 toString: {str3}");
+    println("INT3 getValue: {val3}");
     
     println("=== テスト成功 ===");
     

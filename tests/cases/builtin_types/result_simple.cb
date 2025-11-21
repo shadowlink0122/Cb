@@ -1,0 +1,19 @@
+// Simple test for Result<T, E> type
+// Testing basic construction and usage
+
+fn main() {
+    // Test Result<int, string> creation
+    Result<int, string> ok_value = Result<int, string>::Ok(42);
+    Result<int, string> err_value = Result<int, string>::Err("Error occurred");
+
+    // Test that they work (basic existence check)
+    if (ok_value.is_ok()) {
+        println("Ok value is Ok");
+    }
+
+    if (err_value.is_err()) {
+        println("Err value is Err");
+    }
+
+    println("Result<int, string> test passed!");
+}

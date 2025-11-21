@@ -18,9 +18,9 @@ int main() {
     int area = calculate_area(r);
     int perimeter = calculate_perimeter(r);
     
-    println("Rectangle: %dx%d", r.width, r.height);
-    println("Area: %d", area);
-    println("Perimeter: %d", perimeter);
+    println("Rectangle: {r.width}x{r.height}");
+    println("Area: {area}");
+    println("Perimeter: {perimeter}");
     
     // 期待される出力:
     // Rectangle: 10x5

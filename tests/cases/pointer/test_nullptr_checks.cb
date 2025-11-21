@@ -11,7 +11,7 @@ int main() {
     int* ptr2 = &x;
     println("");
     println("Test 2: Reassignment to nullptr");
-    println("Before: *ptr2 = %d", *ptr2);
+    println("Before: *ptr2 = {*ptr2}");
     
     ptr2 = nullptr;
     println("After ptr2 = nullptr (pointer now points to null)");
@@ -33,7 +33,7 @@ int main() {
     p3 = &c;
     
     println("After assignment:");
-    println("*p1 = %d, *p2 = %d, *p3 = %d", *p1, *p2, *p3);
+    println("*p1 = {*p1}, *p2 = {*p2}, *p3 = {*p3}");
     
     // テスト4: ダブルポインタとnullptr
     int** pp = nullptr;
@@ -46,7 +46,7 @@ int main() {
     pp = &pv;
     
     println("After assignment:");
-    println("**pp = %d", **pp);
+    println("**pp = {**pp}");
     
     return 0;
 }

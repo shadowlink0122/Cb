@@ -24,25 +24,27 @@ int main() {
     
     // 1. 複雑な算術式（深い優先順位チェーン）
     int result1 = 1 + 2 * 3 - 4 / 2 + (5 * 6) % 7;
-    println("Complex arithmetic: %d", result1);
+    println("Complex arithmetic: {result1}");
     
     // 2. 多重三項演算子（右結合性テスト）
     int x = 10, y = 20, z = 30;
     int result2 = x > y ? (y > z ? 1 : 2) : (z > x ? 3 : 4);
-    println("Nested ternary: %d", result2);
+    println("Nested ternary: {result2}");
     
     // 3. 複雑な論理式（短絡評価）
     bool flag1 = true, flag2 = false, flag3 = true;
     bool result3 = flag1 && (flag2 || flag3) && (x < y || y < z);
-    println("Complex logical: %d", result3 ? 1 : 0);
+    int result3_int = result3 ? 1 : 0;
+    println("Complex logical: {result3_int}");
     
     // 4. 関数配列アクセスの組み合わせ
     int result4 = get_array()[0] + get_array()[1] * get_array()[2];
-    println("Function array combo: %d", result4);
+    println("Function array combo: {result4}");
     
     // 5. 混合型の複雑な式（修正版）
     bool result5 = get_array()[0] > get_array()[1] ? true : false;
-    println("Mixed type ternary: %d", result5 ? 1 : 0);
+    int result5_int = result5 ? 1 : 0;
+    println("Mixed type ternary: {result5_int}");
     
     // 6. 構造体配列と関数呼び出しの組み合わせ
     TestData[2] data;
@@ -51,19 +53,19 @@ int main() {
     data[1].name = "Test2";
     data[1].value = complex_calc(get_array()[0], get_array()[1], get_array()[2]);
     
-    println("Struct array result: %s = %d", data[0].name, data[0].value);
-    println("Complex calc result: %s = %d", data[1].name, data[1].value);
+    println("Struct array result: {data[0].name} = {data[0].value}");
+    println("Complex calc result: {data[1].name} = {data[1].value}");
     
     // 7. 非常に深い式（再帰下降の効率性テスト）
     int deep_result = 
         ((((1 + 2) * 3) - 4) / 2) + 
         ((((5 * 6) % 7) + 8) - 9) * 
         (((10 / 2) + 3) - (4 * 1));
-    println("Deep expression: %d", deep_result);
+    println("Deep expression: {deep_result}");
     
     // 8. 配列アクセスチェーンの効率性
     int chain_result = get_array()[get_array()[0]] + get_array()[get_array()[1]];
-    println("Array access chain: %d", chain_result);
+    println("Array access chain: {chain_result}");
     
     return 0;
 }

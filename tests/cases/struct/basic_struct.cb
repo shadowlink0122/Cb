@@ -11,32 +11,32 @@ int main() {
     
     // Verify member assignment worked correctly
     if (p.x != 10) {
-        println("ERROR: p.x should be 10, got %d", p.x);
+        println("ERROR: p.x should be 10, got {p.x}");
         return 1;
     }
     
     if (p.y != 20) {
-        println("ERROR: p.y should be 20, got %d", p.y);
+        println("ERROR: p.y should be 20, got {p.y}");
         return 1;
     }
     
-    println("Point: (%d, %d)", p.x, p.y);
+    println("Point: ({p.x}, {p.y})");
     
     // Test modification
     p.x = p.x + 5;
     p.y = p.y * 2;
     
     if (p.x != 15) {
-        println("ERROR: After modification, p.x should be 15, got %d", p.x);
+        println("ERROR: After modification, p.x should be 15, got {p.x}");
         return 1;
     }
     
     if (p.y != 40) {
-        println("ERROR: After modification, p.y should be 40, got %d", p.y);
+        println("ERROR: After modification, p.y should be 40, got {p.y}");
         return 1;
     }
     
-    println("Modified Point: (%d, %d)", p.x, p.y);
+    println("Modified Point: ({p.x}, {p.y})");
     println("Basic struct test passed");
     return 0;
 }

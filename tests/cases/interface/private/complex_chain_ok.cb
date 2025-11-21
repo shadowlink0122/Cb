@@ -50,13 +50,13 @@ int main() {
     IComplexProcessor processor = number;
     
     int result1 = processor.processValue(5);
-    println("processValue(5) = %d", result1); // (5 * 3) + 10 = 25
+    println("processValue(5) = {result1}"); // (5 * 3) + 10 = 25
     
     int result2 = processor.processValue(-3);
-    println("processValue(-3) = %d", result2); // (0 * 3) + 10 = 10
+    println("processValue(-3) = {result2}"); // (0 * 3) + 10 = 10
     
     string report = processor.getReport();
-    println("report = %s", report);
+    println("report = {report}");
     
     println("Complex private method chain test passed");
     return 0;

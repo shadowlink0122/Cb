@@ -123,49 +123,49 @@ int main() {
     Calculable counter_calc = base_counter;
 
     int chain_on_counter = counter_calc.add(5).multiply(2).add(3);
-    println("%d", chain_on_counter); // 33
+    println("{chain_on_counter}"); // 33
 
     int mixed_chain = make_counter(4).multiply(3).add(2);
-    println("%d", mixed_chain); // 14
+    println("{mixed_chain}"); // 14
 
     int primitive = 7;
     int chain_on_primitive = primitive.add(5).multiply(2).add(-4);
-    println("%d", chain_on_primitive); // 20
+    println("{chain_on_primitive}"); // 20
 
     int primitive_from_func = get_primitive_value();
     Calculable dynamic_calc = primitive_from_func;
     int dynamic_chain = dynamic_calc.multiply(3).add(1);
-    println("%d", dynamic_chain); // 37
+    println("{dynamic_chain}"); // 37
 
     Counter fresh_counter = make_counter(9);
     Calculable dynamic_counter = fresh_counter;
     int counter_then_primitive_chain = dynamic_counter.add(0).multiply(4);
-    println("%d", counter_then_primitive_chain); // 36
+    println("{counter_then_primitive_chain}"); // 36
 
     int inline_chain = make_counter(9).add(2).multiply(5).add(-5);
-    println("%d", inline_chain); // 50
+    println("{inline_chain}"); // 50
 
     Counter pipeline_counter = container_pipeline(6, 4, 5, 3);
     Calculable pipeline_calc = pipeline_counter;
     int pipeline_chain = pipeline_calc.add(-2).multiply(1);
-    println("%d", pipeline_chain); // 43
+    println("{pipeline_chain}"); // 43
 
     Counter seeded = seeded_counter(2, 8);
     Calculable seeded_calc = seeded;
     int seeded_chain = seeded_calc.multiply(2).add(10);
-    println("%d", seeded_chain); // 30
+    println("{seeded_chain}"); // 30
 
     Counter[2] counter_array;
     counter_array[0] = make_counter(3);
     counter_array[1] = make_counter(8);
     int array_counter_chain = counter_array[1].add(-3).multiply(2);
-    println("%d", array_counter_chain); // 10
+    println("{array_counter_chain}"); // 10
 
     int dynamic_true = produce_dynamic(true).add(3).multiply(4);
-    println("%d", dynamic_true); // 20
+    println("{dynamic_true}"); // 20
 
     int dynamic_false = produce_dynamic(false).multiply(3).add(1);
-    println("%d", dynamic_false); // 16
+    println("{dynamic_false}"); // 16
 
     TeamStats ranked_team = { leader_start: 5, leader_boost: 2, support_boost: 4 };
     Counter leader_counter = make_counter(ranked_team.leader_start);
@@ -173,13 +173,13 @@ int main() {
     int struct_after_add = struct_chain_calc.add(ranked_team.leader_boost);
     Calculable struct_chain_after = struct_after_add;
     int struct_field_chain = struct_chain_after.multiply(ranked_team.support_boost);
-    println("%d", struct_field_chain); // 28
+    println("{struct_field_chain}"); // 28
 
     int union_counter_chain = compute_union_counter_chain();
-    println("%d", union_counter_chain); // 32
+    println("{union_counter_chain}"); // 32
 
     int union_int_chain = compute_union_int_chain();
-    println("%d", union_int_chain); // 22
+    println("{union_int_chain}"); // 22
 
     return 0;
 }

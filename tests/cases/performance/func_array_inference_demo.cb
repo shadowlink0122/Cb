@@ -14,28 +14,28 @@ int main() {
     
     // 1. 基本的な func()[0] パターン
     int first = get_numbers()[0];
-    println("get_numbers()[0] = %d", first);
+    println("get_numbers()[0] = {first}");
     
     // 2. 動的インデックス
     int idx = 2;
     int dynamic = get_numbers()[idx];
-    println("get_numbers()[%d] = %d", idx, dynamic);
+    println("get_numbers()[{idx}] = {dynamic}");
     
     // 3. 式の中での使用
     int calc = get_numbers()[1] + get_numbers()[3];
-    println("get_numbers()[1] + get_numbers()[3] = %d", calc);
+    println("get_numbers()[1] + get_numbers()[3] = {calc}");
     
     // 4. ネストした関数呼び出し
     int nested = get_numbers()[get_single(1)];
-    println("get_numbers()[get_single(1)] = %d", nested);
+    println("get_numbers()[get_single(1)] = {nested}");
     
     // 5. 複雑な式での型推論
     int complex = (get_numbers()[0] * 2) + (get_numbers()[4] / 5);
-    println("Complex expression: %d", complex);
+    println("Complex expression: {complex}");
     
     // 6. 三項演算子との組み合わせ
     int ternary = get_numbers()[0] > 15 ? get_numbers()[1] : get_numbers()[2];
-    println("Ternary with func()[]: %d", ternary);
+    println("Ternary with func()[]: {ternary}");
     
     println("=== All func()[index] patterns working! ===");
     return 0;

@@ -1095,6 +1095,22 @@ ExpressionEvaluator::evaluate_typed_expression_internal(const ASTNode *node) {
         if (!array_name.empty() && !indices.empty()) {
             Variable *var = interpreter_.find_variable(array_name);
             if (var && var->is_array) {
+                // 構造体配列の場合（ジェネリック型を含む）
+                if (var->is_struct && indices.size() == 1) {
+                    int64_t idx = indices[0];
+                    std::string element_name =
+                        array_name + "[" + std::to_string(idx) + "]";
+                    Variable *element_var =
+                        interpreter_.find_variable(element_name);
+                    if (element_var) {
+                        // 構造体要素の型情報を保持してTypedValueを返す
+                        return TypedValue(
+                            *element_var,
+                            InferredType(TYPE_STRUCT,
+                                         element_var->struct_type_name));
+                    }
+                }
+
                 TypeInfo base_type =
                     (var->type >= TYPE_ARRAY_BASE)
                         ? static_cast<TypeInfo>(var->type - TYPE_ARRAY_BASE)
@@ -1510,7 +1526,24 @@ ExpressionEvaluator::format_interpolated_value(const TypedValue &value,
     if (format_spec.empty()) {
         if (value.type.type_info == TYPE_STRING) {
             return value.string_value;
+        } else if (value.type.type_info == TYPE_CHAR) {
+            // char型は文字として出力
+            char c = static_cast<char>(value.value);
+            return std::string(1, c);
         } else if (value.is_numeric_result) {
+            // ポインタ型は16進数で表示
+            if (value.numeric_type == TYPE_POINTER ||
+                value.type.type_info == TYPE_POINTER) {
+                std::stringstream ss;
+                uint64_t unsigned_val = static_cast<uint64_t>(value.value);
+                // Remove tag bit from pointer metadata
+                uint64_t clean_value = unsigned_val;
+                if (value.value & (1LL << 63)) {
+                    clean_value &= ~(1ULL << 63);
+                }
+                ss << "0x" << std::hex << clean_value;
+                return ss.str();
+            }
             if (value.is_float_result) {
                 if (value.type.type_info == TYPE_QUAD) {
                     return std::to_string(value.quad_value);

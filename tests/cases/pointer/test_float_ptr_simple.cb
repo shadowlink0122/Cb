@@ -4,13 +4,13 @@ void test_simple() {
     arr[1] = 2.5;
     arr[2] = 3.5;
     
-    println("Direct access: arr[0] = %f", arr[0]);
-    println("Direct access: arr[1] = %f", arr[1]);
+    println("Direct access: arr[0] = {arr[0]}");
+    println("Direct access: arr[1] = {arr[1]}");
     
     float* ptr = &arr[0];
     float val = ptr[0];
     
-    println("Through pointer: val = %f", val);
+    println("Through pointer: val = {val}");
 }
 
 void main() {

@@ -27,6 +27,7 @@
 #include <cstdlib>
 #include <cstring> // for strdup
 #include <cstring> // for std::memcpy
+#include <inttypes.h>
 #include <iomanip>
 #include <sstream>
 
@@ -3727,7 +3728,7 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                 {
                     char dbg_buf[512];
                     snprintf(dbg_buf, sizeof(dbg_buf),
-                             "Allocated %lld bytes at %p", size, ptr);
+                             "Allocated %" PRId64 " bytes at %p", size, ptr);
                     debug_msg(DebugMsgId::CALL_IMPL_MALLOC, dbg_buf);
                 }
             }
@@ -4539,11 +4540,11 @@ int64_t ExpressionEvaluator::evaluate_function_call_impl(const ASTNode *node) {
                             nested_member_value;
                         {
                             char dbg_buf[512];
-                            snprintf(
-                                dbg_buf, sizeof(dbg_buf),
-                                "SELF_SETUP: Created nested member %s = %lld",
-                                nested_self_path.c_str(),
-                                nested_member_value.value);
+                            snprintf(dbg_buf, sizeof(dbg_buf),
+                                     "SELF_SETUP: Created nested member %s = "
+                                     "%" PRId64,
+                                     nested_self_path.c_str(),
+                                     nested_member_value.value);
                             debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
                         }
                     }

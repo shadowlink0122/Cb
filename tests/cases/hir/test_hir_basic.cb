@@ -1,0 +1,50 @@
+// HIR Basic Test - No imports, no generics
+// Tests basic function, struct, and control flow
+
+struct Point {
+    int x;
+    int y;
+};
+
+int add(int a, int b) {
+    return a + b;
+}
+
+Point create_point(int x, int y) {
+    Point p;
+    p.x = x;
+    p.y = y;
+    return p;
+}
+
+void print_point(Point p) {
+    println("Point({p.x}, {p.y})");
+}
+
+void main() {
+    println("=== HIR Basic Test ===");
+
+    // Test arithmetic
+    int result = add(10, 20);
+    println("10 + 20 = {result}");
+
+    // Test struct
+    Point p = create_point(5, 10);
+    print_point(p);
+
+    // Test control flow
+    if (result == 30) {
+        println("Addition works!");
+    } else {
+        println("Addition failed!");
+    }
+
+    // Test loop
+    int i = 0;
+    while (i < 3) {
+        println("Loop iteration {i}");
+        i = i + 1;
+    }
+
+    println("=== Test Complete ===");
+}

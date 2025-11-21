@@ -14,7 +14,7 @@ void test_printf_basic() {
 }
 
 void test_printf_multiple_args() {
-    std::string expected = "名前: 田中, 年齢: 25\n結果: 10 + 20 = 30\nABC\n文字: X, 数値: 100, 文字列: test\n生徒情報: 鈴木 (30歳) - 成績: A\n";
+    std::string expected = "名前: 田中, 年齢: 25\n結果: 60\nA B C\n文字: X, 数値: 100, 文字列: test\n生徒情報: 鈴木 (30歳) - 成績: A\n";
     run_cb_test_with_output_and_time_auto("../../tests/cases/printf/multiple_args.cb",
         [expected](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_EQ(0, exit_code, "Printf multiple arguments test should succeed");

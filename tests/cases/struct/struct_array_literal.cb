@@ -14,10 +14,8 @@ int main() {
         credit: 3
     };
     
-    println("Course: %s (%d credits)", math.name, math.credit);
-    println("Scores: [%d, %d, %d, %d]", 
-            math.scores[0], math.scores[1], 
-            math.scores[2], math.scores[3]);
+    println("Course: {math.name} ({math.credit} credits)");
+    println("Scores: [{math.scores[0]}, {math.scores[1]}, {math.scores[2]}, {math.scores[3]}]");
     
     // 平均計算
     int sum = 0;
@@ -25,7 +23,7 @@ int main() {
         sum += math.scores[i];
     }
     int avg = sum / SIZE;
-    println("Average score: %d", avg);
+    println("Average score: {avg}");
     
     // 期待される出力:
     // Course: Mathematics (3 credits)

@@ -14,7 +14,7 @@ interface ISecretControls {
 
 impl ISecretControls for SecretAccumulator {
     void show() {
-        println("hidden=%d shown=%d", self.hidden, self.shown);
+        println("hidden={self.hidden} shown={self.shown}");
     }
 
     void setup(int hidden_value, int shown_value) {

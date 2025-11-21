@@ -21,9 +21,9 @@ int main() {
     node.value = 10;
     node.ptr = &x;
     
-    println("x = %d", x);
-    println("node.value = %d", node.value);
-    println("*node.ptr = %d (should be 42)", *node.ptr);
+    println("x = {x}");
+    println("node.value = {node.value}");
+    println("*node.ptr = {*node.ptr} (should be 42)");
     assert(*node.ptr == 42);
     println("");
     
@@ -31,7 +31,7 @@ int main() {
     println("Test 2: Modify external variable via struct pointer member");
     *node.ptr = 100;
     println("After *node.ptr = 100:");
-    println("x = %d (should be 100)", x);
+    println("x = {x} (should be 100)");
     assert(x == 100);
     println("");
     
@@ -40,12 +40,12 @@ int main() {
     int y = 200;
     node.ptr = &y;
     println("After node.ptr = &y:");
-    println("*node.ptr = %d (should be 200)", *node.ptr);
+    println("*node.ptr = {*node.ptr} (should be 200)");
     assert(*node.ptr == 200);
     
     *node.ptr = 300;
     println("After *node.ptr = 300:");
-    println("y = %d (should be 300)", y);
+    println("y = {y} (should be 300)");
     assert(y == 300);
     println("");
     
@@ -57,12 +57,12 @@ int main() {
     container.size = 5;
     
     println("Container initialized with array pointer");
-    println("First element via container: %d", *container.data_ptr);
+    println("First element via container: {*container.data_ptr}");
     assert(*container.data_ptr == 1);
     
     // ポインタを進めて次の要素にアクセス
     container.data_ptr = container.data_ptr + 1;
-    println("After moving pointer: %d", *container.data_ptr);
+    println("After moving pointer: {*container.data_ptr}");
     println("");
     
     // Test 5: nullptrの設定と検証
@@ -80,7 +80,7 @@ int main() {
     // 後で実際のポインタを設定
     int z = 999;
     node2.ptr = &z;
-    println("After setting to &z: *node2.ptr = %d", *node2.ptr);
+    println("After setting to &z: *node2.ptr = {*node2.ptr}");
     assert(*node2.ptr == 999);
     println("");
     

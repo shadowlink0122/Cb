@@ -41,10 +41,10 @@ int main() {
     IArrayProcessor processor = numbers;
     
     int sum = processor.getSum();
-    println("Array sum = %d", sum);
+    println("Array sum = {sum}");
     
     string info = processor.getInfo();
-    println("Array info = %s", info);
+    println("Array info = {info}");
     
     println("Primitive array private method test passed");
     return 0;

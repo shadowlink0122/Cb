@@ -13,14 +13,14 @@ int main() {
     RestrictedUnion validUnion = validCustomInt;
     
     println("Valid assignments:");
-    println("  MyInt: %d", validCustomInt);
-    println("  MyString: %s", validCustomString);
-    println("  RestrictedUnion (MyInt): %d", validUnion);
+    println("  MyInt: {validCustomInt}");
+    println("  MyString: {validCustomString}");
+    println("  RestrictedUnion (MyInt): {validUnion}");
     
     // エラーケース: 許可されていないカスタム型を代入
     // この行は実行時エラーを発生させる
     RestrictedUnion invalidUnion = validCustomString;  // MyStringは許可されていない
-    println("This should not be reached: %s", invalidUnion);
+    println("This should not be reached: {invalidUnion}");
     
     return 0;
 }

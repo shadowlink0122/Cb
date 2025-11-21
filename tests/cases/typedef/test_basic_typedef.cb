@@ -13,36 +13,36 @@ int main() {
     
     // Verify variable assignments
     if (number != 42) {
-        println("ERROR: number should be 42, got %d", number);
+        println("ERROR: number should be 42, got {number}");
         return 1;
     }
     
     if (flag != true) {
-        println("ERROR: flag should be true, got %d", flag);
+        println("ERROR: flag should be true, got {flag}");
         return 1;
     }
     
     println("Testing basic typedef usage:");
-    println("int number = %d", number);
-    println("string text = %s", text);
-    println("bool flag = %d", flag);
+    println("int number = {number}");
+    println("string text = {text}");
+    println("bool flag = {flag}");
     
     // Test modification
     number = number * 2;
     if (number != 84) {
-        println("ERROR: After multiplication, number should be 84, got %d", number);
+        println("ERROR: After multiplication, number should be 84, got {number}");
         return 1;
     }
     
     flag = !flag;
     if (flag != false) {
-        println("ERROR: After negation, flag should be false, got %d", flag);
+        println("ERROR: After negation, flag should be false, got {flag}");
         return 1;
     }
     
     println("Modified values:");
-    println("int number = %d", number);
-    println("bool flag = %d", flag);
+    println("int number = {number}");
+    println("bool flag = {flag}");
     println("Typedef integration test passed!");
     return 0;
 }

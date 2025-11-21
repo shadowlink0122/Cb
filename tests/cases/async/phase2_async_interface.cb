@@ -12,23 +12,23 @@ struct AsyncProcessor {
 
 impl Worker for AsyncProcessor {
     async int process_async(int value) {
-        println("[Impl] Processing async: %d", value);
+        println("[Impl] Processing async: {value}");
         yield;
         println("[Impl] After yield");
         int result = value * 10;
-        println("[Impl] Returning: %d", result);
+        println("[Impl] Returning: {result}");
         return result;
     }
     
     int process_sync(int value) {
-        println("[Impl] Processing sync: %d", value);
+        println("[Impl] Processing sync: {value}");
         return value + self.multiplier;
     }
 }
 
 async void background_task() {
     for (int i = 0; i < 5; i = i + 1) {
-        println("[BG] Step %d", i);
+        println("[BG] Step {i}");
     }
     return;
 }
@@ -43,14 +43,14 @@ void main() {
     
     println("[Main] Calling sync method");
     int sync_result = proc.process_sync(3);
-    println("[Main] Sync result: %d", sync_result);
+    println("[Main] Sync result: {sync_result}");
     
     println("[Main] Calling async method");
     Future<int> f = proc.process_async(5);
     
     println("[Main] Awaiting async result");
     int async_result = await f;
-    println("[Main] Async result: %d\n", async_result);
+    println("[Main] Async result: {async_result}\n");
     
     await bg;
     println("[Main] Done");

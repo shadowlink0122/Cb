@@ -251,6 +251,9 @@ std::unique_ptr<ASTNode> clone_ast_node(const ASTNode *node) {
     cloned->is_generic = node->is_generic;
     cloned->type_parameters = node->type_parameters;
     cloned->type_arguments = node->type_arguments;
+    cloned->is_interpolation_text = node->is_interpolation_text;
+    cloned->is_interpolation_expr = node->is_interpolation_expr;
+    cloned->interpolation_format = node->interpolation_format;
 
     // sizeof関連のフィールドをコピー
     cloned->sizeof_type_name = node->sizeof_type_name;
@@ -297,6 +300,9 @@ std::unique_ptr<ASTNode> clone_ast_node(const ASTNode *node) {
     }
     for (const auto &case_node : node->cases) {
         cloned->cases.push_back(clone_ast_node(case_node.get()));
+    }
+    for (const auto &seg : node->interpolation_segments) {
+        cloned->interpolation_segments.push_back(clone_ast_node(seg.get()));
     }
 
     // return_types配列をコピー

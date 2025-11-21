@@ -1,0 +1,50 @@
+# v0.14.0: HIR Unit Tests Makefile
+
+CC=g++
+CXXFLAGS=-Wall -g -std=c++17
+SRC_DIR=../../src
+INCLUDES=-I$(SRC_DIR) -I.
+
+# HIR関連のソースファイル
+HIR_SRCS = \
+	$(SRC_DIR)/backend/ir/hir/hir_generator.cpp \
+	$(SRC_DIR)/common/type_utils.cpp \
+	$(SRC_DIR)/common/array_type_info.cpp \
+	$(SRC_DIR)/common/ast.cpp
+
+# HIR関連のオブジェクトファイル
+HIR_OBJS = $(HIR_SRCS:.cpp=.o)
+
+# テストファイル
+TEST_HIR_GENERATOR = hir/test_hir_generator.cpp
+
+.PHONY: all test-hir clean
+
+all: test-hir
+
+# HIRジェネレーターのテスト
+test-hir: $(HIR_OBJS)
+	@echo "=== Building HIR Generator Test ==="
+	$(CC) $(CXXFLAGS) $(INCLUDES) -o hir/test_hir_generator.out \
+		$(TEST_HIR_GENERATOR) $(HIR_OBJS)
+	@echo ""
+	@echo "=== Running HIR Generator Test ==="
+	@./hir/test_hir_generator.out
+	@echo ""
+
+# オブジェクトファイルのビルド
+%.o: %.cpp
+	$(CC) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+clean:
+	rm -f hir/*.out
+	rm -f $(HIR_OBJS)
+	@echo "Cleaned HIR unit test artifacts"
+
+help:
+	@echo "HIR Unit Tests Makefile"
+	@echo ""
+	@echo "Targets:"
+	@echo "  make test-hir    - Build and run HIR generator tests"
+	@echo "  make clean       - Clean build artifacts"
+	@echo "  make help        - Show this help message"

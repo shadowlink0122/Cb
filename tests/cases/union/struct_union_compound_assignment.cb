@@ -11,14 +11,14 @@ struct TestStruct {
 
 TestStruct test_compound_assignment(TestStruct obj) {
     println("=== Before compound assignment ===");
-    println("code: %d, value: %d, count: %d", obj.code, obj.value, obj.count);
+    println("code: {obj.code}, value: {obj.value}, count: {obj.count}");
     
     // 複合代入演算子のテスト
     obj.count *= 2;
     obj.value *= 3;  // Union型intメンバーの複合代入
     
     println("=== After compound assignment ===");
-    println("code: %d, value: %d, count: %d", obj.code, obj.value, obj.count);
+    println("code: {obj.code}, value: {obj.value}, count: {obj.count}");
     
     return obj;
 }
@@ -37,14 +37,14 @@ int main() {
     // Union型の別の型への変更
     test.value = "Hello";
     println("=== After string assignment ===");
-    println("code: %d, value: %s, count: %d", test.code, test.value, test.count);
+    println("code: {test.code}, value: {test.value}, count: {test.count}");
     
     // 再び数値への変更と複合代入
     test.value = 7;
     test.value += 3;  // Union型での加算複合代入
     
     println("=== After numeric reassignment and compound assignment ===");
-    println("code: %d, value: %d, count: %d", test.code, test.value, test.count);
+    println("code: {test.code}, value: {test.value}, count: {test.count}");
     
     return 0;
 }

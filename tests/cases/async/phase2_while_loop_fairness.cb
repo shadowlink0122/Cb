@@ -4,7 +4,7 @@
 async void background_task() {
     int i = 0;
     while (i < 5) {
-        println("[BG] Step %d", i);
+        println("[BG] Step {i}");
         i = i + 1;
     }
     return;
@@ -18,7 +18,7 @@ void main() {
     println("[Main] Starting while loop");
     int count = 0;
     while (count < 5) {
-        println("[Main] Iteration %d", count);
+        println("[Main] Iteration {count}");
         count = count + 1;
     }
     println("[Main] While loop done\n");

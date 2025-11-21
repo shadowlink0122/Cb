@@ -4,21 +4,21 @@ int main() {
     tiny[3] tiny_arr = [127, -128, 0];
     println("Tiny range:");
     for (int i = 0; i < 3; i = i + 1) {
-        println(&tiny_arr[i]);
+        println(tiny_arr[i]);
     }
     
     // short型の範囲テスト  
     short[3] short_arr = [32767, -32768, 1000];
     println("Short range:");
     for (int i = 0; i < 3; i = i + 1) {
-        println(&short_arr[i]);
+        println(short_arr[i]);
     }
     
     // long型の大きな数値
     long[2] long_arr = [999999999, -999999999];
     println("Long range:");
     for (int i = 0; i < 2; i = i + 1) {
-        println(&long_arr[i]);
+        println(long_arr[i]);
     }
     
     return 0;

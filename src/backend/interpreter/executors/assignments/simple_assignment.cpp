@@ -421,6 +421,58 @@ void execute_assignment(StatementExecutor *executor, Interpreter &interpreter,
     if (node->left && node->left->node_type == ASTNodeType::AST_ARRAY_REF) {
         // 配列要素への代入
 
+        // 右辺がenum構築式の場合の特別処理
+        if (node->right &&
+            node->right->node_type == ASTNodeType::AST_ENUM_CONSTRUCT) {
+            std::string array_name =
+                interpreter.extract_array_name(node->left.get());
+            std::vector<int64_t> indices =
+                interpreter.extract_array_indices(node->left.get());
+
+            if (indices.empty()) {
+                throw std::runtime_error(
+                    "Cannot extract array index for enum construct assignment");
+            }
+
+            int64_t idx = indices[0]; // 1次元配列のみサポート
+
+            // Enum構築を評価
+            std::string enum_name = node->right->enum_name;
+            std::string enum_member = node->right->enum_member;
+
+            // 配列要素変数名を生成
+            std::string element_name =
+                array_name + "[" + std::to_string(idx) + "]";
+            Variable *element_var = interpreter.find_variable(element_name);
+            if (!element_var) {
+                throw std::runtime_error("Array element not found: " +
+                                         element_name);
+            }
+
+            // Enum情報を設定
+            element_var->is_enum = true;
+            element_var->enum_type_name = enum_name;
+            element_var->enum_variant = enum_member;
+            element_var->is_assigned = true;
+
+            // 関連値がある場合
+            if (!node->right->arguments.empty()) {
+                element_var->has_associated_value = true;
+                TypedValue arg_typed = interpreter.evaluate_typed_expression(
+                    node->right->arguments[0].get());
+
+                if (arg_typed.type.type_info == TYPE_STRING) {
+                    element_var->associated_str_value = arg_typed.string_value;
+                } else {
+                    element_var->associated_int_value = arg_typed.as_numeric();
+                }
+            } else {
+                element_var->has_associated_value = false;
+            }
+
+            return;
+        }
+
         // 右辺が構造体戻り値関数の場合の特別処理
         if (node->right &&
             node->right->node_type == ASTNodeType::AST_FUNC_CALL) {

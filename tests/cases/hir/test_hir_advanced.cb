@@ -1,0 +1,58 @@
+// HIR Advanced Test - Pointers, Arrays, Enums
+// Tests advanced features
+
+enum Color {
+    Red = 0,
+    Green = 1,
+    Blue = 2
+};
+
+struct Node {
+    int value;
+    Color color;
+};
+
+// Test pointer function
+void modify_value(int* ptr) {
+    *ptr = 100;
+}
+
+// Test array function
+int sum_array(int[3] arr) {
+    int total = 0;
+    int i = 0;
+    while (i < 3) {
+        total = total + arr[i];
+        i = i + 1;
+    }
+    return total;
+}
+
+void main() {
+    println("=== HIR Advanced Test ===");
+
+    // Test enum
+    Color c = Color::Red;
+    println("Color value: {c}");
+
+    // Test struct with enum
+    Node n;
+    n.value = 42;
+    n.color = Color::Blue;
+    println("Node value: {n.value}, color: {n.color}");
+
+    // Test pointer
+    int x = 10;
+    modify_value(&x);
+    println("Modified x: {x}");
+
+    // Test array
+    int[3] numbers;
+    numbers[0] = 1;
+    numbers[1] = 2;
+    numbers[2] = 3;
+    int total = sum_array(numbers);
+    println("Array sum: {total}");
+
+    println("=== Test Complete ===");
+}

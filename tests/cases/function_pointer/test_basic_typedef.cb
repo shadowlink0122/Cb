@@ -5,14 +5,14 @@ int add(int a, int b) {
 }
 
 int main() {
-    // 将来的に関数ポインタ変数の宣言・代入・呼び出しを実装する
-    int* op = &add;
+    // 関数ポインタの直接宣言（typedefなし）
+    int (*op)(int, int) = &add;
     int result = (*op)(5, 3);
     println(result); // 期待値: 8
-    
-    // 現在はtypedef宣言がパースできることを確認
-    // println("Function pointer typedef test");
-    // println("BinaryOp type declared successfully");
-    
+
+    // 直接呼び出しもテスト
+    int result2 = op(10, 20);
+    println(result2); // 期待値: 30
+
     return 0;
 }

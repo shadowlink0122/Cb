@@ -4,9 +4,9 @@ void test_types(){
     static bool bool_val = true;
     static int double_val = 3;
     
-    println("%d", int_val);
-    println("%d", bool_val);
-    println("%d", double_val);
+    println("{int_val}");
+    println("{bool_val}");
+    println("{double_val}");
     
     // 値を変更
     int_val++;

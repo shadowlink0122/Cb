@@ -7,7 +7,7 @@ int main() {
     println("2D string array:");
     for (int i = 0; i < 2; i = i + 1) {
         for (int j = 0; j < 2; j = j + 1) {
-            println("str_arr[%d][%d] = %s", i, j, str_arr[i][j]);
+            println("str_arr[{i}][{j}] = {str_arr[i][j]}");
         }
     }
     
@@ -18,7 +18,7 @@ int main() {
         for (int j = 0; j < 2; j = j + 1) {
             for (int k = 0; k < 2; k = k + 1) {
                 string s = str3d[i][j][k];
-                println("str3d[%d][%d][%d] = %s", i, j, k, s);
+                println("str3d[{i}][{j}][{k}] = {s}");
             }
         }
     }

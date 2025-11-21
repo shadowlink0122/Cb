@@ -16,24 +16,24 @@ int main() {
     NumericType smallNumber = 42;
     NumericType largeNumber = 1000000;
     println("Numeric Types:");
-    println("  Small Number (int): %d", smallNumber);
-    println("  Large Number (long): %d", largeNumber);
+    println("  Small Number (int): {smallNumber}");
+    println("  Large Number (long): {largeNumber}");
     
     // プリミティブ型ユニオンテスト
     PrimitiveType intValue = 123;
     PrimitiveType boolValue = true;
     PrimitiveType charValue = 'X';
     println("Primitive Types:");
-    println("  Integer Value: %d", intValue);
-    println("  Boolean Value: %d", boolValue);
-    println("  Character Value: %c", charValue);
+    println("  Integer Value: {intValue}");
+    println("  Boolean Value: {boolValue}");
+    println("  Character Value: {charValue}");
     
     // 文字列・数値型ユニオンテスト
     ValueType textValue = "Hello World";
     ValueType numberValue = 999;
     println("Value Types:");
-    println("  Text Value: %s", textValue);
-    println("  Number Value: %d", numberValue);
+    println("  Text Value: {textValue}");
+    println("  Number Value: {numberValue}");
     
     println("=== 基本型ユニオンテスト完了 ===");
     return 0;

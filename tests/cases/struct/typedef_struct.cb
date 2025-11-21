@@ -15,8 +15,8 @@ int main() {
     Vertex v1 = {name: "Origin", x: 0, y: 0};
     Vertex v2 = {name: "Corner", x: 10, y: 10};
     
-    println("Vertex 1: %s at (%d, %d)", v1.name, v1.x, v1.y);
-    println("Vertex 2: %s at (%d, %d)", v2.name, v2.x, v2.y);
+    println("Vertex 1: {v1.name} at ({v1.x}, {v1.y})");
+    println("Vertex 2: {v2.name} at ({v2.x}, {v2.y})");
     
     DataPoint dp = {
         id: 1001,
@@ -24,8 +24,8 @@ int main() {
         values: [42, 84]
     };
     
-    println("DataPoint #%d: %s", dp.id, dp.description);
-    println("Values: [%d, %d]", dp.values[0], dp.values[1]);
+    println("DataPoint #{dp.id}: {dp.description}");
+    println("Values: [{dp.values[0]}, {dp.values[1]}]");
     
     // 期待される出力:
     // Vertex 1: Origin at (0, 0)

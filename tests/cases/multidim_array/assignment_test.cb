@@ -15,7 +15,7 @@ int main() {
     println("Assigned values:");
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 2; j++) {
-            println("data[%d][%d] = %d", i, j, data[i][j]);
+            println("data[{i}][{j}] = {data[i][j]}");
         }
     }
     
@@ -27,7 +27,7 @@ int main() {
         }
     }
     
-    println("Total sum = %d", total);
+    println("Total sum = {total}");
     // 期待値: 10+20+30+40+50+60 = 210
     if (total != 210) return 1;
     

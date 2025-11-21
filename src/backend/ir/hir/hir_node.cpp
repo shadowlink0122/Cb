@@ -1,0 +1,55 @@
+// v0.14.0: HIR Node Implementation
+// HIRTypeのコピーコンストラクタなどの実装
+
+#include "hir_node.h"
+
+namespace cb {
+namespace ir {
+namespace hir {
+
+// HIRTypeのコピーコンストラクタ
+HIRType::HIRType(const HIRType &other)
+    : kind(other.kind), name(other.name), array_size(other.array_size),
+      is_const(other.is_const) {
+
+    if (other.inner_type) {
+        inner_type = std::make_unique<HIRType>(*other.inner_type);
+    }
+
+    if (other.return_type) {
+        return_type = std::make_unique<HIRType>(*other.return_type);
+    }
+
+    param_types = other.param_types;
+    generic_args = other.generic_args;
+}
+
+// HIRTypeの代入演算子
+HIRType &HIRType::operator=(const HIRType &other) {
+    if (this != &other) {
+        kind = other.kind;
+        name = other.name;
+        array_size = other.array_size;
+        is_const = other.is_const;
+
+        if (other.inner_type) {
+            inner_type = std::make_unique<HIRType>(*other.inner_type);
+        } else {
+            inner_type.reset();
+        }
+
+        if (other.return_type) {
+            return_type = std::make_unique<HIRType>(*other.return_type);
+        } else {
+            return_type.reset();
+        }
+
+        param_types = other.param_types;
+        generic_args = other.generic_args;
+    }
+    return *this;
+}
+
+} // namespace hir
+} // namespace ir
+} // namespace cb

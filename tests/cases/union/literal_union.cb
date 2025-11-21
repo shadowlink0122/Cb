@@ -20,16 +20,16 @@ int main() {
     StatusCode notFound = 404;
     StatusCode serverError = 500;
     println("HTTP Status Codes:");
-    println("  OK: %d", ok);
-    println("  Not Found: %d", notFound);
-    println("  Server Error: %d", serverError);
+    println("  OK: {ok}");
+    println("  Not Found: {notFound}");
+    println("  Server Error: {serverError}");
     
     // Boolean リテラルテスト
     Flag enabled = true;
     Flag disabled = false;
     println("Boolean Flags:");
-    println("  Enabled: %d", enabled);
-    println("  Disabled: %d", disabled);
+    println("  Enabled: {enabled}");
+    println("  Disabled: {disabled}");
     
     // 文字リテラルテスト
     Grade excellent = 'A';
@@ -38,11 +38,11 @@ int main() {
     Grade poor = 'D';
     Grade fail = 'F';
     println("Grade Letters:");
-    println("  Excellent: %c", excellent);
-    println("  Good: %c", good);
-    println("  Average: %c", average);
-    println("  Poor: %c", poor);
-    println("  Fail: %c", fail);
+    println("  Excellent: {excellent}");
+    println("  Good: {good}");
+    println("  Average: {average}");
+    println("  Poor: {poor}");
+    println("  Fail: {fail}");
     
     // 文字列リテラルテスト
     LogLevel debug = "DEBUG";
@@ -50,10 +50,10 @@ int main() {
     LogLevel warn = "WARN";
     LogLevel error = "ERROR";
     println("Log Levels:");
-    println("  Debug: %s", debug);
-    println("  Info: %s", info);
-    println("  Warning: %s", warn);
-    println("  Error: %s", error);
+    println("  Debug: {debug}");
+    println("  Info: {info}");
+    println("  Warning: {warn}");
+    println("  Error: {error}");
     
     println("=== 基本リテラル値ユニオンテスト完了 ===");
     return 0;

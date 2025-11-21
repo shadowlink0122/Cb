@@ -13,7 +13,7 @@ int main() {
     
     // Verify basic assignment
     if (data.count != 5) {
-        println("ERROR: data.count should be 5, got %d", data.count);
+        println("ERROR: data.count should be 5, got {data.count}");
         return 1;
     }
     
@@ -24,17 +24,17 @@ int main() {
     
     // Verify array element assignments
     if (data.numbers[0] != 10) {
-        println("ERROR: data.numbers[0] should be 10, got %d", data.numbers[0]);
+        println("ERROR: data.numbers[0] should be 10, got {data.numbers[0]}");
         return 1;
     }
     
     if (data.numbers[1] != 20) {
-        println("ERROR: data.numbers[1] should be 20, got %d", data.numbers[1]);
+        println("ERROR: data.numbers[1] should be 20, got {data.numbers[1]}");
         return 1;
     }
     
     if (data.numbers[2] != 30) {
-        println("ERROR: data.numbers[2] should be 30, got %d", data.numbers[2]);
+        println("ERROR: data.numbers[2] should be 30, got {data.numbers[2]}");
         return 1;
     }
     
@@ -42,18 +42,18 @@ int main() {
     data.tags[0] = "important";
     data.tags[1] = "verified";
     
-    println("Label: %s (Count: %d)", data.label, data.count);
-    println("Numbers: [%d, %d, %d]", data.numbers[0], data.numbers[1], data.numbers[2]);
-    println("Tags: [%s, %s]", data.tags[0], data.tags[1]);
+    println("Label: {data.label} (Count: {data.count})");
+    println("Numbers: [{data.numbers[0]}, {data.numbers[1]}, {data.numbers[2]}]");
+    println("Tags: [{data.tags[0]}, {data.tags[1]}]");
     
     // Test modification of array elements
     data.numbers[1] = data.numbers[1] + 5;
     if (data.numbers[1] != 25) {
-        println("ERROR: After modification, data.numbers[1] should be 25, got %d", data.numbers[1]);
+        println("ERROR: After modification, data.numbers[1] should be 25, got {data.numbers[1]}");
         return 1;
     }
     
-    println("Modified Numbers: [%d, %d, %d]", data.numbers[0], data.numbers[1], data.numbers[2]);
+    println("Modified Numbers: [{data.numbers[0]}, {data.numbers[1]}, {data.numbers[2]}]");
     println("Mixed types test passed");
     return 0;
 }

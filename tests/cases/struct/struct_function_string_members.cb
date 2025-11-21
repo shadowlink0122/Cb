@@ -24,15 +24,13 @@ Person copyPerson(Person original) {
 int main() {
     // テスト1: 関数戻り値での文字列メンバ
     Person person1 = createPerson(1, "Alice", "Software Engineer");
-    println("Person 1 - ID: %d, Name: %s, Description: %s", 
-            person1.id, person1.name, person1.description);
+    println("Person 1 - ID: {person1.id}, Name: {person1.name}, Description: {person1.description}");
     
     // 期待される出力: Person 1 - ID: 1, Name: Alice, Description: Software Engineer
     
     // テスト2: 構造体パラメータから構造体へのコピー
     Person person2 = copyPerson(person1);
-    println("Person 2 - ID: %d, Name: %s, Description: %s", 
-            person2.id, person2.name, person2.description);
+    println("Person 2 - ID: {person2.id}, Name: {person2.name}, Description: {person2.description}");
     
     // 期待される出力: Person 2 - ID: 1, Name: Alice, Description: Software Engineer
     
@@ -41,8 +39,7 @@ int main() {
     person3.id = 2;
     person3.name = "Bob";
     person3.description = "Data Scientist";
-    println("Person 3 - ID: %d, Name: %s, Description: %s", 
-            person3.id, person3.name, person3.description);
+    println("Person 3 - ID: {person3.id}, Name: {person3.name}, Description: {person3.description}");
     
     // 期待される出力: Person 3 - ID: 2, Name: Bob, Description: Data Scientist
     

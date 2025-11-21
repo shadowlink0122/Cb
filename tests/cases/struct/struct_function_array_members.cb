@@ -33,9 +33,9 @@ Student processStudent(Student original) {
 int main() {
     // テスト1: 関数戻り値での配列メンバ初期化
     Student student1 = createStudent(1, "Alice");
-    println("Student 1 - ID: %d, Name: %s", student1.id, student1.name);
-    println("Scores: [%d, %d, %d]", student1.scores[0], student1.scores[1], student1.scores[2]);
-    println("Tags: [%s, %s]", student1.tags[0], student1.tags[1]);
+    println("Student 1 - ID: {student1.id}, Name: {student1.name}");
+    println("Scores: [{student1.scores[0]}, {student1.scores[1]}, {student1.scores[2]}]");
+    println("Tags: [{student1.tags[0]}, {student1.tags[1]}]");
     
     // 期待される出力:
     // Student 1 - ID: 1, Name: Alice
@@ -44,9 +44,9 @@ int main() {
     
     // テスト2: 構造体パラメータから配列要素へのアクセス
     Student student2 = processStudent(student1);
-    println("Student 2 - ID: %d, Name: %s", student2.id, student2.name);
-    println("Scores: [%d, %d, %d]", student2.scores[0], student2.scores[1], student2.scores[2]);
-    println("Tags: [%s, %s]", student2.tags[0], student2.tags[1]);
+    println("Student 2 - ID: {student2.id}, Name: {student2.name}");
+    println("Scores: [{student2.scores[0]}, {student2.scores[1]}, {student2.scores[2]}]");
+    println("Tags: [{student2.tags[0]}, {student2.tags[1]}]");
     
     // 期待される出力:
     // Student 2 - ID: 101, Name: Alice

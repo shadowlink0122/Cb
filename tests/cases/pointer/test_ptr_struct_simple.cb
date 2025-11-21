@@ -13,7 +13,7 @@ void test_simple() {
     // まずポインタ配列アクセスだけをテスト
     int x_val = ptr[0].x;
     
-    println("x_val = %d", x_val);
+    println("x_val = {x_val}");
 }
 
 void main() {

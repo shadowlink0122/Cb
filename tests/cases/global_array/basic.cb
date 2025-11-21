@@ -10,9 +10,9 @@ int main() {
     int temp1 = global_array[1];
     int temp2 = global_array[2];
     
-    println("global_array[0] = %d", temp0);
-    println("global_array[1] = %d", temp1);
-    println("global_array[2] = %d", temp2);
+    println("global_array[0] = {temp0}");
+    println("global_array[1] = {temp1}");
+    println("global_array[2] = {temp2}");
     
     return 0;
 }

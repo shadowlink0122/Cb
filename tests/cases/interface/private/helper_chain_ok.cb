@@ -60,13 +60,13 @@ int main() {
     IProcessor processor = seed;
     
     int result1 = processor.process(12);
-    println("process(12) = %d", result1); // clamp=12 -> amplify=24 -> shift=27
+    println("process(12) = {result1}"); // clamp=12 -> amplify=24 -> shift=27
     
     int result2 = processor.process(-5);
-    println("process(-5) = %d", result2); // clamp=0 -> amplify=0 -> shift=3
+    println("process(-5) = {result2}"); // clamp=0 -> amplify=0 -> shift=3
     
     int result3 = processor.doubleProcess(30, 100);
-    println("doubleProcess(30, 100) = %d", result3); // first=63, second=106 -> 169
+    println("doubleProcess(30, 100) = {result3}"); // first=63, second=106 -> 169
     
     println("Private helper chain success test passed");
     return 0;

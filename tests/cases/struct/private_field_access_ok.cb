@@ -11,12 +11,12 @@ interface SecretBoxOps {
 impl SecretBoxOps for SecretBox {
     void runDemo() {
         self.secret = 42;
-        println("box secret after init = %d", self.secret);
+        println("box secret after init = {self.secret}");
 
         SecretBox other = {};
         other.secret = 100;
         self.secret = other.secret;
-        println("box secret after copy = %d", self.secret);
+        println("box secret after copy = {self.secret}");
     }
 };
 

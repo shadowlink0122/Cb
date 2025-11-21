@@ -34,8 +34,8 @@ int main() {
     Counter counter;
     counter.value_ptr = &storage;
     
-    println("Initial: storage = %d", storage);
-    println("counter.get_value() = %d", counter.get_value());
+    println("Initial: storage = {storage}");
+    println("counter.get_value() = {counter.get_value()}");
     assert(counter.get_value() == 10);
     println("");
     
@@ -43,8 +43,8 @@ int main() {
     println("Test 2: Modify external variable via impl method");
     counter.increment();
     println("After counter.increment():");
-    println("storage = %d (should be 11)", storage);
-    println("counter.get_value() = %d", counter.get_value());
+    println("storage = {storage} (should be 11)");
+    println("counter.get_value() = {counter.get_value()}");
     assert(storage == 11);
     assert(counter.get_value() == 11);
     println("");
@@ -53,8 +53,8 @@ int main() {
     println("Test 3: Set value via impl method");
     counter.set_value(100);
     println("After counter.set_value(100):");
-    println("storage = %d (should be 100)", storage);
-    println("counter.get_value() = %d", counter.get_value());
+    println("storage = {storage} (should be 100)");
+    println("counter.get_value() = {counter.get_value()}");
     assert(storage == 100);
     assert(counter.get_value() == 100);
     println("");
@@ -65,7 +65,7 @@ int main() {
     counter.increment();
     counter.increment();
     println("After 3 increments:");
-    println("storage = %d (should be 103)", storage);
+    println("storage = {storage} (should be 103)");
     assert(storage == 103);
     println("");
     
@@ -75,12 +75,12 @@ int main() {
     counter.value_ptr = &other_storage;
     
     println("After reassigning to other_storage:");
-    println("counter.get_value() = %d (should be 50)", counter.get_value());
+    println("counter.get_value() = {counter.get_value()} (should be 50)");
     assert(counter.get_value() == 50);
     
     counter.increment();
     println("After increment:");
-    println("other_storage = %d (should be 51)", other_storage);
+    println("other_storage = {other_storage} (should be 51)");
     assert(other_storage == 51);
     println("");
     

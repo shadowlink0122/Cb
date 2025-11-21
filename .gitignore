@@ -36,6 +36,7 @@
 *.exe
 *.out
 *.app
+cb
 main
 main-asan
 cgen_main
@@ -44,6 +45,7 @@ cgen_main
 test_main
 **/test_main
 test_debug_main
+dual_mode_test
 
 # bison/flex生成物
 *.dSYM
@@ -61,3 +63,7 @@ parser.output
 
 # debug information files
 *.dwo
+tmp/*
+# Cb compiled executables
+tests/**/*.o
+sample/**/*.o

@@ -3,7 +3,7 @@
 
 async void background_task() {
     for (int i = 0; i < 5; i = i + 1) {
-        println("[BG] Step %d", i);
+        println("[BG] Step {i}");
     }
     return;
 }
@@ -15,7 +15,7 @@ void main() {
     
     println("[Main] Starting for loop");
     for (int i = 0; i < 5; i = i + 1) {
-        println("[Main] Iteration %d", i);
+        println("[Main] Iteration {i}");
     }
     println("[Main] For loop done\n");
     

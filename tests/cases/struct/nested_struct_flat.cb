@@ -25,12 +25,9 @@ int main() {
     corp_address.city = "San Francisco";
     corp_address.zipcode = 94105;
     
-    println("Company: %s", tech_corp.name);
-    println("Address: %s, %s %d", 
-            corp_address.street, 
-            corp_address.city, 
-            corp_address.zipcode);
-    println("Employees: %d", tech_corp.employee_count);
+    println("Company: {tech_corp.name}");
+    println("Address: {corp_address.street}, {corp_address.city} {corp_address.zipcode}");
+    println("Employees: {tech_corp.employee_count}");
     
     // 期待される出力:
     // Company: Tech Corp

@@ -13,22 +13,22 @@ int main() {
     
     // Verify arithmetic operations with enum values
     if (result1 != 7) {
-        println("ERROR: Math::base + Math::offset should be 7, got %d", result1);
+        println("ERROR: Math::base + Math::offset should be 7, got {result1}");
         return 1;
     }
     
     if (result2 != 15) {
-        println("ERROR: Math::base * Math::multiplier should be 15, got %d", result2);
+        println("ERROR: Math::base * Math::multiplier should be 15, got {result2}");
         return 1;
     }
     
     if (result3 != 3) {
-        println("ERROR: Math::base - Math::offset should be 3, got %d", result3);
+        println("ERROR: Math::base - Math::offset should be 3, got {result3}");
         return 1;
     }
     
     if (result4 != 6) {
-        println("ERROR: Math::multiplier * Math::offset should be 6, got %d", result4);
+        println("ERROR: Math::multiplier * Math::offset should be 6, got {result4}");
         return 1;
     }
     
@@ -47,8 +47,8 @@ int main() {
         return 1;
     }
     
-    println("Arithmetic results: %d, %d, %d, %d", result1, result2, result3, result4);
-    println("Comparison results: is_greater=%d, is_equal=%d", is_greater, is_equal);
+    println("Arithmetic results: {result1}, {result2}, {result3}, {result4}");
+    println("Comparison results: is_greater={is_greater}, is_equal={is_equal}");
     println("Enum arithmetic test passed");
     return 0;
 }

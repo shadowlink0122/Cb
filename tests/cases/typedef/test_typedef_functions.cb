@@ -34,8 +34,7 @@ Box createBox(int w, int h, int d) {
 
 // Primitive配列メンバーを持つtypedef構造体を引数として受け取る関数
 void printBox(Box b) {
-    println("Box dimensions: %dx%dx%d, volume=%d",
-            b.dimensions[0], b.dimensions[1], b.dimensions[2], b.volume);
+    println("Box dimensions: {b.dimensions[0]}x{b.dimensions[1]}x{b.dimensions[2]}, volume={b.volume}");
 }
 
 int main() {
@@ -45,7 +44,7 @@ int main() {
         println("ERROR: createEmployee failed");
         return 1;
     }
-    println("Employee: id=%d, name=%s, age=%d", e1.id, e1.name, e1.age);
+    println("Employee: id={e1.id}, name={e1.name}, age={e1.age}");
     
     println("\n=== Test 2: Typedef struct parameter ===");
     int age = getEmployeeAge(e1);
@@ -53,7 +52,7 @@ int main() {
         println("ERROR: getEmployeeAge failed");
         return 1;
     }
-    println("Employee age: %d", age);
+    println("Employee age: {age}");
     
     println("\n=== Test 3: Typedef struct with array - return ===");
     Box box1 = createBox(10, 20, 30);
@@ -65,8 +64,7 @@ int main() {
         println("ERROR: createBox volume failed");
         return 1;
     }
-    println("Box: %dx%dx%d, volume=%d",
-            box1.dimensions[0], box1.dimensions[1], box1.dimensions[2], box1.volume);
+    println("Box: {box1.dimensions[0]}x{box1.dimensions[1]}x{box1.dimensions[2]}, volume={box1.volume}");
     
     println("\n=== Test 4: Typedef struct with array - parameter ===");
     printBox(box1);
@@ -78,7 +76,7 @@ int main() {
         println("ERROR: Literal to function failed");
         return 1;
     }
-    println("Bob's age: %d", bob_age);
+    println("Bob's age: {bob_age}");
     
     println("\n=== All typedef function tests passed! ===");
     return 0;

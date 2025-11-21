@@ -10,15 +10,15 @@ int main() {
     
     // コピーされた値の検証
     if (arr2[0] != 1) {
-        println("ERROR: arr2[0] should be 1, got %d", arr2[0]);
+        println("ERROR: arr2[0] should be 1, got {arr2[0]}");
         return 1;
     }
     if (arr2[1] != 2) {
-        println("ERROR: arr2[1] should be 2, got %d", arr2[1]);
+        println("ERROR: arr2[1] should be 2, got {arr2[1]}");
         return 1;
     }
     if (arr2[2] != 3) {
-        println("ERROR: arr2[2] should be 3, got %d", arr2[2]);
+        println("ERROR: arr2[2] should be 3, got {arr2[2]}");
         return 1;
     }
     

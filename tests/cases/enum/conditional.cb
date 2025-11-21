@@ -11,7 +11,7 @@ int main() {
     
     // Verify initial enum value
     if (task_priority != 10) {
-        println("ERROR: Priority::high should be 10, got %d", task_priority);
+        println("ERROR: Priority::high should be 10, got {task_priority}");
         return 1;
     }
     
@@ -27,7 +27,7 @@ int main() {
     
     // Verify conditional logic based on enum values
     if (classification != 3) {
-        println("ERROR: With Priority::high, classification should be 3, got %d", classification);
+        println("ERROR: With Priority::high, classification should be 3, got {classification}");
         return 1;
     }
     
@@ -46,13 +46,13 @@ int main() {
     }
     
     if (result_for_low != 1) {
-        println("ERROR: With Priority::low, result should be 1, got %d", result_for_low);
+        println("ERROR: With Priority::low, result should be 1, got {result_for_low}");
         return 1;
     }
     
     println("Priority values tested:");
-    println("  Priority::high = %d, classification = %d", task_priority, classification);
-    println("  Priority::low = %d, classification = %d", low_priority, result_for_low);
+    println("  Priority::high = {task_priority}, classification = {classification}");
+    println("  Priority::low = {low_priority}, classification = {result_for_low}");
     println("Enum conditional test passed");
     return 0;
 }

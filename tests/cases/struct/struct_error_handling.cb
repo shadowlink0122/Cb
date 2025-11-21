@@ -10,8 +10,8 @@ int main() {
     t.name = "Valid";
     
     // 正常なケース
-    println("Valid member: %d", t.valid_member);
-    println("Name: %s", t.name);
+    println("Valid member: {t.valid_member}");
+    println("Name: {t.name}");
     
     // 以下のケースはコンパイルエラーになるべき（コメントアウト）:
     // t.invalid_member = 100;  // 存在しないメンバーアクセス

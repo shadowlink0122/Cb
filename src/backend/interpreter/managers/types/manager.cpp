@@ -3,6 +3,7 @@
 #include "../../core/interpreter.h"
 #include "managers/types/enums.h"
 #include "services/expression_service.h" // DRY効率化: 統一式評価サービス
+#include <inttypes.h>
 #include <limits>
 #include <stdexcept>
 
@@ -355,10 +356,10 @@ bool TypeManager::is_value_allowed_for_union(const std::string &type_name,
     if (debug_mode) {
         {
             char dbg_buf[512];
-            snprintf(
-                dbg_buf, sizeof(dbg_buf),
-                "UNION_TYPE_DEBUG: Checking int value %lld for union type %s",
-                int_value, type_name.c_str());
+            snprintf(dbg_buf, sizeof(dbg_buf),
+                     "UNION_TYPE_DEBUG: Checking int value %" PRId64
+                     " for union type %s",
+                     int_value, type_name.c_str());
             debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
         }
         {

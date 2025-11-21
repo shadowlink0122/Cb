@@ -8,21 +8,21 @@ int main() {
     
     // Verify variable assignments
     if (id != 12345) {
-        println("ERROR: id should be 12345, got %d", id);
+        println("ERROR: id should be 12345, got {id}");
         return 1;
     }
     
-    println("User ID: %d", id);
-    println("User Name: %s", name);
+    println("User ID: {id}");
+    println("User Name: {name}");
     
     // Test modification
     id = id + 1;
     if (id != 12346) {
-        println("ERROR: After increment, id should be 12346, got %d", id);
+        println("ERROR: After increment, id should be 12346, got {id}");
         return 1;
     }
     
-    println("Updated User ID: %d", id);
+    println("Updated User ID: {id}");
     println("Basic typedef test passed");
     return 0;
 }

@@ -11,13 +11,13 @@ int main() {
     IntOnly validInt = 123;
     
     println("Valid assignments:");
-    println("  StringOnly: %s", validString);
-    println("  IntOnly: %d", validInt);
+    println("  StringOnly: {validString}");
+    println("  IntOnly: {validInt}");
     
     // エラーケース: 許可されていない型を代入
     // この行は実行時エラーを発生させる
     StringOnly invalidType = 999;  // intは許可されていない（StringOnlyなので）
-    println("This should not be reached: %s", invalidType);
+    println("This should not be reached: {invalidType}");
     
     return 0;
 }

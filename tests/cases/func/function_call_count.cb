@@ -3,7 +3,7 @@ int call_count = 0;
 
 int p(int x) {
     call_count++;
-    println("Function p called, count: %d, value: %d", call_count, x);
+    println("Function p called, count: {call_count}, value: {x}");
     return x;
 }
 
@@ -14,14 +14,14 @@ int main() {
     call_count = 0;
     int test = 5;
     
-    println("Before: test=%d, call_count=%d", test, call_count);
+    println("Before: test={test}, call_count={call_count}");
     test = p(test) + 1;  // p(test)は1回だけ実行されるべき
-    println("After: test=%d, call_count=%d", test, call_count);
+    println("After: test={test}, call_count={call_count}");
     
     if (call_count == 1) {
         println("✓ Test 1 passed: Function called exactly once");
     } else {
-        println("✗ Test 1 failed: Function called %d times, expected 1", call_count);
+        println("✗ Test 1 failed: Function called {call_count} times, expected 1");
     }
     
     // テストケース2: 複合代入演算子での関数評価回数
@@ -29,19 +29,19 @@ int main() {
     test = 10;
     
     println("\n--- Compound assignment test ---");
-    println("Before: test=%d, call_count=%d", test, call_count);
+    println("Before: test={test}, call_count={call_count}");
     
     // この修正前は p(test) が2回評価されていたが、修正後は1回のみ
     // 注意: このテストは実際のコードに合わせて調整が必要
     int original_test = test;
     test = p(test) * 2;  // p(test)は1回だけ評価されるべき
     
-    println("After: test=%d, call_count=%d", test, call_count);
+    println("After: test={test}, call_count={call_count}");
     
     if (call_count == 1) {
         println("✓ Test 2 passed: Function in compound assignment called exactly once");
     } else {
-        println("✗ Test 2 failed: Function called %d times, expected 1", call_count);
+        println("✗ Test 2 failed: Function called {call_count} times, expected 1");
     }
     
     return 0;

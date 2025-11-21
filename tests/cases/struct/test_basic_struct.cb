@@ -21,35 +21,35 @@ int main() {
     p.label = "Origin";
     
     if (p.x != 10) {
-        println("ERROR: Point.x expected 10, got %d", p.x);
+        println("ERROR: Point.x expected 10, got {p.x}");
         return 1;
     }
     
     if (p.y != 20) {
-        println("ERROR: Point.y expected 20, got %d", p.y);
+        println("ERROR: Point.y expected 20, got {p.y}");
         return 1;
     }
     
     if (p.label != "Origin") {
-        println("ERROR: Point.label expected 'Origin', got '%s'", p.label);
+        println("ERROR: Point.label expected 'Origin', got '{p.label}'");
         return 1;
     }
     
     println("Point p1:");
-    println("  x: %d", p.x);
-    println("  y: %d", p.y);
-    println("  label: %s", p.label);
+    println("  x: {p.x}");
+    println("  y: {p.y}");
+    println("  label: {p.label}");
     
     // 構造体リテラル初期化
     Student student = {name: "Alice", age: 20, is_active: true};
     
     if (student.name != "Alice") {
-        println("ERROR: Student.name expected 'Alice', got '%s'", student.name);
+        println("ERROR: Student.name expected 'Alice', got '{student.name}'");
         return 1;
     }
     
     if (student.age != 20) {
-        println("ERROR: Student.age expected 20, got %d", student.age);
+        println("ERROR: Student.age expected 20, got {student.age}");
         return 1;
     }
     
@@ -66,13 +66,13 @@ int main() {
     
     println("Point array:");
     for (int i = 0; i < 3; i++) {
-        println("  Point[%d]: (%d, %d) %s", i, points[i].x, points[i].y, points[i].label);
+        println("  Point[{i}]: ({points[i].x}, {points[i].y}) {points[i].label}");
     }
     
     // メンバーの値更新
     student.age = student.age + 1;
     if (student.age != 21) {
-        println("ERROR: After increment, expected 21, got %d", student.age);
+        println("ERROR: After increment, expected 21, got {student.age}");
         return 1;
     }
     

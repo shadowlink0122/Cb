@@ -1,0 +1,14 @@
+// Test: HIR variable prefix to avoid naming conflicts
+// Expected: Variables should have CB_HIR_ prefix in generated C++
+
+int main() {
+    int x = 42;
+    int vector = 100;  // This could conflict with std::vector
+    int mydata = 200;  // Generic name that could conflict
+    
+    println("x:", x);
+    println("vector:", vector);
+    println("mydata:", mydata);
+    
+    return 0;
+}

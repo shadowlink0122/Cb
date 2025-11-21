@@ -18,7 +18,7 @@ int main() {
     // Test fibonacci sequence
     for (int i = 0; i <= 10; i = i + 1) {
         long fib_result = fib(i);
-        println("fib(%d) = %d", i, fib_result);
+        println("fib({i}) = {fib_result}");
     }
     return 0;
 }

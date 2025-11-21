@@ -9,13 +9,13 @@ void test_int() {
     
     int* ptr = &arr[0];
     
-    println("ptr[0] = %d", ptr[0]);
-    println("ptr[1] = %d", ptr[1]);
-    println("ptr[2] = %d", ptr[2]);
+    println("ptr[0] = {ptr[0]}");
+    println("ptr[1] = {ptr[1]}");
+    println("ptr[2] = {ptr[2]}");
     
     ptr[0] = 100;
-    println("After write: ptr[0] = %d", ptr[0]);
-    println("Original: arr[0] = %d", arr[0]);
+    println("After write: ptr[0] = {ptr[0]}");
+    println("Original: arr[0] = {arr[0]}");
 }
 
 void test_float() {
@@ -27,13 +27,13 @@ void test_float() {
     
     float* ptr = &arr[0];
     
-    println("ptr[0] = %f", ptr[0]);
-    println("ptr[1] = %f", ptr[1]);
-    println("ptr[2] = %f", ptr[2]);
+    println("ptr[0] = {ptr[0]}");
+    println("ptr[1] = {ptr[1]}");
+    println("ptr[2] = {ptr[2]}");
     
     ptr[0] = 10.5;
-    println("After write: ptr[0] = %f", ptr[0]);
-    println("Original: arr[0] = %f", arr[0]);
+    println("After write: ptr[0] = {ptr[0]}");
+    println("Original: arr[0] = {arr[0]}");
 }
 
 void test_double() {
@@ -45,13 +45,13 @@ void test_double() {
     
     double* ptr = &arr[0];
     
-    println("ptr[0] = %f", ptr[0]);
-    println("ptr[1] = %f", ptr[1]);
-    println("ptr[2] = %f", ptr[2]);
+    println("ptr[0] = {ptr[0]}");
+    println("ptr[1] = {ptr[1]}");
+    println("ptr[2] = {ptr[2]}");
     
     ptr[0] = 10.5;
-    println("After write: ptr[0] = %f", ptr[0]);
-    println("Original: arr[0] = %f", arr[0]);
+    println("After write: ptr[0] = {ptr[0]}");
+    println("Original: arr[0] = {arr[0]}");
 }
 
 void main() {

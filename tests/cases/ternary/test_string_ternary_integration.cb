@@ -39,21 +39,21 @@ int main() {
     
     // 基本テスト
     println("Basic tests:");
-    println("  basic_string_ternary(15): %s", basic_string_ternary(15));
-    println("  basic_string_ternary(-5): %s", basic_string_ternary(-5));
+    println("  basic_string_ternary(15): {basic_string_ternary(15)}");
+    println("  basic_string_ternary(-5): {basic_string_ternary(-5)}");
     
     // ネストテスト
     println("Nested tests:");
-    println("  nested_string_ternary(0): %s", nested_string_ternary(0));
-    println("  nested_string_ternary(10): %s", nested_string_ternary(10));
-    println("  nested_string_ternary(-10): %s", nested_string_ternary(-10));
+    println("  nested_string_ternary(0): {nested_string_ternary(0)}");
+    println("  nested_string_ternary(10): {nested_string_ternary(10)}");
+    println("  nested_string_ternary(-10): {nested_string_ternary(-10)}");
     
     // 複合テスト
     println("Complex tests:");
-    println("  complex_classification(150): %s", complex_classification(150));
-    println("  complex_classification(75): %s", complex_classification(75));
-    println("  complex_classification(25): %s", complex_classification(25));
-    println("  complex_classification(5): %s", complex_classification(5));
+    println("  complex_classification(150): {complex_classification(150)}");
+    println("  complex_classification(75): {complex_classification(75)}");
+    println("  complex_classification(25): {complex_classification(25)}");
+    println("  complex_classification(5): {complex_classification(5)}");
     
     // 構造体テスト
     println("Struct tests:");
@@ -69,9 +69,9 @@ int main() {
     student3.score = 45;
     student3.name = "Carol";
     
-    println("  evaluate_performance(Alice, 95): %s", evaluate_performance(student1));
-    println("  evaluate_performance(Bob, 65): %s", evaluate_performance(student2));
-    println("  evaluate_performance(Carol, 45): %s", evaluate_performance(student3));
+    println("  evaluate_performance(Alice, 95): {evaluate_performance(student1)}");
+    println("  evaluate_performance(Bob, 65): {evaluate_performance(student2)}");
+    println("  evaluate_performance(Carol, 45): {evaluate_performance(student3)}");
     
     // 配列テスト
     println("Array tests:");
@@ -79,9 +79,9 @@ int main() {
     test_array[0] = 10;
     test_array[1] = 20; 
     test_array[2] = 15;
-    println("  array_based_decision([10,20,15], 0): %s", array_based_decision(test_array, 0));
-    println("  array_based_decision([10,20,15], 1): %s", array_based_decision(test_array, 1));
-    println("  array_based_decision([10,20,15], 2): %s", array_based_decision(test_array, 2));
+    println("  array_based_decision([10,20,15], 0): {array_based_decision(test_array, 0)}");
+    println("  array_based_decision([10,20,15], 1): {array_based_decision(test_array, 1)}");
+    println("  array_based_decision([10,20,15], 2): {array_based_decision(test_array, 2)}");
     
     println("=== String Ternary Integration Test Complete ===");
     return 0;

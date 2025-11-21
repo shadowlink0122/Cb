@@ -37,5 +37,5 @@ void main() {
     int result2 = await f2;
     
     println("Main: All tasks completed");
-    println("Results: %d, %d", result1, result2);
+    println("Results: {result1}, {result2}");
 }

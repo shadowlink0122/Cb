@@ -8,8 +8,8 @@ int main() {
     println("Test 1: Basic variable address");
     int x;
     x = 42;
-    println("  x = %d", x);
-    println("  &x = %p", &x);
+    println("  x = {x}");
+    println("  &x = {&x}");
     println("  ✓ Address displayed in hex format");
     println("");
     
@@ -21,9 +21,9 @@ int main() {
     b = 2.5f;
     double c;
     c = 3.14;
-    println("  int a = %d, address: %p", a, &a);
-    println("  float b = %f, address: %p", b, &b);
-    println("  double c = %f, address: %p", c, &c);
+    println("  int a = {a}, address: {&a}");
+    println("  float b = {b}, address: {&b}");
+    println("  double c = {c}, address: {&c}");
     println("  ✓ All types display addresses");
     println("");
     
@@ -33,10 +33,10 @@ int main() {
     val = 100;
     int* ptr;
     ptr = &val;
-    println("  val = %d", val);
-    println("  ptr (points to val) = %p", ptr);
-    println("  &ptr (address of pointer) = %p", &ptr);
-    println("  *ptr (dereferenced) = %d", *ptr);
+    println("  val = {val}");
+    println("  ptr (points to val) = {ptr}");
+    println("  &ptr (address of pointer) = {&ptr}");
+    println("  *ptr (dereferenced) = {*ptr}");
     println("  ✓ Pointer variable address works");
     println("");
     
@@ -48,7 +48,7 @@ int main() {
     i2 = 20;
     int i3;
     i3 = 30;
-    println("  i1=%d @%p, i2=%d @%p, i3=%d @%p", i1, &i1, i2, &i2, i3, &i3);
+    println("  i1={i1} @{&i1}, i2={i2} @{&i2}, i3={i3} @{&i3}");
     println("  ✓ Multiple %p in one println works");
     println("");
     
@@ -59,10 +59,10 @@ int main() {
     arr[1] = 200;
     arr[2] = 300;
     arr[3] = 400;
-    println("  arr[0]=%d @%p", arr[0], &arr[0]);
-    println("  arr[1]=%d @%p", arr[1], &arr[1]);
-    println("  arr[2]=%d @%p", arr[2], &arr[2]);
-    println("  arr[3]=%d @%p", arr[3], &arr[3]);
+    println("  arr[0]={arr[0]} @{&arr[0]}");
+    println("  arr[1]={arr[1]} @{&arr[1]}");
+    println("  arr[2]={arr[2]} @{&arr[2]}");
+    println("  arr[3]={arr[3]} @{&arr[3]}");
     println("  ✓ Array element addresses work");
     println("");
     
@@ -70,7 +70,7 @@ int main() {
     println("Test 6: Mixed format specifiers");
     int num;
     num = 123;
-    println("  Integer: %d, Hex address: %p, String: %s", num, &num, "test");
+    println("  Integer: {num}, String: test");
     println("  ✓ Mixed format specifiers work");
     println("");
     
@@ -80,8 +80,8 @@ int main() {
     fval = 1.23f;
     double dval;
     dval = 4.56;
-    println("  float: value=%f, address=%p", fval, &fval);
-    println("  double: value=%f, address=%p", dval, &dval);
+    println("  float: value={fval}, address={&fval}");
+    println("  double: value={dval}, address={&dval}");
     println("  ✓ %f and %p work together");
     println("");
     

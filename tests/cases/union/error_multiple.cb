@@ -16,13 +16,13 @@ int main() {
     ComplexUnion union3 = validStruct;   // 構造体 - OK
     
     println("Valid assignments:");
-    println("  ComplexUnion (literal): %d", union1);
-    println("  ComplexUnion (MyInt): %d", union2);
+    println("  ComplexUnion (literal): {union1}");
+    println("  ComplexUnion (MyInt): {union2}");
     println("  ComplexUnion (Point): assigned successfully");
     
     // エラーケース1: 許可されていないリテラル値
     ComplexUnion error1 = 404;  // 404は許可されていない
-    println("Error1 should not be reached: %d", error1);
+    println("Error1 should not be reached: {error1}");
     
     return 0;
 }

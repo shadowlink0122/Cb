@@ -16,13 +16,13 @@ int main() {
     // 戻り値の値検証
     for (int i = 0; i < TEN; i++) {
         if (result[i] != 8) {
-            println("ERROR: result[%d] should be 8, got %d", i, result[i]);
+            println("ERROR: result[{i}] should be 8, got {result[i]}");
             return 1;
         }
     }
     
     for (int i = 0; i < TEN; i++) {
-        println("%d %d", i, result[i]);
+        println("{i} {result[i]}");
     }
     
     println("Typedef array function return test passed");

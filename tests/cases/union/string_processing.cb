@@ -8,19 +8,19 @@ int main() {
     
     // テストケース1: Union型での文字列代入と出力
     StringOrInt data = "Hello World";
-    println("String value: %s", data);
+    println("String value: {data}");
     
     // テストケース2: リテラル型での文字列処理
     Response status = "success";
-    println("Status: %s", status);
+    println("Status: {status}");
     
     // テストケース3: 数値から文字列への変更
     data = 42;
-    println("Numeric value: %d", data);
+    println("Numeric value: {data}");
     
     // テストケース4: 再び文字列に変更
     data = "Converted back";
-    println("Back to string: %s", data);
+    println("Back to string: {data}");
     
     // テストケース5: 文字列連結のようなテスト（もし実装されていれば）
     StringOrInt msg1 = "Hello";
@@ -31,11 +31,11 @@ int main() {
     Response status2 = "error";
     
     println("Status comparison test:");
-    println("status1 (%s) == status2 (%s): not equal", status1, status2);
+    println("status1 ({status1}) == status2 ({status2}): not equal");
     
     // テストケース7: 同じ文字列リテラル値の比較
     status2 = "success";
-    println("status1 (%s) == status2 (%s): equal", status1, status2);
+    println("status1 ({status1}) == status2 ({status2}): equal");
     
     println("=== テスト完了 ===");
     

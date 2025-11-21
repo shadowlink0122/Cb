@@ -12,9 +12,9 @@ int main() {
     int value = 42;
     string name = "Test";
     
-    println("Value: %d", value);
-    println("Name: %s", name);
-    println("Combined: %s has value %d", name, value);
+    println("Value: {value}");
+    println("Name: {name}");
+    println("Combined: {name} has value {value}");
     
     // Mixed print and println
     print("A");
