@@ -1,8 +1,8 @@
 // v0.14.0: HIR to C++ Transpiler - Type Generation
 // 型生成モジュール
 
-#include "hir_to_cpp.h"
 #include "../../common/debug.h"
+#include "hir_to_cpp.h"
 
 namespace cb {
 namespace codegen {
@@ -11,22 +11,23 @@ using namespace ir::hir;
 
 std::string HIRToCpp::generate_type(const HIRType &type) {
     if (debug_mode) {
-        std::cerr << "[CODEGEN_TYPE] Generating type: kind=" << static_cast<int>(type.kind) 
-                  << ", name=" << type.name << std::endl;
+        std::cerr << "[CODEGEN_TYPE] Generating type: kind="
+                  << static_cast<int>(type.kind) << ", name=" << type.name
+                  << std::endl;
     }
-    
+
     std::string result;
-    
+
     // static修飾子
     if (type.is_static) {
         result += "static ";
     }
-    
+
     // const修飾子（値型の場合）
     if (type.is_const && type.kind != HIRType::TypeKind::Pointer) {
         result += "const ";
     }
-    
+
     // 基本型
     switch (type.kind) {
     case HIRType::TypeKind::Void:
@@ -75,36 +76,47 @@ std::string HIRToCpp::generate_type(const HIRType &type) {
     case HIRType::TypeKind::Enum:
     case HIRType::TypeKind::Interface:
         // v0.14.0: Handle Option and Result generic types specially
-        // Convert mangled names like "Option_int" to proper generic syntax "Option<int>"
+        // Convert mangled names like "Option_int" to proper generic syntax
+        // "Option<int>"
         if (type.name.find("Option_") == 0) {
             // Extract the type argument from the mangled name
             std::string type_arg = type.name.substr(7); // Remove "Option_"
 
             // Convert underscored type names back to proper types
-            if (type_arg == "int") result += "Option<int>";
-            else if (type_arg == "string") result += "Option<std::string>";
-            else if (type_arg == "bool") result += "Option<bool>";
-            else if (type_arg == "float") result += "Option<float>";
-            else if (type_arg == "double") result += "Option<double>";
-            else result += "Option<" + type_arg + ">";
-        }
-        else if (type.name.find("Result_") == 0) {
+            if (type_arg == "int")
+                result += "Option<int>";
+            else if (type_arg == "string")
+                result += "Option<std::string>";
+            else if (type_arg == "bool")
+                result += "Option<bool>";
+            else if (type_arg == "float")
+                result += "Option<float>";
+            else if (type_arg == "double")
+                result += "Option<double>";
+            else
+                result += "Option<" + type_arg + ">";
+        } else if (type.name.find("Result_") == 0) {
             // Extract type arguments for Result<T, E>
             std::string args = type.name.substr(7); // Remove "Result_"
 
             // Simple parsing for common cases
-            // This is a simplified approach - a full solution would need proper parsing
-            if (args == "int_string") result += "Result<int, std::string>";
-            else if (args == "string_string") result += "Result<std::string, std::string>";
-            else result += type.name; // Fall back to mangled name if we can't parse it
-        }
-        else {
+            // This is a simplified approach - a full solution would need proper
+            // parsing
+            if (args == "int_string")
+                result += "Result<int, std::string>";
+            else if (args == "string_string")
+                result += "Result<std::string, std::string>";
+            else
+                result +=
+                    type.name; // Fall back to mangled name if we can't parse it
+        } else {
             result += type.name;
         }
         break;
     case HIRType::TypeKind::Pointer:
         if (debug_mode) {
-            std::cerr << "[CODEGEN_TYPE] Delegating to generate_pointer_type" << std::endl;
+            std::cerr << "[CODEGEN_TYPE] Delegating to generate_pointer_type"
+                      << std::endl;
         }
         return generate_pointer_type(type);
     case HIRType::TypeKind::Reference:
@@ -133,7 +145,7 @@ std::string HIRToCpp::generate_type(const HIRType &type) {
         result += "/* unknown type */";
         break;
     }
-    
+
     return result;
 }
 
@@ -142,36 +154,50 @@ std::string HIRToCpp::generate_basic_type(const HIRType &type) {
 }
 
 std::string HIRToCpp::generate_pointer_type(const HIRType &type) {
-    std::string inner_type_name = type.inner_type ? generate_type(*type.inner_type) : type.name;
-    debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TYPE_START, inner_type_name.c_str());
-    
+    std::string inner_type_name =
+        type.inner_type ? generate_type(*type.inner_type) : type.name;
+    debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TYPE_START,
+              inner_type_name.c_str());
+
     if (debug_mode) {
-        std::cerr << "[CODEGEN_PTR] Pointer type: has_inner=" << (type.inner_type != nullptr)
-                  << ", name=" << type.name << std::endl;
+        std::cerr << "[CODEGEN_PTR] Pointer type: has_inner="
+                  << (type.inner_type != nullptr) << ", name=" << type.name
+                  << std::endl;
     }
-    
+
     std::string result;
-    
+
     // const T* (pointer to const)
     if (type.is_pointee_const && type.inner_type) {
         if (debug_mode) {
-            std::cerr << "[CODEGEN_PTR] Generating const T* (recursive call)" << std::endl;
+            std::cerr << "[CODEGEN_PTR] Generating const T* (recursive call)"
+                      << std::endl;
         }
         result = "const " + generate_type(*type.inner_type) + "*";
-        debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TO_CONST, 
+        debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TO_CONST,
                   generate_type(*type.inner_type).c_str());
     } else if (type.inner_type) {
         if (debug_mode) {
-            std::cerr << "[CODEGEN_PTR] Generating T* (recursive call)" << std::endl;
+            std::cerr << "[CODEGEN_PTR] Generating T* (recursive call)"
+                      << std::endl;
         }
-        result = generate_type(*type.inner_type) + "*";
-        debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TYPE, 
+        // Special handling for pointer to function type
+        if (type.inner_type->kind == HIRType::TypeKind::Function) {
+            // Function types already include the (*) syntax, so just generate
+            // the function type
+            result = generate_type(*type.inner_type);
+        } else {
+            result = generate_type(*type.inner_type) + "*";
+        }
+        debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TYPE,
                   generate_type(*type.inner_type).c_str());
     } else if (!type.name.empty()) {
         if (debug_mode) {
-            std::cerr << "[CODEGEN_PTR] Using type.name=" << type.name << std::endl;
+            std::cerr << "[CODEGEN_PTR] Using type.name=" << type.name
+                      << std::endl;
         }
-        // If name contains "*", it's already a pointer type with the * in the name
+        // If name contains "*", it's already a pointer type with the * in the
+        // name
         if (type.name.back() == '*') {
             result = type.name;
         } else {
@@ -185,13 +211,14 @@ std::string HIRToCpp::generate_pointer_type(const HIRType &type) {
         result = "void*";
         debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_TYPE, "void");
     }
-    
+
     // T* const (const pointer)
     if (type.is_pointer_const) {
         result += " const";
-        debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_CONST, inner_type_name.c_str());
+        debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_CONST,
+                  inner_type_name.c_str());
     }
-    
+
     return result;
 }
 
@@ -213,26 +240,37 @@ std::string HIRToCpp::generate_array_type(const HIRType &type) {
     if (!type.inner_type) {
         return "std::vector<int>"; // fallback
     }
-    
+
+    // Special handling for function pointer arrays
+    // Generate: RetType (*name[size])(params) style
+    if (type.inner_type->kind == HIRType::TypeKind::Function) {
+        // For function pointer arrays, we need special syntax
+        // This will be handled in variable declaration generation
+        // Here we just return a marker type that will be recognized
+        return "FUNCTION_POINTER_ARRAY";
+    }
+
     // 多次元配列のサポート
     if (!type.array_dimensions.empty()) {
         std::string result = generate_type(*type.inner_type);
-        
+
         // 各次元に対してstd::arrayまたはstd::vectorでラップ
-        for (auto it = type.array_dimensions.rbegin(); it != type.array_dimensions.rend(); ++it) {
+        for (auto it = type.array_dimensions.rbegin();
+             it != type.array_dimensions.rend(); ++it) {
             int size = *it;
             if (size > 0) {
                 // 固定長配列
-                result = "std::array<" + result + ", " + std::to_string(size) + ">";
+                result =
+                    "std::array<" + result + ", " + std::to_string(size) + ">";
             } else {
                 // 動的配列
                 result = "std::vector<" + result + ">";
             }
         }
-        
+
         return result;
     }
-    
+
     // 1次元配列（後方互換性）
     if (type.array_size > 0) {
         // 固定長配列
@@ -247,15 +285,15 @@ std::string HIRToCpp::generate_array_type(const HIRType &type) {
 std::string HIRToCpp::generate_function_type(const HIRType &type) {
     // Generate function pointer type: RetType (*)(Param1, Param2, ...)
     // Note: The actual pointer syntax with name is handled in var_decl
-    
+
     std::string result;
-    
+
     if (type.return_type) {
         result += generate_type(*type.return_type);
     } else {
         result += "void";
     }
-    
+
     result += " (*)(";
     for (size_t i = 0; i < type.param_types.size(); i++) {
         if (i > 0)
@@ -263,7 +301,7 @@ std::string HIRToCpp::generate_function_type(const HIRType &type) {
         result += generate_type(type.param_types[i]);
     }
     result += ")";
-    
+
     return result;
 }
 

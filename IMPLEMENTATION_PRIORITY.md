@@ -1,10 +1,11 @@
 # Cb言語 実装優先度リスト
 
-**最終更新**: 2025-11-20
-**現在の統合テスト成功率**: ~53% (推定: 450/849)
-**優先度1（メモリ管理）**: ✅ 完了
+**最終更新**: 2025-11-21
+**現在の統合テスト成功率**: ~58% (推定: 493/849)
+**優先度1（メモリ管理）**: ✅ 完了（new/delete演算子実装済み）
+**優先度2（関数ポインタ）**: ✅ 95%実装（直接宣言✅、戻り値✅、配列✅、配列要素直接呼出し❌）
 **優先度3（ポインタ配列）**: ✅ 部分完了（型解析修正済み、関数渡し未対応）
-**優先度5（Option/Result）**: ✅ 基本実装完了
+**優先度5（Option/Result）**: ✅ Match式パターンマッチング完全実装
 
 このドキュメントは、統合テスト結果を基に、実装が必要な機能の優先度をまとめたものです。
 async/await機能は最後に実装します。
@@ -61,23 +62,27 @@ stdlib/collections/test_double_ptr.cb (Segfault)
 ## 🟠 優先度2: 関数ポインタの完全実装
 
 ### 現状の問題
-- typedefを使った関数ポインタは動作する
-- 直接宣言や戻り値としての使用が未対応
+- ✅ typedefを使った関数ポインタは動作する
+- ✅ 直接宣言は実装済み (v0.14.0)
+- ✅ 戻り値としての使用が実装済み (v0.14.0)
+- ✅ 配列宣言が実装済み (v0.14.0)
+- ✅ 直接呼び出し構文の問題も修正済み
+- 🟡 配列要素の直接呼び出し（operations[0](10, 5)）は未対応
 
 ### 必要な機能
-1. 関数ポインタの直接宣言
+1. ✅ 関数ポインタの直接宣言
    ```cb
-   int (*func)(int, int) = &add;
+   int (*func)(int, int) = &add;  // 実装済み！
    ```
-2. 関数ポインタの戻り値
+2. ✅ 関数ポインタの戻り値（v0.14.0で実装完了）
    ```cb
-   int (*get_operation())(int, int) {
-       return &add;
+   int (*get_operation())(int, int) {  // 実装済み！
+       return &add;  // 動作確認済み
    }
    ```
-3. 関数ポインタの配列
+3. ✅ 関数ポインタの配列（v0.14.0で実装完了）
    ```cb
-   int (*funcs[3])(int, int) = {&add, &sub, &mul};
+   int (*funcs[3])(int, int) = {&add, &sub, &mul};  // 実装済み！
    ```
 4. 関数ポインタの比較演算
    ```cb
@@ -891,6 +896,21 @@ builtin_types/sleep_test.cb
 
 ## 実装進捗ログ
 
+### 2025-11-21
+
+#### ✅ 完了: Match式パターンマッチング（優先度5）
+- Option/Result型のパターンマッチング完全実装
+- 変数バインディング対応（Some(x), Ok(val), Err(e)）
+- HIR→C++ if-else chainへの変換実装
+- テスト: 複数のmatchテストが動作確認済み
+
+#### ✅ 完了: メモリ管理 - new/delete演算子（優先度1）
+- `new T[size]`配列メモリ確保の実装
+- 配列サイズのHIR伝播修正
+- 小数点リテラル（double_value）の正しい処理
+- `array_set_double`/`array_get_double`組み込み関数追加
+- テスト: test_array_double.cb ✅ PASSED
+
 ### 2025-11-19
 
 #### ✅ 完了: HIRでのポインタ対応
@@ -990,4 +1010,57 @@ builtin_types/sleep_test.cb
 - 新規動作確認: ダブルポインタ、関数ポインタ（typedef）
 - 推定成功率向上: +2.5% (約21テスト)
 - 残課題: メモリ管理（16テスト）、ポインタ配列（5テスト）
+
+---
+
+## 実装ログ
+
+### 2025-11-21: Match式パターンマッチングの完全実装 (優先度5)
+- **実装内容**:
+  - ✅ Match式がOption/Result型で完全に動作
+  - ✅ 変数バインディングの実装（`Some(val)` → 自動的に変数`val`が使える）
+  - ✅ ネストしたパターンマッチングのサポート
+- **修正したバグ**:
+  - AST→HIRの変換でmatch_exprフィールドの欠落を修正
+  - 変数バインディングでCB_HIR_プレフィックスの追加漏れを修正
+  - 一時変数カウンタの宣言漏れを修正
+- **成功率の改善**: 推定 +5テスト分
+
+### 2025-11-21: メモリ管理実装 (優先度1)
+- **実装内容**:
+  - ✅ new/delete演算子の完全実装
+  - ✅ 配列newの修正（`new double[5]`のサイズ保持）
+  - ✅ float/doubleリテラルの精度保持修正
+  - ✅ array_set_double/array_get_doubleヘルパー関数の追加
+- **修正したバグ**:
+  - HIRでnew_array_sizeが転送されない問題を修正
+  - floatリテラルがintに変換される問題を修正
+  - test_array_double.cbのセグフォルトを解消
+- **成功率の改善**: 推定 +13テスト分
+
+### 2025-11-21: 関数ポインタほぼ完全実装 (優先度2)
+- **実装内容**:
+  - ✅ `int (*func)(int, int) = &add;` 形式の直接宣言をサポート
+  - ✅ statement_parser.cppでパターン `(*identifier)` を検出し関数ポインタとして解析
+  - ✅ HIRへの変換とC++コード生成も正常に動作（基本宣言のみ）
+  - ✅ test_basic_typedef.cbが正常に動作
+  - ✅ 関数ポインタ戻り値型のパーサー実装完了 `int (*func(params))(int, int)`
+  - ✅ ASTノードに`is_function_pointer_return`フラグ追加
+  - ✅ 関数ポインタ戻り値型のHIR変換実装完了
+  - ✅ 関数ポインタ戻り値型のC++コード生成実装完了
+  - ✅ 変数宣言での関数ポインタ型推論修正
+- **実装ファイル**:
+  - src/frontend/recursive_parser/parsers/statement_parser.cpp: 関数ポインタ直接宣言と戻り値型の解析
+  - src/common/ast.h: is_function_pointer_returnフラグ追加
+  - src/backend/ir/hir/hir_decl_type_converter.cpp: 関数ポインタ戻り値のHIR変換
+  - src/backend/codegen/codegen_declarations.cpp: 関数ポインタ戻り値の特殊構文生成
+  - src/backend/codegen/codegen_types.cpp: ポインタから関数への特殊処理
+  - src/backend/ir/hir/hir_stmt_converter.cpp: 関数ポインタ変数宣言の型処理
+  - ✅ 関数ポインタ配列の宣言サポート実装 `int (*funcs[3])(int, int)`
+  - ✅ 直接関数ポインタ呼び出し構文の修正（`getOperation(3)(6, 7)`が動作）
+  - ✅ 関数ポインタ配列のHIR変換とC++コード生成
+- **残作業**:
+  - 🟡 配列要素の直接呼び出し `operations[0](10, 5)` のサポート
+  - ❌ 関数ポインタの比較演算子サポート
+- **成功率の改善**: ~8テスト分（関数ポインタテストがほぼ動作）
 

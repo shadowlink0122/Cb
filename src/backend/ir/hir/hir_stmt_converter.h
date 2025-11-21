@@ -14,7 +14,7 @@ class HIRStmtConverter {
   public:
     explicit HIRStmtConverter(HIRGenerator *generator);
     ~HIRStmtConverter();
-    
+
     hir::HIRStmt convert_stmt(const ASTNode *node);
 
   private:

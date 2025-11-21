@@ -32,8 +32,10 @@ class HIRToCpp {
     std::vector<std::string>
         current_generic_params; // 現在のジェネリック型パラメータ
                                 // (T, K, V, etc.)
-    bool current_impl_is_for_primitive = false; // 現在のimplがプリミティブ型用か
+    bool current_impl_is_for_primitive =
+        false; // 現在のimplがプリミティブ型用か
     int discard_variable_counter = 0; // 破棄変数のユニークID生成用カウンタ
+    int temp_var_counter = 0; // 一時変数のユニークID生成用カウンタ
 
     // ヘルパーメソッド
     void emit(const std::string &code);
@@ -59,7 +61,8 @@ class HIRToCpp {
     generate_global_vars(const std::vector<ir::hir::HIRGlobalVar> &globals);
     void generate_functions(const std::vector<ir::hir::HIRFunction> &functions);
     void generate_impls(const std::vector<ir::hir::HIRImpl> &impls);
-    void generate_primitive_type_specializations(const ir::hir::HIRProgram &program);
+    void
+    generate_primitive_type_specializations(const ir::hir::HIRProgram &program);
 
     // 個別の定義生成
     void generate_struct(const ir::hir::HIRStruct &struct_def);
@@ -77,6 +80,7 @@ class HIRToCpp {
     void generate_for(const ir::hir::HIRStmt &stmt);
     void generate_return(const ir::hir::HIRStmt &stmt);
     void generate_block(const ir::hir::HIRStmt &stmt);
+    void generate_match(const ir::hir::HIRStmt &stmt);
     void generate_switch(const ir::hir::HIRStmt &stmt);
     void collect_or_values(const ir::hir::HIRExpr *expr,
                            std::vector<const ir::hir::HIRExpr *> &values);

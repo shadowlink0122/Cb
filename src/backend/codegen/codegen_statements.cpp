@@ -1,8 +1,8 @@
 // v0.14.0: HIR to C++ Transpiler - Statement Generation
 // 文生成モジュール
 
-#include "hir_to_cpp.h"
 #include "../../common/debug.h"
+#include "hir_to_cpp.h"
 
 namespace cb {
 namespace codegen {
@@ -43,6 +43,9 @@ void HIRToCpp::generate_stmt(const HIRStmt &stmt) {
     case HIRStmt::StmtKind::Block:
         generate_block(stmt);
         break;
+    case HIRStmt::StmtKind::Match:
+        generate_match(stmt);
+        break;
     case HIRStmt::StmtKind::Switch:
         generate_switch(stmt);
         break;
@@ -73,10 +76,9 @@ void HIRToCpp::generate_stmt(const HIRStmt &stmt) {
 }
 
 void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
-    debug_msg(DebugMsgId::CODEGEN_CPP_STMT_VAR_DECL, 
-              generate_type(stmt.var_type).c_str(), 
-              stmt.var_name.c_str());
-    
+    debug_msg(DebugMsgId::CODEGEN_CPP_STMT_VAR_DECL,
+              generate_type(stmt.var_type).c_str(), stmt.var_name.c_str());
+
     emit_indent();
     if (stmt.is_const) {
         emit("const ");
@@ -84,36 +86,77 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
 
     // Special handling for arrays (including multidimensional)
     if (stmt.var_type.kind == HIRType::TypeKind::Array) {
-        // Get base type and all dimensions
-        const HIRType *base_type = nullptr;
-        std::vector<int> dimensions;
-        get_array_base_type_and_dimensions(stmt.var_type, &base_type,
-                                           dimensions);
+        // Check if this is a function pointer array
+        if (stmt.var_type.inner_type &&
+            stmt.var_type.inner_type->kind == HIRType::TypeKind::Function) {
+            // Function pointer array: RetType (*name[size])(params)
+            const HIRType &func_type = *stmt.var_type.inner_type;
 
-        // Check if we're in a function that returns an array
-        // OR if initializer is a function call that returns array
-        // v0.14.0: Always use std::array for fixed-size arrays to support union assignment
-        bool use_std_array = true;
-
-        if (!dimensions.empty() && dimensions[0] > 0 && use_std_array) {
-            // Use std::array when in a function returning array or initialized
-            // by function call
-            emit(generate_type(stmt.var_type));
-            emit(" " + add_hir_prefix(stmt.var_name));
-        } else if (stmt.var_type.array_size == -1 &&
-                   !stmt.var_type.name.empty()) {
-            // VLA: int[size] -> int array_name[size_expr]
-            if (stmt.var_type.inner_type) {
-                emit(generate_type(*stmt.var_type.inner_type));
+            std::string return_type;
+            if (func_type.return_type) {
+                return_type = generate_type(*func_type.return_type);
             } else {
-                emit("int"); // fallback
+                return_type = "void";
             }
-            emit(" " + add_hir_prefix(stmt.var_name));
-            emit("[" + add_hir_prefix(stmt.var_type.name) + "]");
+
+            emit(return_type);
+            emit(" (*" + add_hir_prefix(stmt.var_name));
+
+            // Add array dimensions
+            if (!stmt.var_type.array_dimensions.empty()) {
+                for (int dim : stmt.var_type.array_dimensions) {
+                    emit("[" + std::to_string(dim) + "]");
+                }
+            } else if (stmt.var_type.array_size > 0) {
+                emit("[" + std::to_string(stmt.var_type.array_size) + "]");
+            } else {
+                emit("[]");
+            }
+
+            emit(")(");
+
+            // Add function parameters
+            for (size_t i = 0; i < func_type.param_types.size(); i++) {
+                if (i > 0)
+                    emit(", ");
+                emit(generate_type(func_type.param_types[i]));
+            }
+
+            emit(")");
         } else {
-            // Dynamic array without size - use std::vector
-            emit(generate_type(stmt.var_type));
-            emit(" " + add_hir_prefix(stmt.var_name));
+            // Regular array handling
+            // Get base type and all dimensions
+            const HIRType *base_type = nullptr;
+            std::vector<int> dimensions;
+            get_array_base_type_and_dimensions(stmt.var_type, &base_type,
+                                               dimensions);
+
+            // Check if we're in a function that returns an array
+            // OR if initializer is a function call that returns array
+            // v0.14.0: Always use std::array for fixed-size arrays to support
+            // union assignment
+            bool use_std_array = true;
+
+            if (!dimensions.empty() && dimensions[0] > 0 && use_std_array) {
+                // Use std::array when in a function returning array or
+                // initialized by function call
+                emit(generate_type(stmt.var_type));
+                emit(" " + add_hir_prefix(stmt.var_name));
+            } else if (stmt.var_type.array_size == -1 &&
+                       !stmt.var_type.name.empty()) {
+                // VLA: int[size] -> int array_name[size_expr]
+                if (stmt.var_type.inner_type) {
+                    emit(generate_type(*stmt.var_type.inner_type));
+                } else {
+                    emit("int"); // fallback
+                }
+                emit(" " + add_hir_prefix(stmt.var_name));
+                emit("[" + add_hir_prefix(stmt.var_type.name) + "]");
+            } else {
+                // Dynamic array without size - use std::vector
+                emit(generate_type(stmt.var_type));
+                emit(" " + add_hir_prefix(stmt.var_name));
+            }
         }
     } else if (stmt.var_type.kind == HIRType::TypeKind::Function) {
         // Special handling for function pointers: RetType (*name)(Params)
@@ -123,11 +166,12 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
         } else {
             return_type = "void";
         }
-        
+
         emit(return_type);
         emit(" (*" + add_hir_prefix(stmt.var_name) + ")(");
         for (size_t i = 0; i < stmt.var_type.param_types.size(); i++) {
-            if (i > 0) emit(", ");
+            if (i > 0)
+                emit(", ");
             emit(generate_type(stmt.var_type.param_types[i]));
         }
         emit(")");
@@ -176,12 +220,13 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
 
 void HIRToCpp::generate_assignment(const HIRStmt &stmt) {
     if (debug_mode) {
-        std::cerr << "[CODEGEN_ASSIGN] Assignment: has_lhs=" << (stmt.lhs != nullptr)
+        std::cerr << "[CODEGEN_ASSIGN] Assignment: has_lhs="
+                  << (stmt.lhs != nullptr)
                   << ", has_rhs=" << (stmt.rhs != nullptr) << std::endl;
     }
-    
+
     emit_indent();
-    
+
     if (!stmt.lhs) {
         std::cerr << "[ERROR] Assignment has null lhs!" << std::endl;
         emit("/* null lhs */ = ");
@@ -192,7 +237,7 @@ void HIRToCpp::generate_assignment(const HIRStmt &stmt) {
         }
         emit(" = ");
     }
-    
+
     if (!stmt.rhs) {
         std::cerr << "[ERROR] Assignment has null rhs!" << std::endl;
         emit("/* null rhs */");
@@ -202,7 +247,7 @@ void HIRToCpp::generate_assignment(const HIRStmt &stmt) {
             std::cerr << "[CODEGEN_ASSIGN] RHS generated" << std::endl;
         }
     }
-    
+
     emit(";\n");
 }
 
@@ -478,6 +523,118 @@ void HIRToCpp::collect_or_values(const HIRExpr *expr,
     }
 }
 
+void HIRToCpp::generate_match(const HIRStmt &stmt) {
+    if (!stmt.match_expr) {
+        emit_line("// ERROR: Match statement without expression");
+        return;
+    }
+
+    // Match文をC++のif-else chainとして生成
+    // 一時変数を作成してmatch対象を保存
+    std::string match_var = "match_tmp_" + std::to_string(temp_var_counter++);
+    emit_indent();
+    emit("auto " + match_var + " = ");
+    emit(generate_expr(*stmt.match_expr));
+    emit(";\n");
+
+    bool first = true;
+    for (const auto &arm : stmt.match_arms) {
+        if (!first) {
+            emit_indent();
+            emit("else ");
+        } else {
+            emit_indent();
+        }
+        first = false;
+
+        // パターンマッチング条件を生成
+        switch (arm.pattern_kind) {
+        case HIRStmt::MatchArm::PatternKind::Wildcard:
+            // ワイルドカードは常にマッチ（else節として処理）
+            if (stmt.match_arms.size() == 1 ||
+                &arm == &stmt.match_arms.back()) {
+                emit("{\n");
+            } else {
+                emit("if (true) {\n"); // 明示的にtrueを使用
+            }
+            break;
+
+        case HIRStmt::MatchArm::PatternKind::EnumVariant: {
+            // Option/Result型のパターンマッチング
+            if (arm.pattern_name == "Some" || arm.pattern_name == "None") {
+                // Option型
+                if (arm.pattern_name == "Some") {
+                    emit("if (" + match_var + ".is_some()) {\n");
+                    increase_indent();
+                    if (!arm.bindings.empty()) {
+                        // 値を束縛
+                        emit_indent();
+                        emit("auto CB_HIR_" + arm.bindings[0] + " = " +
+                             match_var + ".some_value;\n");
+                    }
+                } else { // None
+                    emit("if (" + match_var + ".is_none()) {\n");
+                    increase_indent();
+                }
+            } else if (arm.pattern_name == "Ok" || arm.pattern_name == "Err") {
+                // Result型
+                if (arm.pattern_name == "Ok") {
+                    emit("if (" + match_var + ".is_ok()) {\n");
+                    increase_indent();
+                    if (!arm.bindings.empty()) {
+                        emit_indent();
+                        emit("auto CB_HIR_" + arm.bindings[0] + " = " +
+                             match_var + ".ok_value;\n");
+                    }
+                } else { // Err
+                    emit("if (" + match_var + ".is_err()) {\n");
+                    increase_indent();
+                    if (!arm.bindings.empty()) {
+                        emit_indent();
+                        emit("auto CB_HIR_" + arm.bindings[0] + " = " +
+                             match_var + ".err_value;\n");
+                    }
+                }
+            } else {
+                // その他のenum variant（将来の拡張用）
+                emit("if (" + match_var + ".is_" + arm.pattern_name +
+                     "()) {\n");
+                increase_indent();
+            }
+            break;
+        }
+
+        case HIRStmt::MatchArm::PatternKind::Literal:
+            // リテラルパターン（将来の実装）
+            emit("if (" + match_var + " == " + arm.pattern_name + ") {\n");
+            increase_indent();
+            break;
+
+        case HIRStmt::MatchArm::PatternKind::Variable:
+            // 変数束縛（常にマッチ）
+            emit("if (true) {\n");
+            increase_indent();
+            emit_indent();
+            emit("auto " + arm.pattern_name + " = " + match_var + ";\n");
+            break;
+
+        default:
+            emit("if (true) { // Unknown pattern kind\n");
+            increase_indent();
+            break;
+        }
+
+        // アームの本体を生成
+        for (const auto &body_stmt : arm.body) {
+            generate_stmt(body_stmt);
+        }
+
+        decrease_indent();
+        emit_indent();
+        emit("}\n");
+    }
+}
+
 void HIRToCpp::generate_defer(const HIRStmt &stmt) {
     // C++でdeferを実装するにはRAIIラッパーが必要
     emit_line("// TODO: defer statement");
@@ -488,24 +645,26 @@ void HIRToCpp::generate_defer(const HIRStmt &stmt) {
 
 void HIRToCpp::generate_delete(const HIRStmt &stmt) {
     if (debug_mode) {
-        std::cerr << "[CODEGEN_DELETE] Delete statement: has_expr=" 
+        std::cerr << "[CODEGEN_DELETE] Delete statement: has_expr="
                   << (stmt.delete_expr != nullptr) << std::endl;
     }
-    
+
     if (!stmt.delete_expr) {
-        std::cerr << "[ERROR] Delete statement has null delete_expr!" << std::endl;
+        std::cerr << "[ERROR] Delete statement has null delete_expr!"
+                  << std::endl;
         emit_indent();
         emit("delete /* null expr */;\n");
         return;
     }
-    
+
     std::string expr_str = generate_expr(*stmt.delete_expr);
     debug_msg(DebugMsgId::CODEGEN_CPP_STMT_DELETE, expr_str.c_str());
-    
+
     if (debug_mode) {
-        std::cerr << "[CODEGEN_DELETE] Generated: delete " << expr_str << std::endl;
+        std::cerr << "[CODEGEN_DELETE] Generated: delete " << expr_str
+                  << std::endl;
     }
-    
+
     emit_indent();
     // 配列の場合は delete[] を使用
     // TODO: HIRで配列かどうかの情報を持たせる

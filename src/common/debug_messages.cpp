@@ -1,9 +1,9 @@
 #include "debug_messages.h"
 #include "debug/debug_ast_messages.h"
+#include "debug/debug_codegen_cpp_messages.h"
 #include "debug/debug_hir_messages.h"
 #include "debug/debug_interpreter_messages.h"
 #include "debug/debug_parser_messages.h"
-#include "debug/debug_codegen_cpp_messages.h"
 #include <vector>
 
 // デバッグメッセージテンプレート配列を動的に初期化する関数

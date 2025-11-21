@@ -14,7 +14,7 @@ class HIRExprConverter {
   public:
     explicit HIRExprConverter(HIRGenerator *generator);
     ~HIRExprConverter();
-    
+
     hir::HIRExpr convert_expr(const ASTNode *node);
 
   private:

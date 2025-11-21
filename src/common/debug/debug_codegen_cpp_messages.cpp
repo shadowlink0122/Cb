@@ -96,8 +96,7 @@ void init_codegen_cpp_messages(std::vector<DebugMessageTemplate> &messages) {
         "[CODEGEN_CPP_IMPL] ✓ impl生成完了: %s"};
 
     messages[static_cast<int>(DebugMsgId::CODEGEN_CPP_IMPL_METHOD)] = {
-        "[CODEGEN_CPP_IMPL]   Method: %s",
-        "[CODEGEN_CPP_IMPL]   メソッド: %s"};
+        "[CODEGEN_CPP_IMPL]   Method: %s", "[CODEGEN_CPP_IMPL]   メソッド: %s"};
 
     messages[static_cast<int>(DebugMsgId::CODEGEN_CPP_GLOBAL_VAR)] = {
         "[CODEGEN_CPP_VAR] Generating global variable: %s (type: %s)",
@@ -125,12 +124,10 @@ void init_codegen_cpp_messages(std::vector<DebugMessageTemplate> &messages) {
         "[CODEGEN_CPP_STMT]   if文 (else有: %s)"};
 
     messages[static_cast<int>(DebugMsgId::CODEGEN_CPP_STMT_WHILE)] = {
-        "[CODEGEN_CPP_STMT]   While loop",
-        "[CODEGEN_CPP_STMT]   whileループ"};
+        "[CODEGEN_CPP_STMT]   While loop", "[CODEGEN_CPP_STMT]   whileループ"};
 
     messages[static_cast<int>(DebugMsgId::CODEGEN_CPP_STMT_FOR)] = {
-        "[CODEGEN_CPP_STMT]   For loop",
-        "[CODEGEN_CPP_STMT]   forループ"};
+        "[CODEGEN_CPP_STMT]   For loop", "[CODEGEN_CPP_STMT]   forループ"};
 
     messages[static_cast<int>(DebugMsgId::CODEGEN_CPP_STMT_RETURN)] = {
         "[CODEGEN_CPP_STMT]   Return statement (has value: %s)",
@@ -145,8 +142,7 @@ void init_codegen_cpp_messages(std::vector<DebugMessageTemplate> &messages) {
         "[CODEGEN_CPP_STMT]   switch文 (%dケース)"};
 
     messages[static_cast<int>(DebugMsgId::CODEGEN_CPP_STMT_DEFER)] = {
-        "[CODEGEN_CPP_STMT]   Defer statement",
-        "[CODEGEN_CPP_STMT]   defer文"};
+        "[CODEGEN_CPP_STMT]   Defer statement", "[CODEGEN_CPP_STMT]   defer文"};
 
     messages[static_cast<int>(DebugMsgId::CODEGEN_CPP_STMT_DELETE)] = {
         "[CODEGEN_CPP_STMT]   Delete statement: %s",
@@ -170,8 +166,7 @@ void init_codegen_cpp_messages(std::vector<DebugMessageTemplate> &messages) {
         "[CODEGEN_CPP_EXPR]   リテラル: %s"};
 
     messages[static_cast<int>(DebugMsgId::CODEGEN_CPP_EXPR_VARIABLE)] = {
-        "[CODEGEN_CPP_EXPR]   Variable: %s",
-        "[CODEGEN_CPP_EXPR]   変数: %s"};
+        "[CODEGEN_CPP_EXPR]   Variable: %s", "[CODEGEN_CPP_EXPR]   変数: %s"};
 
     messages[static_cast<int>(DebugMsgId::CODEGEN_CPP_EXPR_BINARY_OP)] = {
         "[CODEGEN_CPP_EXPR]   Binary op: %s",

@@ -1,8 +1,8 @@
 // v0.14.0: HIR to C++ Transpiler - Expression Generation
 // 式生成モジュール
 
-#include "hir_to_cpp.h"
 #include "../../common/debug.h"
+#include "hir_to_cpp.h"
 #include <algorithm>
 
 namespace cb {
@@ -87,7 +87,8 @@ std::string HIRToCpp::generate_variable(const HIRExpr &expr) {
 std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
     // Helper lambda to check if a type name is a union
     auto is_union_type = [this](const std::string &type_name) -> bool {
-        if (!current_program || type_name.empty()) return false;
+        if (!current_program || type_name.empty())
+            return false;
         for (const auto &union_def : current_program->unions) {
             if (union_def.name == type_name) {
                 return true;
@@ -98,7 +99,8 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
 
     // Helper lambda to get type name for an expression
     auto get_expr_type_name = [this](const HIRExpr *e) -> std::string {
-        if (!e || !current_program) return "";
+        if (!e || !current_program)
+            return "";
 
         // Check direct type info
         if (!e->type.name.empty()) {
@@ -141,9 +143,11 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
             if (!e->member_name.empty()) {
                 for (const auto &s : current_program->structs) {
                     for (const auto &field : s.fields) {
-                        if (field.name == e->member_name && !field.type.name.empty()) {
+                        if (field.name == e->member_name &&
+                            !field.type.name.empty()) {
                             // Check if this field type is a union
-                            for (const auto &union_def : current_program->unions) {
+                            for (const auto &union_def :
+                                 current_program->unions) {
                                 if (union_def.name == field.type.name) {
                                     return field.type.name;
                                 }
@@ -167,8 +171,9 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
         bool right_is_union = is_union_type(right_type_name);
 
         // 算術演算子かチェック
-        bool is_arithmetic = (expr.op == "+" || expr.op == "-" ||
-                              expr.op == "*" || expr.op == "/" || expr.op == "%");
+        bool is_arithmetic =
+            (expr.op == "+" || expr.op == "-" || expr.op == "*" ||
+             expr.op == "/" || expr.op == "%");
 
         if ((left_is_union || right_is_union) && is_arithmetic) {
             std::string result = "(";
@@ -373,7 +378,8 @@ std::string HIRToCpp::generate_function_call(const HIRExpr &expr) {
         func_name = module + "_" + function;
     } else {
         // 組み込み関数はプレフィックスを付けない
-        if (func_name != "println" && func_name != "print" && func_name != "hex") {
+        if (func_name != "println" && func_name != "print" &&
+            func_name != "hex") {
             func_name = add_hir_prefix(func_name);
         }
     }
@@ -410,11 +416,11 @@ std::string HIRToCpp::generate_method_call(const HIRExpr &expr) {
 
         // If the receiver is not prefixed and looks like a module name,
         // treat as FFI call: module.function -> module_function
-        // Skip if receiver name looks like a regular variable (longer names, or has CB_HIR_ prefix)
-        if (receiver_name.find("CB_HIR_") == std::string::npos &&
-            receiver_name.length() <= 2 &&  // Changed from 3 to 2 - only single letter modules
-            std::islower(receiver_name[0])) { // Must start with lowercase
-            std::string result = receiver_name + "_" + expr.method_name + "(";
+        // Skip if receiver name looks like a regular variable (longer names, or
+    has CB_HIR_ prefix) if (receiver_name.find("CB_HIR_") == std::string::npos
+    && receiver_name.length() <= 2 &&  // Changed from 3 to 2 - only single
+    letter modules std::islower(receiver_name[0])) { // Must start with
+    lowercase std::string result = receiver_name + "_" + expr.method_name + "(";
             for (size_t i = 0; i < expr.arguments.size(); i++) {
                 if (i > 0)
                     result += ", ";
@@ -446,7 +452,15 @@ std::string HIRToCpp::generate_method_call(const HIRExpr &expr) {
 
     // Generate the receiver expression
     std::string result = generate_expr(*expr.receiver);
-    result += (use_arrow ? "->" : ".") + expr.method_name + "(";
+
+    // Special case: if method_name is empty, this is a function pointer call
+    // e.g., getOperation(3)(6, 7) where getOperation(3) returns a function
+    // pointer
+    if (expr.method_name.empty()) {
+        result += "(";
+    } else {
+        result += (use_arrow ? "->" : ".") + expr.method_name + "(";
+    }
 
     for (size_t i = 0; i < expr.arguments.size(); i++) {
         if (i > 0)
@@ -463,14 +477,15 @@ std::string HIRToCpp::generate_member_access(const HIRExpr &expr) {
     std::string result = object_str;
     result += expr.is_arrow ? "->" : ".";
     result += expr.member_name;
-    
+
     if (expr.is_arrow) {
-        debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_ARROW, 
-                  object_str.c_str(), expr.member_name.c_str());
+        debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_ARROW, object_str.c_str(),
+                  expr.member_name.c_str());
     } else {
-        debug_msg(DebugMsgId::CODEGEN_CPP_EXPR_MEMBER_ACCESS, expr.member_name.c_str());
+        debug_msg(DebugMsgId::CODEGEN_CPP_EXPR_MEMBER_ACCESS,
+                  expr.member_name.c_str());
     }
-    
+
     return result;
 }
 
@@ -548,12 +563,13 @@ std::string HIRToCpp::generate_lambda(const HIRExpr &expr) {
             result += "; ";
         } else if (expr.lambda_body->kind == HIRStmt::StmtKind::Block) {
             // Handle block statements
-            for (const auto& stmt : expr.lambda_body->block_stmts) {
-                if (stmt.kind == HIRStmt::StmtKind::Return && stmt.return_expr) {
+            for (const auto &stmt : expr.lambda_body->block_stmts) {
+                if (stmt.kind == HIRStmt::StmtKind::Return &&
+                    stmt.return_expr) {
                     result += "return ";
                     result += generate_expr(*stmt.return_expr);
                     result += "; ";
-                    break;  // Only handle first return for now
+                    break; // Only handle first return for now
                 }
             }
         } else {
@@ -593,13 +609,13 @@ std::string HIRToCpp::generate_struct_literal(const HIRExpr &expr) {
 std::string HIRToCpp::generate_array_literal(const HIRExpr &expr) {
     // 多次元配列かどうかチェック（最初の要素がArrayLiteralかどうか）
     bool is_multidim = false;
-    if (!expr.array_elements.empty() && 
+    if (!expr.array_elements.empty() &&
         expr.array_elements[0].kind == HIRExpr::ExprKind::ArrayLiteral) {
         is_multidim = true;
     }
-    
+
     std::string result = "{";
-    
+
     // 多次元配列の場合、外側の{}を追加
     if (is_multidim) {
         result = "{{";
@@ -612,12 +628,12 @@ std::string HIRToCpp::generate_array_literal(const HIRExpr &expr) {
     }
 
     result += "}";
-    
+
     // 多次元配列の場合、外側の}を追加
     if (is_multidim) {
         result += "}";
     }
-    
+
     return result;
 }
 
@@ -629,22 +645,24 @@ std::string HIRToCpp::generate_address_of(const HIRExpr &expr) {
 
 std::string HIRToCpp::generate_dereference(const HIRExpr &expr) {
     if (debug_mode) {
-        std::cerr << "[CODEGEN_DEREF] Dereference: has_operand=" 
+        std::cerr << "[CODEGEN_DEREF] Dereference: has_operand="
                   << (expr.operand != nullptr) << std::endl;
     }
-    
+
     if (!expr.operand) {
-        std::cerr << "[ERROR] Dereference expression has null operand!" << std::endl;
+        std::cerr << "[ERROR] Dereference expression has null operand!"
+                  << std::endl;
         return "*(nullptr /* ERROR */)";
     }
-    
+
     std::string operand_str = generate_expr(*expr.operand);
     debug_msg(DebugMsgId::CODEGEN_CPP_POINTER_DEREF, operand_str.c_str());
-    
+
     if (debug_mode) {
-        std::cerr << "[CODEGEN_DEREF] Generated: *(" << operand_str << ")" << std::endl;
+        std::cerr << "[CODEGEN_DEREF] Generated: *(" << operand_str << ")"
+                  << std::endl;
     }
-    
+
     return "*(" + operand_str + ")";
 }
 
@@ -662,36 +680,43 @@ std::string HIRToCpp::generate_sizeof(const HIRExpr &expr) {
 
 std::string HIRToCpp::generate_new(const HIRExpr &expr) {
     if (debug_mode) {
-        std::cerr << "[CODEGEN_NEW] Starting: kind=" << static_cast<int>(expr.new_type.kind)
-                  << ", name=" << expr.new_type.name 
-                  << ", has_inner=" << (expr.new_type.inner_type != nullptr) << std::endl;
+        std::cerr << "[CODEGEN_NEW] Starting: kind="
+                  << static_cast<int>(expr.new_type.kind)
+                  << ", name=" << expr.new_type.name
+                  << ", has_inner=" << (expr.new_type.inner_type != nullptr)
+                  << std::endl;
     }
-    
+
     std::string result = "new ";
-    
+
     // 配列の場合は要素型だけ取得
-    if (expr.new_type.kind == HIRType::TypeKind::Array && expr.new_type.inner_type) {
+    if (expr.new_type.kind == HIRType::TypeKind::Array &&
+        expr.new_type.inner_type) {
         std::string element_type = generate_type(*expr.new_type.inner_type);
         result += element_type;
-        
+
         if (debug_mode) {
-            std::cerr << "[CODEGEN_NEW] Array element type: " << element_type << std::endl;
+            std::cerr << "[CODEGEN_NEW] Array element type: " << element_type
+                      << std::endl;
         }
-        
+
         // 配列サイズを追加
         if (expr.new_type.array_size > 0) {
             result += "[" + std::to_string(expr.new_type.array_size) + "]";
-        } else if (!expr.new_type.array_dimensions.empty() && expr.new_type.array_dimensions[0] > 0) {
-            result += "[" + std::to_string(expr.new_type.array_dimensions[0]) + "]";
+        } else if (!expr.new_type.array_dimensions.empty() &&
+                   expr.new_type.array_dimensions[0] > 0) {
+            result +=
+                "[" + std::to_string(expr.new_type.array_dimensions[0]) + "]";
         }
     } else {
         std::string type_str = generate_type(expr.new_type);
         debug_msg(DebugMsgId::CODEGEN_CPP_EXPR_NEW, type_str.c_str());
-        
+
         if (debug_mode) {
-            std::cerr << "[CODEGEN_NEW] Type generated: " << type_str << std::endl;
+            std::cerr << "[CODEGEN_NEW] Type generated: " << type_str
+                      << std::endl;
         }
-        
+
         result += type_str;
 
         // コンストラクタ引数がある場合
@@ -706,7 +731,7 @@ std::string HIRToCpp::generate_new(const HIRExpr &expr) {
         }
         // デフォルト初期化（値初期化）
         else {
-            result += "()";  // zero-initialization for primitives
+            result += "()"; // zero-initialization for primitives
         }
     }
 

@@ -1,16 +1,17 @@
 /**
  * @file hir_generator.cpp
  * @brief HIR Generator - Main coordinator for AST to HIR conversion
- * 
- * This file coordinates AST to HIR conversion by delegating to specialized converters.
+ *
+ * This file coordinates AST to HIR conversion by delegating to specialized
+ * converters.
  */
 
 #include "hir_generator.h"
-#include "hir_expr_converter.h"
-#include "hir_stmt_converter.h"
-#include "hir_decl_type_converter.h"
 #include "../../../common/debug.h"
 #include "hir_builder.h"
+#include "hir_decl_type_converter.h"
+#include "hir_expr_converter.h"
+#include "hir_stmt_converter.h"
 #include <iostream>
 
 namespace cb {
@@ -67,7 +68,8 @@ HIRImpl HIRGenerator::convert_impl(const ASTNode *node) {
     return decl_type_converter_->convert_impl(node);
 }
 
-HIRType HIRGenerator::convert_type(TypeInfo type_info, const std::string &type_name) {
+HIRType HIRGenerator::convert_type(TypeInfo type_info,
+                                   const std::string &type_name) {
     return decl_type_converter_->convert_type(type_info, type_name);
 }
 
@@ -94,16 +96,118 @@ void HIRGenerator::report_error(const std::string &message,
     error_count++;
 }
 
-const ASTNode* HIRGenerator::lookup_function(const std::string& name) const {
-    if (!ast_nodes_) return nullptr;
-    
-    for (const auto& node : *ast_nodes_) {
+const ASTNode *HIRGenerator::lookup_function(const std::string &name) const {
+    if (!ast_nodes_)
+        return nullptr;
+
+    for (const auto &node : *ast_nodes_) {
         if (node && node->node_type == ASTNodeType::AST_FUNC_DECL &&
             node->name == name) {
             return node.get();
         }
     }
     return nullptr;
+}
+
+// Helper function to recursively analyze AST statements for returning function
+// addresses
+static bool analyze_ast_returns_function_address(const ASTNode *stmt);
+
+bool HIRGenerator::analyze_function_returns_function_pointer(
+    const ASTNode *func_node) const {
+    if (!func_node || func_node->node_type != ASTNodeType::AST_FUNC_DECL) {
+        return false;
+    }
+
+    // Check if already marked as returning function pointer
+    if (func_node->is_function_pointer_return) {
+        return true;
+    }
+
+    // If return type is explicitly a pointer and body contains return of
+    // &function, we can infer it returns a function pointer
+    bool is_pointer_return = false;
+    if (!func_node->return_type_name.empty()) {
+        is_pointer_return =
+            func_node->return_type_name.find('*') != std::string::npos;
+    }
+
+    if (!is_pointer_return) {
+        return false;
+    }
+
+    // Analyze the function body to see if it returns &function_name
+    const ASTNode *body = func_node->body.get();
+    if (!body)
+        return false;
+
+    return analyze_ast_returns_function_address(body);
+}
+
+// Helper function implementation
+static bool analyze_ast_returns_function_address(const ASTNode *stmt) {
+    if (!stmt)
+        return false;
+
+    switch (stmt->node_type) {
+    case ASTNodeType::AST_RETURN_STMT:
+        if (stmt->left) {
+            // Check if return expression is &function_name
+            const ASTNode *expr = stmt->left.get();
+            if (expr->node_type == ASTNodeType::AST_UNARY_OP &&
+                (expr->op == "&" || expr->op == "ADDRESS_OF") && expr->left &&
+                expr->left->node_type == ASTNodeType::AST_VARIABLE) {
+                // TODO: We should verify that the variable is actually a
+                // function name For now, assume it is if we're taking its
+                // address
+                return true;
+            }
+        }
+        return false;
+
+    case ASTNodeType::AST_STMT_LIST:
+        // Check all statements in the block
+        for (const auto &s : stmt->statements) {
+            if (analyze_ast_returns_function_address(s.get())) {
+                return true;
+            }
+        }
+        return false;
+
+    case ASTNodeType::AST_IF_STMT:
+        // Check both branches
+        if (analyze_ast_returns_function_address(stmt->left.get()))
+            return true;
+        if (analyze_ast_returns_function_address(stmt->right.get()))
+            return true;
+        if (stmt->body &&
+            analyze_ast_returns_function_address(stmt->body.get()))
+            return true;
+        if (stmt->else_body &&
+            analyze_ast_returns_function_address(stmt->else_body.get()))
+            return true;
+        return false;
+
+    default:
+        // For other statements, check their children recursively
+        if (stmt->left &&
+            analyze_ast_returns_function_address(stmt->left.get()))
+            return true;
+        if (stmt->right &&
+            analyze_ast_returns_function_address(stmt->right.get()))
+            return true;
+        if (stmt->body &&
+            analyze_ast_returns_function_address(stmt->body.get()))
+            return true;
+        if (stmt->else_body &&
+            analyze_ast_returns_function_address(stmt->else_body.get()))
+            return true;
+        for (const auto &child : stmt->statements) {
+            if (analyze_ast_returns_function_address(child.get()))
+                return true;
+        }
+        return false;
+    }
 }
 
 // ============================================================================
@@ -124,7 +228,8 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
 
     auto program = std::make_unique<HIRProgram>();
 
-    // v0.14.0: First pass - collect all interface names for value type resolution
+    // v0.14.0: First pass - collect all interface names for value type
+    // resolution
     for (const auto &node : ast_nodes) {
         if (node && node->node_type == ASTNodeType::AST_INTERFACE_DECL) {
             interface_names_.insert(node->name);
@@ -182,7 +287,8 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
             // 単純なtypedef（typedef int MyInt; など）の処理
             HIRTypedef typedef_def;
             typedef_def.name = node->name;
-            typedef_def.target_type = convert_type(node->type_info, node->type_name);
+            typedef_def.target_type =
+                convert_type(node->type_info, node->type_name);
             typedef_def.location = convert_location(node->location);
             program->typedefs.push_back(std::move(typedef_def));
             break;
@@ -192,25 +298,26 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
             // 関数ポインタのtypedef処理
             HIRTypedef typedef_def;
             typedef_def.name = node->name;
-            
+
             // 関数ポインタ型を構築
             HIRType func_ptr_type;
             func_ptr_type.kind = HIRType::TypeKind::Function;
-            
+
             auto &fp = node->function_pointer_type;
-            
+
             // 戻り値型
             func_ptr_type.return_type = std::make_unique<HIRType>(
                 convert_type(fp.return_type, fp.return_type_name));
-            
+
             // パラメータ型
             for (size_t i = 0; i < fp.param_types.size(); ++i) {
-                HIRType param_type = convert_type(
-                    fp.param_types[i],
-                    i < fp.param_type_names.size() ? fp.param_type_names[i] : "");
+                HIRType param_type = convert_type(fp.param_types[i],
+                                                  i < fp.param_type_names.size()
+                                                      ? fp.param_type_names[i]
+                                                      : "");
                 func_ptr_type.param_types.push_back(param_type);
             }
-            
+
             typedef_def.target_type = std::move(func_ptr_type);
             typedef_def.location = convert_location(node->location);
             program->typedefs.push_back(std::move(typedef_def));
@@ -249,19 +356,19 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
             // トップレベルの変数宣言は全てグローバル変数として扱う
             HIRGlobalVar global_var;
             global_var.name = node->name;
-            global_var.type =
-                convert_type(node->type_info, node->type_name);
+            global_var.type = convert_type(node->type_info, node->type_name);
             global_var.is_const = node->is_const;
             global_var.is_exported = node->is_exported;
             if (node->right) {
-                global_var.init_expr = std::make_unique<HIRExpr>(
-                    convert_expr(node->right.get()));
+                global_var.init_expr =
+                    std::make_unique<HIRExpr>(convert_expr(node->right.get()));
             }
             global_var.location = convert_location(node->location);
             program->global_vars.push_back(std::move(global_var));
-            
+
             if (debug_mode) {
-                std::cerr << "[HIR_GLOBAL] Global variable: " << node->name << std::endl;
+                std::cerr << "[HIR_GLOBAL] Global variable: " << node->name
+                          << std::endl;
             }
             break;
         }
@@ -269,11 +376,11 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
         // グローバル配列宣言
         case ASTNodeType::AST_ARRAY_DECL: {
             if (debug_mode) {
-                std::cerr << "[HIR_GLOBAL] Processing AST_ARRAY_DECL: " << node->name
-                          << ", type_info=" << node->type_info 
+                std::cerr << "[HIR_GLOBAL] Processing AST_ARRAY_DECL: "
+                          << node->name << ", type_info=" << node->type_info
                           << ", type_name=" << node->type_name << std::endl;
             }
-            
+
             HIRGlobalVar global_var;
             global_var.name = node->name;
             global_var.type = convert_type(node->type_info, node->type_name);
@@ -281,13 +388,15 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
             global_var.is_exported = node->is_exported;
             // 配列のサイズ情報は型に含まれる
             global_var.location = convert_location(node->location);
-            
+
             if (debug_mode) {
-                std::cerr << "[HIR_GLOBAL] Global array: " << node->name 
-                          << ", array_dimensions.size=" << global_var.type.array_dimensions.size()
-                          << ", array_size=" << global_var.type.array_size << std::endl;
+                std::cerr << "[HIR_GLOBAL] Global array: " << node->name
+                          << ", array_dimensions.size="
+                          << global_var.type.array_dimensions.size()
+                          << ", array_size=" << global_var.type.array_size
+                          << std::endl;
             }
-            
+
             program->global_vars.push_back(std::move(global_var));
             break;
         }
@@ -539,7 +648,8 @@ std::unique_ptr<HIRProgram> HIRGenerator::generate_with_parser_definitions(
                         hir_method.parameters.push_back(std::move(hir_param));
                     }
 
-                    existing_interface_ptr->methods.push_back(std::move(hir_method));
+                    existing_interface_ptr->methods.push_back(
+                        std::move(hir_method));
                 }
             }
         } else if (!already_exists) {

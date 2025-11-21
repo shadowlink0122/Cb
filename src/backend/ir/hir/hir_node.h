@@ -19,15 +19,15 @@ struct HIRType {
         Unknown,
         Void,
         // 符号付き整数型
-        Tiny,   // 8-bit signed
-        Short,  // 16-bit signed
-        Int,    // 32-bit signed
-        Long,   // 64-bit signed
+        Tiny,  // 8-bit signed
+        Short, // 16-bit signed
+        Int,   // 32-bit signed
+        Long,  // 64-bit signed
         // 符号なし整数型
-        UnsignedTiny,   // 8-bit unsigned
-        UnsignedShort,  // 16-bit unsigned
-        UnsignedInt,    // 32-bit unsigned (unsigned)
-        UnsignedLong,   // 64-bit unsigned
+        UnsignedTiny,  // 8-bit unsigned
+        UnsignedShort, // 16-bit unsigned
+        UnsignedInt,   // 32-bit unsigned (unsigned)
+        UnsignedLong,  // 64-bit unsigned
         // その他のプリミティブ型
         Char,
         String,
@@ -39,14 +39,14 @@ struct HIRType {
         Enum,
         Interface,
         Pointer,
-        Reference,  // 参照型 (&T)
+        Reference,       // 参照型 (&T)
         RvalueReference, // 右辺値参照 (&&T)
         Array,
         Nullptr,
-        Function,   // 関数型
-        Generic,    // ジェネリック型パラメータ (T, U, etc.)
-        Optional,   // Optional型 (T?)
-        Result,     // Result型
+        Function, // 関数型
+        Generic,  // ジェネリック型パラメータ (T, U, etc.)
+        Optional, // Optional型 (T?)
+        Result,   // Result型
     };
 
     TypeKind kind = TypeKind::Unknown;
@@ -67,12 +67,12 @@ struct HIRType {
     std::vector<HIRType> generic_args;
 
     // 修飾子
-    bool is_const = false;          // const修飾子
-    bool is_static = false;         // static修飾子
-    bool is_volatile = false;       // volatile修飾子
-    bool is_pointer_const = false;  // const pointer (T* const)
-    bool is_pointee_const = false;  // pointer to const (const T*)
-    
+    bool is_const = false;         // const修飾子
+    bool is_static = false;        // static修飾子
+    bool is_volatile = false;      // volatile修飾子
+    bool is_pointer_const = false; // const pointer (T* const)
+    bool is_pointee_const = false; // pointer to const (const T*)
+
     // unsigned修飾子（TypeKindで表現されるが、互換性のため保持）
     bool is_unsigned = false;
 
@@ -252,6 +252,25 @@ struct HIRStmt {
 
     // match文
     std::unique_ptr<HIRExpr> match_expr;
+    struct MatchArm {
+        enum class PatternKind {
+            Wildcard,     // _
+            Literal,      // 42, "hello", true
+            Variable,     // x (変数束縛)
+            EnumVariant,  // Some(x), None, Ok(value), Err(e)
+            StructPattern // Point { x, y }
+        };
+
+        PatternKind pattern_kind;
+        std::string pattern_name;          // 変数名またはvariant名
+        std::vector<std::string> bindings; // パターン内の変数束縛
+        std::unique_ptr<HIRExpr> guard;    // when節のガード条件
+        std::vector<HIRStmt> body;         // アームの本体
+
+        // Enum型の情報（型チェック用）
+        std::string enum_type_name; // "Option<int>", "Result<int, string>"
+    };
+    std::vector<MatchArm> match_arms;
 
     // switch文
     std::unique_ptr<HIRExpr> switch_expr;
@@ -294,17 +313,17 @@ struct HIRFunction {
         // デフォルト引数サポート (v0.14.0)
         std::unique_ptr<HIRExpr> default_value;
         bool has_default = false;
-        
+
         // デフォルトコンストラクタ
         Parameter() = default;
-        
+
         // ムーブコンストラクタとムーブ代入演算子を明示的に定義
-        Parameter(Parameter&&) = default;
-        Parameter& operator=(Parameter&&) = default;
-        
+        Parameter(Parameter &&) = default;
+        Parameter &operator=(Parameter &&) = default;
+
         // コピーコンストラクタとコピー代入演算子を削除
-        Parameter(const Parameter&) = delete;
-        Parameter& operator=(const Parameter&) = delete;
+        Parameter(const Parameter &) = delete;
+        Parameter &operator=(const Parameter &) = delete;
     };
 
     std::string name;
@@ -316,6 +335,11 @@ struct HIRFunction {
     std::vector<std::string>
         generic_params; // ジェネリック型パラメータ (T, U, etc.)
     SourceLocation location;
+
+    // v0.14.0: 関数ポインタ型推論のサポート
+    bool returns_function_pointer = false; // 関数ポインタを返すかどうか
+    // TODO: Add function_pointer_signature field after fixing segmentation
+    // fault
 };
 
 // HIR構造体
@@ -354,22 +378,23 @@ struct HIRInterface {
         std::string name;
         std::vector<HIRFunction::Parameter> parameters;
         HIRType return_type;
-        
+
         // ムーブコンストラクタとムーブ代入演算子を明示的に定義
         MethodSignature() = default;
-        MethodSignature(MethodSignature&&) = default;
-        MethodSignature& operator=(MethodSignature&&) = default;
-        
+        MethodSignature(MethodSignature &&) = default;
+        MethodSignature &operator=(MethodSignature &&) = default;
+
         // コピーコンストラクタとコピー代入演算子を削除
-        MethodSignature(const MethodSignature&) = delete;
-        MethodSignature& operator=(const MethodSignature&) = delete;
+        MethodSignature(const MethodSignature &) = delete;
+        MethodSignature &operator=(const MethodSignature &) = delete;
     };
 
     std::string name;
     std::vector<MethodSignature> methods;
     std::vector<std::string> generic_params; // ジェネリックパラメータ
     SourceLocation location;
-    bool generate_value_type = true; // 値型interfaceも生成するか（デフォルト: true）
+    bool generate_value_type =
+        true; // 値型interfaceも生成するか（デフォルト: true）
 };
 
 // HIR Impl
@@ -397,7 +422,7 @@ struct HIRUnion {
         int64_t int_value;
         std::string string_value;
         bool bool_value;
-        HIRType type;  // For type variants (int | string | MyStruct)
+        HIRType type; // For type variants (int | string | MyStruct)
     };
 
     std::string name;
