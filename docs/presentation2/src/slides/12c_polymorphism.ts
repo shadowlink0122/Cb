@@ -12,7 +12,7 @@ void renderUI(Drawable* items[], int count) {
 }
 
 // 複数のインターフェースを要求
-void handleInteraction(Drawable & Clickable widget) {
+void handleInteraction(Drawable | Clickable widget) {
     widget.draw();
     if (widget.isClickable()) {
         widget.onClick();
@@ -28,7 +28,7 @@ Button button = {
 
 // インターフェース型として扱える
 Drawable* drawable = &button;
-drawable->draw();</code></pre>
+renderUI(drawable);</code></pre>
         </div>
 
         <div class="feature-note">

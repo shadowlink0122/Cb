@@ -9,7 +9,7 @@ export default function roadmap(): string {
                     <span class="phase-number">Phase 1</span>
                 </div>
                 <h3>基本構文</h3>
-                <p>変数・関数・制御構造<br/>型システム・配列<br/>（インタープリタ実装済）</p>
+                <p>変数・関数・制御構造<br/>型システム・配列<br/>インターフェース<br/>トレイト</p>
             </div>
 
             <div class="timeline-phase planned">
@@ -18,7 +18,7 @@ export default function roadmap(): string {
                     <span class="phase-number">Phase 3</span>
                 </div>
                 <h3>高度な機能</h3>
-                <p>ジェネリクス<br/>トレイト<br/>マクロシステム</p>
+                <p>ジェネリクス<br/>FFI<br/>マクロシステム<br/>（インタープリタ実装済）</p>
             </div>
 
             <div class="timeline-phase in-progress">
@@ -27,7 +27,7 @@ export default function roadmap(): string {
                     <span class="phase-number">Phase 2</span>
                 </div>
                 <h3>コンパイラ化</h3>
-                <p>HIR→C++変換<br/>async/await<br/>Option/Result型</p>
+                <p>HIR→C++変換<br/>バイナリ生成</p>
             </div>
 
             <div class="timeline-phase future">

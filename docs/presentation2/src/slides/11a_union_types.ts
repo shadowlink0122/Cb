@@ -13,15 +13,15 @@ value = true;               // OK: bool
 
 // 型チェックとパターンマッチング
 switch (value) {
-case int n:
-    println("Number: ", n);
-    break;
-case string s:
-    println("String: ", s);
-    break;
-case bool b:
-    println("Boolean: ", b);
-    break;
+    case (n){
+        println("Number: ", n);
+    }
+    case (s){
+        println("String: ", s);
+    }
+    case (b){
+        println("Boolean: ", b);
+    }
 }</code></pre>
         </div>
 

@@ -5,12 +5,12 @@ export default function asyncBasics(): string {
         <div class="code-section-large">
             <h3>⚡ 非同期関数の定義</h3>
             <pre><code class="language-cb">// 非同期関数の定義
-async void task_with_sleep(string name, int duration) {
-    println("{name}: Start (will sleep {duration}ms)");
-    sleep(duration);  // 非同期スリープ
-    println("{name}: After sleep");
+async int fetchData(string url) {
+    println("Fetching: {url}");
+    sleep(100);  // ネットワーク遅延をシミュレート
     yield;  // 明示的な協調ポイント
-    println("{name}: End");
+    println("Completed: {url}");
+    return 42;  // 取得したデータ数
 }
 
 // 並行実行の例

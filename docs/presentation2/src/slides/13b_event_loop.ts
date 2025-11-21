@@ -2,39 +2,37 @@ export default function eventLoop(): string {
     return `<section class="event-loop-slide">
         <h2>イベントループと協調的動作</h2>
 
-        <div class="code-section-large">
-            <h3>🔄 非同期処理パターン</h3>
-            <pre><code class="language-cb">// タイマーとイベント処理
-async void animation() {
-    for (int frame = 0; frame < 60; frame++) {
-        drawFrame(frame);
-        await sleep(16);  // 約60FPS
-    }
-}
+        <div class="two-column-layout">
+            <div class="column">
+                <h3>🔄 イベントループの仕組み</h3>
+                <ul>
+                    <li><strong>協調的マルチタスク</strong><br>各タスクが自発的にCPUを譲る</li>
+                    <li><strong>yield による制御</strong><br>明示的な実行権の譲渡ポイント</li>
+                    <li><strong>Auto-yield機能</strong><br>async関数は1処理ごとに自動yield</li>
+                    <li><strong>軽量な並行処理</strong><br>OSスレッドを使わない効率的な実装</li>
+                </ul>
+            </div>
 
-// I/O操作の非同期化
-async Result&lt;string, IOError&gt; readFile(string path) {
-    FileHandle file = openAsync(path);
-    if (!file.isValid()) {
-        return Result&lt;string, IOError&gt;::Err(IOError("Failed to open"));
-    }
-    string content = await file.read();
-    file.close();
-    return Result&lt;string, IOError&gt;::Ok(content);
-}
+            <div class="column">
+                <h3>⏱️ sleep関数の実装</h3>
+                <ul>
+                    <li><strong>時間経過のみを監視</strong><br>実際にスレッドをブロックしない</li>
+                    <li><strong>イベントループで管理</strong><br>タイムアウト時刻を記録して待機</li>
+                    <li><strong>他タスクに譲る</strong><br>sleep中は他のタスクが実行可能</li>
+                </ul>
 
-// Result型でエラーハンドリング
-async void processData() {
-    Result&lt;int, string&gt; result = await fetchData();
-    match (result) {
-        Ok(value) => { println("Success: ", value); }
-        Err(error) => { println("Failed: ", error); }
-    }
+                <pre style="font-size: 0.4em; margin-top: 1em;"><code class="language-cb">// sleepの動作イメージ
+async void example() {
+    println("Start");
+    sleep(1000);  // 1秒待機
+    // ← ここで他のタスクが実行される
+    println("After 1 second");
 }</code></pre>
+            </div>
         </div>
 
         <div class="feature-note">
-            <p>⚙️ <strong>OSスレッドを使わない軽量な並行処理</strong></p>
+            <p>⚙️ <strong>Auto-yieldにより、明示的なyield不要で協調的動作を実現</strong></p>
         </div>
     </section>`;
 }
