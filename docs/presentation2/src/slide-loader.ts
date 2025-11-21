@@ -23,11 +23,13 @@ import switchStatement from './slides/10d_switch_statement';
 import unionTypes from './slides/11a_union_types';
 import literalTypes from './slides/11b_literal_types';
 import structLiterals from './slides/11c_struct_literals';
+import structDefinition from './slides/11d_struct_definition';
 
 // Interface & Impl split slides
 import interfaceDefinition from './slides/12a_interface_definition';
 import implBlocks from './slides/12b_impl_blocks';
 import polymorphism from './slides/12c_polymorphism';
+import constructorDestructor from './slides/12d_constructor_destructor';
 
 // Async/Await split slides
 import asyncBasics from './slides/13a_async_basics';
@@ -49,6 +51,9 @@ import ffi from './slides/15f_ffi';
 // Error handling split slides
 import optionType from './slides/16a_option_type';
 import resultType from './slides/16b_result_type';
+
+// Section 1 Summary
+import section1Summary from './slides/17_section1_summary';
 
 // Section 2 - AI Development
 import aiDevelopmentIntro from './slides/20_ai_development_intro';
@@ -96,10 +101,12 @@ const slideModules = [
     unionTypes,               // ユニオン型
     literalTypes,             // リテラル型
     structLiterals,           // 構造体リテラル
+    structDefinition,         // 構造体定義とアクセス修飾子
     // Interface & Impl (分割版)
     interfaceDefinition,      // Interface定義
     implBlocks,               // Implブロック
     polymorphism,             // ポリモーフィズム
+    constructorDestructor,    // コンストラクタ/デストラクタ & defer
     // Async/Await (分割版)
     asyncBasics,              // 非同期の基本
     eventLoop,                // イベントループ
@@ -117,6 +124,7 @@ const slideModules = [
     // エラーハンドリング (分割版)
     optionType,               // Option型
     resultType,               // Result型
+    section1Summary,          // セクション1まとめ
     // Section 2: AIによるバイブコーディング
     section2Cover,            // Section 2 表紙
     aiDevelopmentIntro,       // AI開発の実態

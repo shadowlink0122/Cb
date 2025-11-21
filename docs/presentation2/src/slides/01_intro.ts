@@ -23,5 +23,12 @@ export default function introSlide(): string {
                 </ul>
             </div>
         </div>
+
+        <div style="text-align: center; margin-top: 2em; padding: 1em; background: #f8f9fa; border-radius: 8px;">
+            <p style="font-size: 0.9em; margin: 0;">
+                💬 <strong>開発状況を垂れ流し中：</strong>
+                <a href="https://osdev.jp/" target="_blank" style="color: #3498db; text-decoration: none; font-weight: bold;">osdev-jp</a>
+            </p>
+        </div>
     </section>`;
 }
