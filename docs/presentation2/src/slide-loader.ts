@@ -23,10 +23,10 @@ const slideModules = [
     cbOverviewSlide,
     languageFeatures,
     cbVision,
-    currentFocus,
-    hirArchitecture,
     techStack,
-    architectureDiagram,
+    architectureDiagram,      // 実行アーキテクチャ
+    hirArchitecture,          // HIR（実行アーキテクチャの次）
+    currentFocus,             // FFI（HIRの次）
     parserAndTest,
     roadmap,
     docsAndRelease,

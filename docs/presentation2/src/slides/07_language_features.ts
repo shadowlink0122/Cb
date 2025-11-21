@@ -19,6 +19,27 @@ export default function languageFeatures(): string {
                         </tr>
                     </thead>
                     <tbody>
+                        <tr class="cpp-row">
+                            <td class="lang-name">
+                                <span class="lang-badge cpp">C++</span>
+                            </td>
+                            <td class="feature-list">
+                                <ul>
+                                    <li>テンプレート</li>
+                                    <li>演算子オーバーロード</li>
+                                    <li>ポインタ/参照</li>
+                                    <li>ゼロコスト抽象化</li>
+                                </ul>
+                            </td>
+                            <td class="implementation">
+                                <ul>
+                                    <li>ジェネリクス[T]</li>
+                                    <li>メソッド定義での代替</li>
+                                    <li>ポインタ(*T)と参照(&T)</li>
+                                    <li>最適化コンパイル</li>
+                                </ul>
+                            </td>
+                        </tr>
                         <tr class="rust-row">
                             <td class="lang-name">
                                 <span class="lang-badge rust">Rust</span>
@@ -82,27 +103,6 @@ export default function languageFeatures(): string {
                                 </ul>
                             </td>
                         </tr>
-                        <tr class="cpp-row">
-                            <td class="lang-name">
-                                <span class="lang-badge cpp">C++</span>
-                            </td>
-                            <td class="feature-list">
-                                <ul>
-                                    <li>テンプレート</li>
-                                    <li>演算子オーバーロード</li>
-                                    <li>ポインタ/参照</li>
-                                    <li>ゼロコスト抽象化</li>
-                                </ul>
-                            </td>
-                            <td class="implementation">
-                                <ul>
-                                    <li>ジェネリクス[T]</li>
-                                    <li>メソッド定義での代替</li>
-                                    <li>ポインタ(*T)と参照(&T)</li>
-                                    <li>最適化コンパイル</li>
-                                </ul>
-                            </td>
-                        </tr>
                         <tr class="python-row">
                             <td class="lang-name">
                                 <span class="lang-badge python">Python</span>
@@ -111,7 +111,6 @@ export default function languageFeatures(): string {
                                 <ul>
                                     <li>self キーワード</li>
                                     <li>リスト内包表記</li>
-                                    <li>動的型付け</li>
                                     <li>シンプルな構文</li>
                                 </ul>
                             </td>
@@ -119,7 +118,6 @@ export default function languageFeatures(): string {
                                 <ul>
                                     <li>メソッドでのself使用</li>
                                     <li>配列操作（計画中）</li>
-                                    <li>静的型付けで実装</li>
                                     <li>読みやすい構文</li>
                                 </ul>
                             </td>

@@ -45,6 +45,7 @@ export default function parserAndTest(): string {
                     </div>
                     <div class="test-card">
                         <h4>テストスイート</h4>
+                        <code>make test</code>
                         <code>./run_unified_tests.sh</code>
                         <ul>
                             <li>850+のテストケース</li>

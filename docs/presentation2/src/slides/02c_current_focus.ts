@@ -40,8 +40,9 @@ export default function currentFocus(): string {
                         <div class="cb-code">
                             <code>
 // Cb側での利用<br/>
-import "libmath.a";<br/>
-import "network.so";<br/>
+use foreign.math {<br/>
+&nbsp;int calc(int, int);<br/>
+}<br/>
 <br/>
 void main() {<br/>
 &nbsp;// 既存関数を呼び出し<br/>

@@ -1,5 +1,6 @@
 export default function introSlide(): string {
     return `<section class="intro-slide">
+        <h1><br></h1>
         <h2>自己紹介</h2>
         <div class="profile-container">
             <div class="profile-image">
