@@ -383,9 +383,21 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    min-height: 100%;
     padding: 2em;
     /* White background instead of gradient */
     background: white;
+}
+
+.section-divider.center-content {
+    height: 100%;
+}
+
+.section-divider .section-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .section-divider h1 {

@@ -1,6 +1,7 @@
 // Slide imports - organized by section
 import titleSlide from './slides/00_title';
 import introSlide from './slides/01_intro';
+import tableOfContents from './slides/01a_table_of_contents';
 import cbOverviewSlide from './slides/02_cb_overview';
 import cbVision from './slides/02b_cb_vision';
 import currentFocus from './slides/02c_current_focus';
@@ -94,6 +95,7 @@ import section3Cover from './slides/section3_cover';
 const slideModules = [
     titleSlide,
     introSlide,
+    tableOfContents,
     cbOverviewSlide,
     languageFeatures,
     cbVision,
