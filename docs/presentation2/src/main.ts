@@ -31,6 +31,10 @@ function initPresentation() {
             transitionSpeed: 'default',
             backgroundTransition: 'fade',
 
+            // Enable keyboard navigation and overview
+            keyboard: true,
+            overview: true,
+
             // Enable scrolling
             // scrollActivationWidth: null,  // This option may not exist in the current version
             // scrollProgress: true,  // This option may not exist in the current version
@@ -53,9 +57,19 @@ function initPresentation() {
         deck.initialize().then(() => {
             // Presentation is ready
             console.log('Reveal.js initialized successfully');
+            console.log('Total slides:', deck.getTotalSlides());
+            console.log('Current slide:', deck.getCurrentSlide());
 
             // Apply Cb syntax highlighting
             highlightCbCode();
+
+            // Debug: Log when overview mode is toggled
+            deck.on('overviewshown', () => {
+                console.log('Overview mode shown');
+            });
+            deck.on('overviewhidden', () => {
+                console.log('Overview mode hidden');
+            });
         });
 
         // Add keyboard shortcuts after initialization
