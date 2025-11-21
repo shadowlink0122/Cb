@@ -15,6 +15,7 @@ import languageFeatures from './slides/07_language_features';
 
 // Basic syntax split slides
 import basicTypes from './slides/10a_basic_types';
+import primitiveTypes from './slides/10a2_primitive_types';
 import constPointers from './slides/10c_const_pointers';
 import controlFlow from './slides/10b_control_flow';
 import switchStatement from './slides/10d_switch_statement';
@@ -38,6 +39,7 @@ import errorPropagation from './slides/13c_error_propagation';
 
 // Preprocessor split slides
 import includeModule from './slides/14a_include_module';
+import exportModule from './slides/14a2_export';
 import basicMacros from './slides/14b_basic_macros';
 
 // Advanced features split slides
@@ -46,11 +48,15 @@ import functionPointer from './slides/15b_function_pointer';
 import memoryManagement from './slides/15c_memory_management';
 import patternMatching from './slides/15d_pattern_matching';
 import generics from './slides/15e_generics';
+import genericInterfaceImpl from './slides/15e2_generic_interface_impl';
 import ffi from './slides/15f_ffi';
 
 // Error handling split slides
 import optionType from './slides/16a_option_type';
 import resultType from './slides/16b_result_type';
+
+// VSCode Extension
+import vscodeSyntax from './slides/16c_vscode_syntax';
 
 // Section 1 Summary
 import section1Summary from './slides/17_section1_summary';
@@ -73,9 +79,16 @@ import sanitizerExamples from './slides/29b_sanitizer_examples';
 import refactoringStory from './slides/30_refactoring_story';
 import section2Summary from './slides/31_section2_summary';
 
+// Section 3 - Lessons Learned
+import lessonsLearned from './slides/30a_lessons_learned';
+import challengesFaced from './slides/30b_challenges_faced';
+import costComparison from './slides/30b2_cost_comparison';
+import keyTakeaways from './slides/30c_key_takeaways';
+import conclusion from './slides/30d_conclusion';
+import thankYou from './slides/30e_thank_you';
+
 import section2Cover from './slides/section2_cover';
 import section3Cover from './slides/section3_cover';
-import section4Cover from './slides/section4_cover';
 
 // Define slide structure - these are synchronous functions
 const slideModules = [
@@ -94,6 +107,7 @@ const slideModules = [
     section1Cover,            // Section 1: 実装した機能
     // 基本構文 (分割版)
     basicTypes,               // 基本型
+    primitiveTypes,           // プリミティブ型
     constPointers,            // const修飾子とポインタ
     controlFlow,              // 制御構文
     switchStatement,          // switch文の詳細
@@ -112,7 +126,8 @@ const slideModules = [
     eventLoop,                // イベントループ
     errorPropagation,         // エラー伝播演算子
     // プリプロセッサ (分割版)
-    includeModule,            // モジュールシステム
+    includeModule,            // モジュールシステム - import
+    exportModule,             // モジュールシステム - export
     basicMacros,              // 基本的なマクロ
     // 高度な機能 (分割版)
     enumType,                 // Enum型
@@ -120,10 +135,13 @@ const slideModules = [
     memoryManagement,         // メモリ管理
     patternMatching,          // パターンマッチング
     generics,                 // ジェネリクス
+    genericInterfaceImpl,     // ジェネリクス - Interface/Impl
     ffi,                      // FFI
     // エラーハンドリング (分割版)
     optionType,               // Option型
     resultType,               // Result型
+    // VSCode拡張
+    vscodeSyntax,             // VSCodeシンタックスハイライト
     section1Summary,          // セクション1まとめ
     // Section 2: AIによるバイブコーディング
     section2Cover,            // Section 2 表紙
@@ -143,8 +161,14 @@ const slideModules = [
     sanitizerExamples,        // サニタイザー実例
     refactoringStory,         // リファクタリング実例
     section2Summary,          // セクション2まとめ
-    section3Cover,
-    section4Cover
+    // Section 3: 学んだこと・振り返り
+    section3Cover,            // Section 3 表紙
+    lessonsLearned,           // 良かったこと
+    challengesFaced,          // 課題・ダメだったこと
+    costComparison,           // 開発コストの現実
+    keyTakeaways,             // 学んだこと
+    conclusion,               // 今後の展望
+    thankYou                  // ご清聴ありがとうございました
 ];
 
 export function loadSlides(container: HTMLElement): void {

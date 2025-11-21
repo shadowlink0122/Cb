@@ -16,7 +16,7 @@ export default function aiDevelopmentIntro(): string {
             <div class="column">
                 <h3>💡 使用しているAIツール</h3>
                 <ul>
-                    <li><strong>GitHub Copilot</strong><br>コード補完・生成</li>
+                    <li><strong>GitHub Copilot Pro+</strong><br>コード補完・生成</li>
                     <li><strong>Claude Code</strong><br>複雑な実装・リファクタリング</li>
                     <li><strong>よく使うモデル</strong><br>Claude Sonnet4.5</li>
                 </ul>

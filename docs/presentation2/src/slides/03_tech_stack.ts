@@ -11,7 +11,7 @@ export default function techStack(): string {
                 <h3><span class="tech-icon-inline">C++17</span> 実装言語</h3>
                 <ul>
                     <li>モダンC++機能（variant, optional）</li>
-                    <li>GitHub Copilot & Claude Code活用</li>
+                    <li>GitHub Copilot Pro+ & Claude Code活用</li>
                     <li>構造化束縛・テンプレート</li>
                     <li>高速コンパイル性能</li>
                 </ul>
