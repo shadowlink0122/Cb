@@ -185,6 +185,102 @@
     margin-bottom: 0.3em;
 }
 
+/* Section 2: AI Development Slides - Spacing and Layout */
+.two-column-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3em;
+    margin: 2em 0;
+}
+
+.two-column-layout .column {
+    background: #f8f9fa;
+    padding: 1.5em;
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.two-column-layout h3 {
+    font-size: 1.1em;
+    color: var(--secondary-color);
+    margin-bottom: 1em;
+    margin-top: 0;
+}
+
+.two-column-layout ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.two-column-layout ol {
+    padding-left: 1.5em;
+    margin: 0;
+}
+
+.two-column-layout li {
+    padding: 0.4em 0;
+    line-height: 1.5;
+}
+
+.two-column-layout ul li {
+    padding-left: 1.2em;
+    position: relative;
+}
+
+.two-column-layout ul li:before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: var(--primary-color);
+}
+
+.two-column-layout ol li {
+    margin-bottom: 0.5em;
+}
+
+.content-section {
+    margin-bottom: 2em;
+    padding: 0 1.5em;
+}
+
+.content-section:last-child {
+    margin-bottom: 1em;
+}
+
+.content-section h3 {
+    margin-top: 0.8em;
+    margin-bottom: 0.8em;
+}
+
+.content-section ul,
+.content-section ol {
+    margin-top: 0.5em;
+    margin-bottom: 1em;
+}
+
+.content-section p {
+    margin: 0.5em 0;
+}
+
+.feature-note {
+    margin-top: 2em;
+    padding: 1.2em 1.5em;
+    background: #f8f9fa;
+    border-left: 4px solid var(--primary-color);
+    border-radius: 6px;
+}
+
+.feature-note p {
+    margin: 0.5em 0;
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+.feature-note p:last-child {
+    margin-bottom: 0;
+}
+
 /* CB Overview Slide */
 .cb-overview-slide .overview-container {
     margin-top: 1em;

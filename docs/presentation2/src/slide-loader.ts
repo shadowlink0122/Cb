@@ -50,6 +50,24 @@ import ffi from './slides/15f_ffi';
 import optionType from './slides/16a_option_type';
 import resultType from './slides/16b_result_type';
 
+// Section 2 - AI Development
+import aiDevelopmentIntro from './slides/20_ai_development_intro';
+import aiBenefits from './slides/21_ai_benefits';
+import humanRole from './slides/22_human_role';
+import aiChallenges from './slides/23_ai_challenges';
+import documentationStrategy from './slides/24_documentation_strategy';
+import documentationPractice from './slides/24a_documentation_practice';
+import refactoringNecessity from './slides/25_refactoring_necessity';
+import toolsOverview from './slides/26_tools_overview';
+import testingIntro from './slides/27a_testing_intro';
+import testingExamples from './slides/27b_testing_examples';
+import debugModeIntro from './slides/28a_debug_mode_intro';
+import debugModeExamples from './slides/28b_debug_mode_examples';
+import sanitizerIntro from './slides/29a_sanitizer_intro';
+import sanitizerExamples from './slides/29b_sanitizer_examples';
+import refactoringStory from './slides/30_refactoring_story';
+import section2Summary from './slides/31_section2_summary';
+
 import section2Cover from './slides/section2_cover';
 import section3Cover from './slides/section3_cover';
 import section4Cover from './slides/section4_cover';
@@ -99,7 +117,24 @@ const slideModules = [
     // エラーハンドリング (分割版)
     optionType,               // Option型
     resultType,               // Result型
-    section2Cover,
+    // Section 2: AIによるバイブコーディング
+    section2Cover,            // Section 2 表紙
+    aiDevelopmentIntro,       // AI開発の実態
+    aiBenefits,               // AIのメリット
+    humanRole,                // 人間の役割
+    aiChallenges,             // AI開発の課題
+    documentationStrategy,    // ドキュメント戦略
+    documentationPractice,    // 実際のドキュメント管理
+    refactoringNecessity,     // リファクタリングの必要性
+    toolsOverview,            // 3つの武器
+    testingIntro,             // テスト入門
+    testingExamples,          // テスト実例
+    debugModeIntro,           // デバッグモード入門
+    debugModeExamples,        // デバッグモード実例
+    sanitizerIntro,           // サニタイザー入門
+    sanitizerExamples,        // サニタイザー実例
+    refactoringStory,         // リファクタリング実例
+    section2Summary,          // セクション2まとめ
     section3Cover,
     section4Cover
 ];
