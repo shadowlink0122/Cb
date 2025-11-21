@@ -12,6 +12,44 @@ import roadmap from './slides/05_roadmap';
 import docsAndRelease from './slides/06_docs_release';
 import section1Cover from './slides/section1_cover';
 import languageFeatures from './slides/07_language_features';
+
+// Basic syntax split slides
+import basicTypes from './slides/10a_basic_types';
+import constPointers from './slides/10c_const_pointers';
+import controlFlow from './slides/10b_control_flow';
+import switchStatement from './slides/10d_switch_statement';
+
+// Type system split slides
+import unionTypes from './slides/11a_union_types';
+import literalTypes from './slides/11b_literal_types';
+import structLiterals from './slides/11c_struct_literals';
+
+// Interface & Impl split slides
+import interfaceDefinition from './slides/12a_interface_definition';
+import implBlocks from './slides/12b_impl_blocks';
+import polymorphism from './slides/12c_polymorphism';
+
+// Async/Await split slides
+import asyncBasics from './slides/13a_async_basics';
+import eventLoop from './slides/13b_event_loop';
+import errorPropagation from './slides/13c_error_propagation';
+
+// Preprocessor split slides
+import includeModule from './slides/14a_include_module';
+import basicMacros from './slides/14b_basic_macros';
+
+// Advanced features split slides
+import enumType from './slides/15a_enum';
+import functionPointer from './slides/15b_function_pointer';
+import memoryManagement from './slides/15c_memory_management';
+import patternMatching from './slides/15d_pattern_matching';
+import generics from './slides/15e_generics';
+import ffi from './slides/15f_ffi';
+
+// Error handling split slides
+import optionType from './slides/16a_option_type';
+import resultType from './slides/16b_result_type';
+
 import section2Cover from './slides/section2_cover';
 import section3Cover from './slides/section3_cover';
 import section4Cover from './slides/section4_cover';
@@ -30,7 +68,37 @@ const slideModules = [
     parserAndTest,
     roadmap,
     docsAndRelease,
-    section1Cover,
+    section1Cover,            // Section 1: 実装した機能
+    // 基本構文 (分割版)
+    basicTypes,               // 基本型
+    constPointers,            // const修飾子とポインタ
+    controlFlow,              // 制御構文
+    switchStatement,          // switch文の詳細
+    // 型システム (分割版)
+    unionTypes,               // ユニオン型
+    literalTypes,             // リテラル型
+    structLiterals,           // 構造体リテラル
+    // Interface & Impl (分割版)
+    interfaceDefinition,      // Interface定義
+    implBlocks,               // Implブロック
+    polymorphism,             // ポリモーフィズム
+    // Async/Await (分割版)
+    asyncBasics,              // 非同期の基本
+    eventLoop,                // イベントループ
+    errorPropagation,         // エラー伝播演算子
+    // プリプロセッサ (分割版)
+    includeModule,            // モジュールシステム
+    basicMacros,              // 基本的なマクロ
+    // 高度な機能 (分割版)
+    enumType,                 // Enum型
+    functionPointer,          // 関数ポインタ
+    memoryManagement,         // メモリ管理
+    patternMatching,          // パターンマッチング
+    generics,                 // ジェネリクス
+    ffi,                      // FFI
+    // エラーハンドリング (分割版)
+    optionType,               // Option型
+    resultType,               // Result型
     section2Cover,
     section3Cover,
     section4Cover

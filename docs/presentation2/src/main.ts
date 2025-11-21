@@ -5,6 +5,7 @@ import RevealMath from 'reveal.js/plugin/math/math';
 
 // Import slides
 import { loadSlides } from './slide-loader';
+import { highlightCbCode } from './syntax-highlight';
 
 // Initialize Reveal.js
 function initPresentation() {
@@ -31,8 +32,8 @@ function initPresentation() {
             backgroundTransition: 'fade',
 
             // Enable scrolling
-            scrollActivationWidth: null,
-            scrollProgress: true,
+            // scrollActivationWidth: null,  // This option may not exist in the current version
+            // scrollProgress: true,  // This option may not exist in the current version
 
             // Disable features that might cause rendering issues
             preloadIframes: false,
@@ -52,6 +53,9 @@ function initPresentation() {
         deck.initialize().then(() => {
             // Presentation is ready
             console.log('Reveal.js initialized successfully');
+
+            // Apply Cb syntax highlighting
+            highlightCbCode();
         });
 
         // Add keyboard shortcuts after initialization

@@ -304,12 +304,19 @@
     border-radius: 6px;
     padding: 1em;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    /* No scrolling for code blocks */
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
 }
 
 .reveal pre code {
     display: block;
     padding: 0;
-    overflow: auto;
+    /* No scrolling for code content */
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
     word-wrap: break-word;
     color: var(--code-text);
     background: transparent;
@@ -1964,4 +1971,144 @@
 
 .commit-info span {
     opacity: 0.9;
+}
+
+/* ========================================
+   Section 1: Code display and syntax highlighting
+   ======================================== */
+
+/* Prevent scrolling in code blocks - force all content visible */
+.basic-syntax-slide pre,
+.type-system-slide pre,
+.interface-impl-slide pre,
+.async-await-slide pre,
+.preprocessor-slide pre,
+.advanced-features-slide pre,
+.error-handling-slide pre {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    font-size: 0.5em;  /* Smaller font for more content */
+    line-height: 1.3;  /* Tighter line spacing */
+}
+
+/* Keep normal slide scrolling behavior */
+.reveal .slides section {
+    overflow-y: auto;  /* Allow vertical scrolling for slides */
+    overflow-x: hidden;
+    height: 100vh;
+}
+
+/* Keep slide container normal */
+.reveal .slides {
+    overflow: auto;  /* Normal scrolling for slides */
+}
+
+/* Specifically target all pre and code elements to disable scrolling */
+.reveal section pre,
+.reveal section code,
+.reveal .slides section pre,
+.reveal .slides section code {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    max-height: none !important;
+    height: auto !important;
+}
+
+/* Remove scrollbar styling if any */
+.reveal pre::-webkit-scrollbar,
+.reveal code::-webkit-scrollbar {
+    display: none !important;
+}
+
+/* Ensure code containers don't have fixed heights */
+.code-section,
+.feature-block,
+.code-block-large,
+.async-block,
+.feature-column,
+.feature-card,
+.option-result-block,
+.exception-block {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* Compact code blocks for fitting more content */
+.basic-syntax-slide .code-section,
+.type-features .feature-block,
+.interface-examples .code-block-large,
+.async-features .async-block,
+.preprocessor-features .feature-column,
+.advanced-grid .feature-card,
+.error-handling-features .option-result-block,
+.error-handling-features .exception-block {
+    margin: 0.5em 0;
+}
+
+.basic-syntax-slide .code-section pre,
+.type-features .feature-block pre,
+.interface-examples .code-block-large pre,
+.async-features .async-block pre,
+.preprocessor-features .feature-column pre,
+.advanced-grid .feature-card pre,
+.error-handling-features pre {
+    padding: 0.5em;
+    margin: 0.3em 0;
+}
+
+/* Syntax Highlighting for Cb language */
+.language-cb {
+    color: #e8e8e8;
+    background: #1e1e1e;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+/* Keywords */
+.language-cb .keyword {
+    color: #569cd6;
+    font-weight: bold;
+}
+
+/* Types */
+.language-cb .type {
+    color: #4ec9b0;
+}
+
+/* Strings */
+.language-cb .string {
+    color: #ce9178;
+}
+
+/* Numbers */
+.language-cb .number {
+    color: #b5cea8;
+}
+
+/* Comments */
+.language-cb .comment {
+    color: #6a9955;
+    font-style: italic;
+}
+
+/* Functions */
+.language-cb .function {
+    color: #dcdcaa;
+}
+
+/* Operators */
+.language-cb .operator {
+    color: #d4d4d4;
+}
+
+/* Preprocessor directives */
+.language-cb .preprocessor {
+    color: #c586c0;
+}
+
+/* Variables */
+.language-cb .variable {
+    color: #9cdcfe;
 }
