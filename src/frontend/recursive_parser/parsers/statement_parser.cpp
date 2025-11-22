@@ -889,6 +889,13 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
                 var_node->is_array = true;
                 var_node->array_type_info =
                     ArrayTypeInfo(TYPE_ENUM, dimensions);
+                // v0.14.0: enum配列の要素型名を設定（ポインタマーカーを含む）
+                std::string element_type = type_name;
+                if (pointer_depth > 0) {
+                    element_type += std::string(pointer_depth, '*');
+                    var_node->array_type_info.base_type = TYPE_POINTER;
+                }
+                var_node->array_type_info.element_type_name = element_type;
                 var_node->type_info =
                     static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_ENUM);
 
@@ -954,6 +961,13 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
                 multi_node->is_array = true;
                 multi_node->array_type_info =
                     ArrayTypeInfo(TYPE_ENUM, dimensions);
+                // v0.14.0: enum配列の要素型名を設定（ポインタマーカーを含む）
+                std::string element_type = type_name;
+                if (pointer_depth > 0) {
+                    element_type += std::string(pointer_depth, '*');
+                    multi_node->array_type_info.base_type = TYPE_POINTER;
+                }
+                multi_node->array_type_info.element_type_name = element_type;
             }
 
             // 各変数をvar_declarations_に追加
@@ -984,6 +998,13 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
                     var_node->is_array = true;
                     var_node->array_type_info =
                         ArrayTypeInfo(TYPE_ENUM, dimensions);
+                    // v0.14.0: enum配列の要素型名を設定（ポインタマーカーを含む）
+                    std::string element_type = type_name;
+                    if (pointer_depth > 0) {
+                        element_type += std::string(pointer_depth, '*');
+                        var_node->array_type_info.base_type = TYPE_POINTER;
+                    }
+                    var_node->array_type_info.element_type_name = element_type;
                     var_node->type_info =
                         static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_ENUM);
 
@@ -1650,11 +1671,12 @@ ASTNode *StatementParser::parseArrayDeclaration(
     }
     node->array_type_info = ArrayTypeInfo(base_type_info, dimensions);
 
-    // v0.14.0: ポインタ配列の場合、element_type_nameを設定
+    // v0.14.0: 配列要素の型名を設定（ポインタ配列、構造体配列、enum配列など）
+    // type_nameは配列部分を除いた基本型名（例: "Color", "int*", "Point"）
+    node->array_type_info.element_type_name = type_name;
+
+    // ポインタ配列の場合、base_typeをPOINTERに設定
     if (pointer_depth > 0) {
-        // type_nameからポインタ型部分を抽出（例: "int*[3]" -> "int*"）
-        std::string element_type = type_name; // type_nameは配列部分を除いた型名
-        node->array_type_info.element_type_name = element_type;
         node->array_type_info.base_type = TYPE_POINTER;
     }
 

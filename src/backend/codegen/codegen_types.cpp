@@ -277,11 +277,21 @@ std::string HIRToCpp::generate_array_type(const HIRType &type) {
 
         // 基本型（最も内側の要素型）を生成
         std::string result;
+        if (debug_mode && current->inner_type) {
+            std::cerr << "[CODEGEN_ARRAY_INNER] inner_type exists, kind="
+                      << static_cast<int>(current->inner_type->kind)
+                      << ", name='" << current->inner_type->name << "'"
+                      << std::endl;
+        }
         if (current->inner_type &&
             current->inner_type->kind != HIRType::TypeKind::Array &&
             current->inner_type->array_dimensions.empty()) {
             // inner_typeがある場合で、それが配列でない場合のみ使用
             result = generate_type(*current->inner_type);
+            if (debug_mode) {
+                std::cerr << "[CODEGEN_ARRAY_INNER] Generated element type: '"
+                          << result << "'" << std::endl;
+            }
         } else {
             // inner_typeがない場合は、currentの型kindから基本型を生成
             switch (current->kind) {

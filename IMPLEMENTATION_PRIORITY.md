@@ -1,12 +1,14 @@
 # Cb言語 実装優先度リスト
 
 **最終更新**: 2025-11-22
-**現在の統合テスト成功率**: 57.0% (488/856)
+**現在の統合テスト成功率**: 57.4% (491/856)
 **優先度1（メモリ管理）**: ✅ 完了（new/delete演算子実装済み）
 **優先度2（関数ポインタ）**: ✅ 95%実装（直接宣言✅、戻り値✅、配列✅、配列要素直接呼出し❌）
 **優先度3（ポインタ配列）**: ✅ 部分完了（型解析修正済み、関数渡し未対応）
 **優先度5（Option/Result）**: ✅ Match式パターンマッチング完全実装
 **優先度8（Discard Variable）**: ✅ 完了（読み込み禁止チェック実装済み）
+**優先度9（Enum配列）**: ✅ 実装完了（v0.14.0、ポインタ配列は未対応）
+**優先度10（typedef enum）**: ✅ 完了（v0.14.0、基本機能実装済み）
 
 このドキュメントは、統合テスト結果を基に、実装が必要な機能の優先度をまとめたものです。
 async/await機能は最後に実装します。
@@ -1071,4 +1073,73 @@ builtin_types/sleep_test.cb
   - 🟡 配列要素の直接呼び出し `operations[0](10, 5)` のサポート
   - ❌ 関数ポインタの比較演算子サポート
 - **成功率の改善**: ~8テスト分（関数ポインタテストがほぼ動作）
+
+
+## 📝 優先度9: Enum配列の実装 ✅ 完了
+
+### v0.14.0で実装完了（2025-11-22）
+
+**実装内容**:
+- ✅ Enum配列の`element_type_name`設定（パーサー、HIR、codegen）
+- ✅ Enum名トラッキングシステムの実装
+- ✅ HIRでのenum型検出とコード生成
+- ✅ 簡単なenum配列のコンパイルと実行成功
+
+**修正ファイル**:
+1. `src/backend/ir/hir/hir_generator.h`: enum名トラッキング用フィールド追加
+2. `src/backend/ir/hir/hir_decl_type_converter.cpp`: enum型検出とトラッキング（4箇所）
+3. `src/backend/codegen/codegen_types.cpp`: enum型のコード生成
+4. `src/frontend/recursive_parser/parsers/variable_declaration_parser.cpp`: `base_type`使用に修正
+5. `src/frontend/recursive_parser/parsers/statement_parser.cpp`: enum配列の`element_type_name`設定（3箇所）
+
+**動作確認**:
+```cb
+enum Color {
+    RED,
+    GREEN,
+    BLUE
+};
+
+void main() {
+    Color[3] colors = [Color::RED, Color::GREEN, Color::BLUE];  // ✅ 動作
+    println(colors[0]);  // ✅ 出力成功
+}
+```
+
+**生成されるC++コード**:
+```cpp
+std::array<Color, 3> CB_HIR_colors = {Color::RED, Color::GREEN, Color::BLUE};
+```
+
+**残課題**:
+- ❌ Enumポインタ配列 (`Color*[5]`) はHIR生成段階の問題で未対応
+  - `Color*[5]`が`std::array<Color, 5>`と生成されてしまう（正しくは`std::array<Color*, 5>`）
+  - HIRでポインタ配列のinner_typeが正しく設定されていない
+
+**テストケース**:
+```
+enum/basic.cb  ✅
+enum/array_index.cb  🟡（実行時セグフォルト）
+pointer/test_enum_pointer_basic.cb  ❌（ポインタ配列未対応）
+pointer/test_enum_pointer_function.cb  ❌（ポインタ配列未対応）
+```
+
+---
+
+## 📝 優先度10: typedef enum の実装 ✅ 完了
+
+### v0.14.0で基本機能実装完了
+
+**実装内容**:
+- ✅ typedef経由のenum定義
+- ✅ typedef enumの基本的な使用
+
+**テストケース**:
+```
+typedef/test_enum_typedef_basic.cb  ✅
+typedef/test_enum_typedef_functions.cb  ✅
+```
+
+**残課題**:
+- 🟡 一部の複雑なtypedef enumケースで失敗
 

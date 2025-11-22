@@ -972,6 +972,16 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
                 inner_type_info = TYPE_DOUBLE;
             else if (inner_type_name == "string")
                 inner_type_info = TYPE_STRING;
+            // v0.14.0: enum型のチェック
+            else if (generator_->enum_names_.find(inner_type_name) !=
+                     generator_->enum_names_.end()) {
+                inner_type_info = TYPE_ENUM;
+                if (debug_mode) {
+                    std::cerr
+                        << "[HIR_TYPE] Detected enum pointer type: "
+                        << inner_type_name << std::endl;
+                }
+            }
 
             // ポインタのポインタ（int** など）の場合
             if (inner_type_name.back() == '*') {
@@ -1082,6 +1092,19 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
                         } else if (base_element_type == "void") {
                             hir_type.inner_type->inner_type->kind =
                                 HIRType::TypeKind::Void;
+                        } else if (generator_->enum_names_.find(
+                                       base_element_type) !=
+                                   generator_->enum_names_.end()) {
+                            // v0.14.0: Enum pointer array detection (e.g., Color*[3])
+                            hir_type.inner_type->inner_type->kind =
+                                HIRType::TypeKind::Enum;
+                            hir_type.inner_type->inner_type->name =
+                                base_element_type;
+                            if (debug_mode) {
+                                std::cerr
+                                    << "[HIR_TYPE] Detected enum pointer array element: "
+                                    << base_element_type << std::endl;
+                            }
                         } else {
                             // 構造体ポインタ
                             hir_type.inner_type->inner_type->kind =
