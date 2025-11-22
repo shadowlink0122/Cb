@@ -286,24 +286,53 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
             if (is_pointer_arithmetic) {
                 // すでに生成した文字列を再利用
                 std::string right_expr = generate_expr(*expr.right);
-                std::string result = "((void*)((char*)";
-                result += left_expr_str;
-                result += " " + expr.op + " ";
-                result += right_expr;
-                result += "))";
-                return result;
+
+                // 型情報があり、void*でない場合は通常のポインタ演算
+                if (expr.left->type.kind == HIRType::TypeKind::Pointer &&
+                    expr.left->type.inner_type &&
+                    expr.left->type.inner_type->kind !=
+                        HIRType::TypeKind::Void) {
+                    std::string result = "(";
+                    result += left_expr_str;
+                    result += " " + expr.op + " ";
+                    result += right_expr;
+                    result += ")";
+                    return result;
+                } else {
+                    // void*またはfallback: char*経由でバイト演算
+                    std::string result = "((void*)((char*)";
+                    result += left_expr_str;
+                    result += " " + expr.op + " ";
+                    result += right_expr;
+                    result += "))";
+                    return result;
+                }
             }
         } else {
             // 型情報から判定した場合は新たに生成
             std::string left_expr = generate_expr(*expr.left);
             std::string right_expr = generate_expr(*expr.right);
 
-            std::string result = "((void*)((char*)";
-            result += left_expr;
-            result += " " + expr.op + " ";
-            result += right_expr;
-            result += "))";
-            return result;
+            // 型付きポインタの場合は通常のポインタ演算を使用
+            // void*の場合のみchar*経由のバイト演算が必要
+            if (expr.left->type.inner_type &&
+                expr.left->type.inner_type->kind != HIRType::TypeKind::Void) {
+                // 型付きポインタ (int*, char*, etc.): 通常のポインタ演算
+                std::string result = "(";
+                result += left_expr;
+                result += " " + expr.op + " ";
+                result += right_expr;
+                result += ")";
+                return result;
+            } else {
+                // void*の場合: char*経由でバイト演算
+                std::string result = "((void*)((char*)";
+                result += left_expr;
+                result += " " + expr.op + " ";
+                result += right_expr;
+                result += "))";
+                return result;
+            }
         }
     }
 

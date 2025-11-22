@@ -106,16 +106,26 @@ std::string HIRToCpp::generate_type(const HIRType &type) {
             // Extract type arguments for Result<T, E>
             std::string args = type.name.substr(7); // Remove "Result_"
 
-            // Simple parsing for common cases
-            // This is a simplified approach - a full solution would need proper
-            // parsing
-            if (args == "int_string")
-                result += "Result<int, std::string>";
-            else if (args == "string_string")
-                result += "Result<std::string, std::string>";
-            else
-                result +=
-                    type.name; // Fall back to mangled name if we can't parse it
+            // Parse mangled type arguments: Result_T_E -> Result<T, E>
+            // Split by underscore to find T and E
+            size_t underscore_pos = args.find('_');
+            if (underscore_pos != std::string::npos) {
+                std::string T_arg = args.substr(0, underscore_pos);
+                std::string E_arg = args.substr(underscore_pos + 1);
+
+                // Convert basic type names
+                auto convert_type = [](const std::string &t) -> std::string {
+                    if (t == "string")
+                        return "std::string";
+                    return t; // int, bool, float, double, etc.
+                };
+
+                result += "Result<" + convert_type(T_arg) + ", " +
+                          convert_type(E_arg) + ">";
+            } else {
+                // Single type argument or couldn't parse
+                result += type.name; // Fall back to mangled name
+            }
         } else {
             result += type.name;
         }

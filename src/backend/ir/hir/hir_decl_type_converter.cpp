@@ -362,14 +362,23 @@ HIRStruct HIRDeclTypeConverter::convert_struct(const ASTNode *node) {
         struct_def.generic_params = node->type_parameters;
     }
 
-    // フィールドの変換 (childrenを使用)
-    for (const auto &child : node->children) {
+    // フィールドの変換 (argumentsを使用 - struct
+    // membersはargumentsに格納されている) 同時にdefault memberを探す
+    for (const auto &child_ptr : node->arguments) {
+        const ASTNode *child = child_ptr.get();
         if (child->node_type == ASTNodeType::AST_VAR_DECL) {
             HIRStruct::Field hir_field;
             hir_field.name = child->name;
             hir_field.type =
                 generator_->convert_type(child->type_info, child->type_name);
             hir_field.is_private = child->is_private_member;
+            hir_field.is_default = child->is_default_member;
+
+            // default memberが見つかったら記録
+            if (child->is_default_member) {
+                struct_def.has_default_member = true;
+                struct_def.default_member_name = child->name;
+            }
 
             // TODO: デフォルト値は将来実装
             // if (child->right) {
@@ -977,9 +986,8 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
                      generator_->enum_names_.end()) {
                 inner_type_info = TYPE_ENUM;
                 if (debug_mode) {
-                    std::cerr
-                        << "[HIR_TYPE] Detected enum pointer type: "
-                        << inner_type_name << std::endl;
+                    std::cerr << "[HIR_TYPE] Detected enum pointer type: "
+                              << inner_type_name << std::endl;
                 }
             }
 
@@ -1095,15 +1103,16 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
                         } else if (generator_->enum_names_.find(
                                        base_element_type) !=
                                    generator_->enum_names_.end()) {
-                            // v0.14.0: Enum pointer array detection (e.g., Color*[3])
+                            // v0.14.0: Enum pointer array detection (e.g.,
+                            // Color*[3])
                             hir_type.inner_type->inner_type->kind =
                                 HIRType::TypeKind::Enum;
                             hir_type.inner_type->inner_type->name =
                                 base_element_type;
                             if (debug_mode) {
-                                std::cerr
-                                    << "[HIR_TYPE] Detected enum pointer array element: "
-                                    << base_element_type << std::endl;
+                                std::cerr << "[HIR_TYPE] Detected enum pointer "
+                                             "array element: "
+                                          << base_element_type << std::endl;
                             }
                         } else {
                             // 構造体ポインタ

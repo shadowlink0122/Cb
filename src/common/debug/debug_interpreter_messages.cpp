@@ -586,7 +586,7 @@ void init_interpreter_messages(std::vector<DebugMessageTemplate> &messages) {
     messages[static_cast<int>(DebugMsgId::ARRAY_DECL_AS_EXPR_ERROR)] = {
         "Array declaration as expression error", "式としての配列宣言エラー"};
     messages[static_cast<int>(DebugMsgId::CONST_REASSIGN_ERROR)] = {
-        "Const reassignment error: %s", "定数再代入エラー: %s"};
+        "Cannot reassign const variable: %s", "定数再代入エラー: %s"};
     messages[static_cast<int>(DebugMsgId::DIRECT_ARRAY_ASSIGN_ERROR)] = {
         "Direct array assignment error", "直接配列代入エラー"};
     messages[static_cast<int>(DebugMsgId::CONST_ARRAY_ASSIGN_ERROR)] = {
@@ -1415,8 +1415,7 @@ void init_interpreter_messages(std::vector<DebugMessageTemplate> &messages) {
     messages[static_cast<int>(DebugMsgId::TYPED_VALUE_POINTER_CONSTRUCT)] = {
         "[TypedValue] Pointer constructor: value=%lld (0x%llx)",
         "[TypedValue] ポインタコンストラクタ: value=%lld (0x%llx)"};
-    messages[static_cast<int>(
-        DebugMsgId::TYPED_VALUE_POINTER_CONSTRUCT_LD)] = {
+    messages[static_cast<int>(DebugMsgId::TYPED_VALUE_POINTER_CONSTRUCT_LD)] = {
         "[TypedValue] Pointer constructor (long double): val=%Lf, value=%lld "
         "(0x%llx)",
         "[TypedValue] ポインタコンストラクタ (long double): val=%Lf, "

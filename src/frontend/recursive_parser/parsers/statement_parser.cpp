@@ -998,7 +998,8 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
                     var_node->is_array = true;
                     var_node->array_type_info =
                         ArrayTypeInfo(TYPE_ENUM, dimensions);
-                    // v0.14.0: enum配列の要素型名を設定（ポインタマーカーを含む）
+                    // v0.14.0:
+                    // enum配列の要素型名を設定（ポインタマーカーを含む）
                     std::string element_type = type_name;
                     if (pointer_depth > 0) {
                         element_type += std::string(pointer_depth, '*');

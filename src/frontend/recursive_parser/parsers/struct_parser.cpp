@@ -241,6 +241,9 @@ void StructParser::parseStructMembers(StructDefinition *struct_def) {
             if (is_default_member) {
                 StructMember &added = struct_def->members.back();
                 added.is_default = true;
+                // StructDefinitionにもdefault member情報を設定
+                struct_def->has_default_member = true;
+                struct_def->default_member_name = member_name;
             }
 
             // 旧式の配列宣言をチェック（int data[2][2];）- エラーとして処理

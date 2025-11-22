@@ -25,10 +25,10 @@ inline void test_integration_const_variables() {
     integration_test_passed_with_time_auto("const string element error test", test_file_string_element);
 
     // const数値変数再代入エラーテスト
-    run_cb_test_with_output_and_time_auto(test_file_numeric_reassign, 
+    run_cb_test_with_output_and_time_auto(test_file_numeric_reassign,
         [](const std::string& output, int exit_code) {
             INTEGRATION_ASSERT_NE(0, exit_code, "Expected error exit code for const numeric reassignment");
-            INTEGRATION_ASSERT_CONTAINS(output, "Const reassignment error: num", "should contain const reassignment error message");
+            INTEGRATION_ASSERT_CONTAINS(output, "Cannot reassign const variable: num", "should contain const reassignment error message");
         });
     integration_test_passed_with_time_auto("const numeric reassign error test", test_file_numeric_reassign);
 

@@ -565,14 +565,16 @@ void HIRToCpp::generate_match(const HIRStmt &stmt) {
             break;
 
         case HIRStmt::MatchArm::PatternKind::EnumVariant: {
-            // Option/Result型のパターンマッチング
-            if (arm.pattern_name == "Some" || arm.pattern_name == "None") {
-                // Option型
+            // enum_type_nameを使ってビルトイン型とカスタム型を区別
+            bool is_option = arm.enum_type_name.find("Option") == 0;
+            bool is_result = arm.enum_type_name.find("Result") == 0;
+
+            if (is_option) {
+                // Option型 - 小文字のis_some()/is_none()を使用
                 if (arm.pattern_name == "Some") {
                     emit("if (" + match_var + ".is_some()) {\n");
                     increase_indent();
                     if (!arm.bindings.empty()) {
-                        // 値を束縛
                         emit_indent();
                         emit("auto CB_HIR_" + arm.bindings[0] + " = " +
                              match_var + ".some_value;\n");
@@ -581,8 +583,8 @@ void HIRToCpp::generate_match(const HIRStmt &stmt) {
                     emit("if (" + match_var + ".is_none()) {\n");
                     increase_indent();
                 }
-            } else if (arm.pattern_name == "Ok" || arm.pattern_name == "Err") {
-                // Result型
+            } else if (is_result) {
+                // Result型 - 小文字のis_ok()/is_err()を使用
                 if (arm.pattern_name == "Ok") {
                     emit("if (" + match_var + ".is_ok()) {\n");
                     increase_indent();
@@ -601,10 +603,20 @@ void HIRToCpp::generate_match(const HIRStmt &stmt) {
                     }
                 }
             } else {
-                // その他のenum variant（将来の拡張用）
+                // カスタムenum variant - パターン名をそのまま使用
                 emit("if (" + match_var + ".is_" + arm.pattern_name +
                      "()) {\n");
                 increase_indent();
+                if (!arm.bindings.empty()) {
+                    // 値を束縛（variant名を小文字に変換してフィールド名を生成）
+                    std::string variant_lower = arm.pattern_name;
+                    for (char &c : variant_lower) {
+                        c = std::tolower(c);
+                    }
+                    emit_indent();
+                    emit("auto CB_HIR_" + arm.bindings[0] + " = " + match_var +
+                         "." + variant_lower + "_value;\n");
+                }
             }
             break;
         }

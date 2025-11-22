@@ -54,6 +54,7 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
         }
 
         if (var->is_const && var->is_assigned) {
+            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, var_name.c_str());
             throw std::runtime_error("Cannot reassign const variable: " +
                                      var_name);
         }
@@ -238,6 +239,7 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
 
         // varは既に上で定義済み
         if (var->is_const && var->is_assigned) {
+            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, var_name.c_str());
             throw std::runtime_error("Cannot reassign const variable: " +
                                      var_name);
         }
@@ -263,6 +265,7 @@ void VariableManager::process_variable_assignment(const ASTNode *node) {
         }
 
         if (var->is_const && var->is_assigned) {
+            error_msg(DebugMsgId::CONST_REASSIGN_ERROR, var_name.c_str());
             throw std::runtime_error("Cannot reassign const variable: " +
                                      var_name);
         }

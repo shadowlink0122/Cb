@@ -150,8 +150,8 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
             expr.func_name = node->enum_name + "::" + node->enum_member;
             // No arguments for variants like None
             if (debug_mode) {
-                std::cerr << "[HIR_EXPR] Enum access (no args): " << expr.func_name
-                          << std::endl;
+                std::cerr << "[HIR_EXPR] Enum access (no args): "
+                          << expr.func_name << std::endl;
             }
         } else {
             // For regular enums, treat as variable access

@@ -446,8 +446,74 @@ void HIRToCpp::generate_struct(const HIRStruct &struct_def) {
         }
     }
 
+    // デフォルトメンバー用の演算子オーバーロードを生成
+    if (struct_def.has_default_member &&
+        !struct_def.default_member_name.empty()) {
+        if (debug_mode) {
+            std::cerr << "[CODEGEN] Generating default member operators for "
+                      << struct_def.name
+                      << ", default member: " << struct_def.default_member_name
+                      << std::endl;
+        }
+        // 対応するフィールドを見つける
+        const HIRStruct::Field *default_field = nullptr;
+        for (const auto &field : struct_def.fields) {
+            if (field.name == struct_def.default_member_name) {
+                default_field = &field;
+                break;
+            }
+        }
+
+        if (default_field) {
+            std::string default_type = generate_type(default_field->type);
+
+            emit_line("");
+            emit_line("// Default member delegation operators");
+
+            // operator= for assignment from default member type
+            emit_indent();
+            emit(struct_def.name + "& operator=(const " + default_type +
+                 "& value) {\n");
+            increase_indent();
+            emit_indent();
+            emit("this->" + struct_def.default_member_name + " = value;\n");
+            emit_indent();
+            emit("return *this;\n");
+            decrease_indent();
+            emit_indent();
+            emit("}\n");
+        }
+    }
+
     emit_line("};");
     emit_line("");
+
+    // デフォルトメンバー用のストリーム演算子を構造体の外に生成
+    if (struct_def.has_default_member &&
+        !struct_def.default_member_name.empty()) {
+        const HIRStruct::Field *default_field = nullptr;
+        for (const auto &field : struct_def.fields) {
+            if (field.name == struct_def.default_member_name) {
+                default_field = &field;
+                break;
+            }
+        }
+
+        if (default_field) {
+            std::string default_type = generate_type(default_field->type);
+
+            // operator<< for printing (delegates to default member)
+            emit_line("// Stream operator for default member delegation");
+            emit("inline std::ostream& operator<<(std::ostream& os, const " +
+                 struct_def.name + "& obj) {\n");
+            increase_indent();
+            emit_indent();
+            emit("return os << obj." + struct_def.default_member_name + ";\n");
+            decrease_indent();
+            emit_line("}");
+            emit_line("");
+        }
+    }
 
     debug_msg(DebugMsgId::CODEGEN_CPP_STRUCT_COMPLETE, struct_def.name.c_str());
 }
@@ -460,24 +526,107 @@ void HIRToCpp::generate_enums(const std::vector<HIREnum> &enums) {
 
 void HIRToCpp::generate_enum(const HIREnum &enum_def) {
     emit_line("// Enum: " + enum_def.name);
-    // v0.14.0: unscopedなenumとして生成（intへの暗黙的変換を許可）
-    emit_line("enum " + enum_def.name + " {");
-    increase_indent();
 
-    for (size_t i = 0; i < enum_def.variants.size(); i++) {
-        const auto &variant = enum_def.variants[i];
-        emit_indent();
-        emit(variant.name);
-        emit(" = " + std::to_string(variant.value));
-        if (i < enum_def.variants.size() - 1) {
-            emit(",");
+    // Check if any variant has associated values
+    bool has_associated_values = false;
+    for (const auto &variant : enum_def.variants) {
+        if (variant.has_associated_value) {
+            has_associated_values = true;
+            break;
         }
-        emit("\n");
     }
 
-    decrease_indent();
-    emit_line("};");
-    emit_line("");
+    if (has_associated_values) {
+        // Generate tagged union struct (like Option/Result)
+        emit_line("struct " + enum_def.name + " {");
+        increase_indent();
+
+        // Generate Tag enum
+        emit_line("enum class Tag {");
+        increase_indent();
+        for (size_t i = 0; i < enum_def.variants.size(); i++) {
+            const auto &variant = enum_def.variants[i];
+            emit_indent();
+            emit(variant.name);
+            if (i < enum_def.variants.size() - 1) {
+                emit(",");
+            }
+            emit("\n");
+        }
+        decrease_indent();
+        emit_line("};");
+
+        emit_line("Tag tag;");
+
+        // Generate union for associated values
+        emit_line("union {");
+        increase_indent();
+        for (const auto &variant : enum_def.variants) {
+            if (variant.has_associated_value) {
+                std::string type_str = generate_type(variant.associated_type);
+                // Convert variant name to lowercase for value field
+                std::string variant_lower = variant.name;
+                for (char &c : variant_lower) {
+                    c = std::tolower(c);
+                }
+                emit_line(type_str + " " + variant_lower + "_value;");
+            }
+        }
+        decrease_indent();
+        emit_line("};");
+        emit_line("");
+
+        // Generate static constructor methods for each variant
+        for (const auto &variant : enum_def.variants) {
+            if (variant.has_associated_value) {
+                std::string type_str = generate_type(variant.associated_type);
+                emit_line("static " + enum_def.name + " " + variant.name + "(" +
+                          type_str + " value) {");
+                increase_indent();
+                emit_line(enum_def.name + " e;");
+                emit_line("e.tag = Tag::" + variant.name + ";");
+                std::string variant_lower = variant.name;
+                for (char &c : variant_lower) {
+                    c = std::tolower(c);
+                }
+                emit_line("e." + variant_lower + "_value = value;");
+                emit_line("return e;");
+                decrease_indent();
+                emit_line("}");
+            }
+        }
+        emit_line("");
+
+        // Generate is_Variant() checker methods
+        for (const auto &variant : enum_def.variants) {
+            emit_line("bool is_" + variant.name +
+                      "() const { return tag == Tag::" + variant.name + "; }");
+        }
+
+        decrease_indent();
+        emit_line("};");
+        emit_line("");
+    } else {
+        // Generate simple C++ enum (existing behavior)
+        // v0.14.0: unscopedなenumとして生成（intへの暗黙的変換を許可）
+        emit_line("enum " + enum_def.name + " {");
+        increase_indent();
+
+        for (size_t i = 0; i < enum_def.variants.size(); i++) {
+            const auto &variant = enum_def.variants[i];
+            emit_indent();
+            emit(variant.name);
+            emit(" = " + std::to_string(variant.value));
+            if (i < enum_def.variants.size() - 1) {
+                emit(",");
+            }
+            emit("\n");
+        }
+
+        decrease_indent();
+        emit_line("};");
+        emit_line("");
+    }
 }
 
 void HIRToCpp::generate_unions(const std::vector<HIRUnion> &unions) {

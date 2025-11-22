@@ -349,6 +349,7 @@ struct HIRStruct {
         std::string name;
         HIRType type;
         bool is_private = false;
+        bool is_default = false; // このフィールドがdefaultメンバーか
         // TODO: デフォルト値は将来実装
         // std::unique_ptr<HIRExpr> default_value;
     };
@@ -356,6 +357,8 @@ struct HIRStruct {
     std::string name;
     std::vector<Field> fields;
     std::vector<std::string> generic_params; // ジェネリック型パラメータ
+    bool has_default_member = false; // デフォルトメンバーを持つか
+    std::string default_member_name; // デフォルトメンバーの名前
     SourceLocation location;
 };
 

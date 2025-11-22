@@ -228,14 +228,6 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         ArrayTypeInfo array_info = var_parsed.array_info;
         bool is_array = var_parsed.is_array;
 
-        std::cerr << "[PARSER_VAR] After copying from base_parsed_type:"
-                  << " is_array=" << is_array
-                  << ", array_info.element_type_name='"
-                  << array_info.element_type_name << "'"
-                  << ", var_parsed.base_type='" << var_parsed.base_type << "'"
-                  << ", var_parsed.full_type='" << var_parsed.full_type << "'"
-                  << std::endl;
-
         // 配列の角括弧をチェック
         if (parser_->check(TokenType::TOK_LBRACKET)) {
             is_array = true;
@@ -280,10 +272,6 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         // v0.14.0: 配列要素の型名を保存（ポインタ配列、構造体配列など）
         // Note: base_typeを使用（full_typeは配列次元を含むため）
         if (is_array && array_info.element_type_name.empty()) {
-            std::cerr << "[PARSER_ARRAY] Setting element_type_name: base_type='"
-                      << var_parsed.base_type << "', full_type='"
-                      << var_parsed.full_type << "', original_type='"
-                      << var_parsed.original_type << "'" << std::endl;
             array_info.element_type_name = var_parsed.base_type;
         }
 

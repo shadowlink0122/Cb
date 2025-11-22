@@ -84,8 +84,8 @@ struct TypedValue {
         // デバッグ: ポインタ型の場合のみ出力
         extern bool debug_mode;
         if (debug_mode && t.type_info == TYPE_POINTER) {
-            debug_msg(DebugMsgId::TYPED_VALUE_POINTER_CONSTRUCT,
-                      (long long)val, (unsigned long long)val);
+            debug_msg(DebugMsgId::TYPED_VALUE_POINTER_CONSTRUCT, (long long)val,
+                      (unsigned long long)val);
         }
     }
 
@@ -118,7 +118,8 @@ struct TypedValue {
         extern bool debug_mode;
         if (debug_mode && t.type_info == TYPE_POINTER) {
             debug_msg(DebugMsgId::TYPED_VALUE_POINTER_CONSTRUCT_LD,
-                      (long double)val, (long long)value, (unsigned long long)value);
+                      (long double)val, (long long)value,
+                      (unsigned long long)value);
         }
     }
 

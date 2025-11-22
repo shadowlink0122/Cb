@@ -740,8 +740,9 @@ enum class DebugMsgId {
     POINTER_IMPL_TYPE_MISMATCH, // ポインタ型不一致
 
     // TypedValue デバッグ
-    TYPED_VALUE_POINTER_CONSTRUCT,    // TypedValue int64_t constructor (pointer)
-    TYPED_VALUE_POINTER_CONSTRUCT_LD, // TypedValue long double constructor (pointer)
+    TYPED_VALUE_POINTER_CONSTRUCT, // TypedValue int64_t constructor (pointer)
+    TYPED_VALUE_POINTER_CONSTRUCT_LD, // TypedValue long double constructor
+                                      // (pointer)
     TYPED_VALUE_AS_NUMERIC_POINTER,   // TypedValue::as_numeric (pointer)
 
     // 汎用デバッグ（最後の手段として残す）

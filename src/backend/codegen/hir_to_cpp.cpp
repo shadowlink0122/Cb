@@ -191,7 +191,8 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     emit_line("template<typename T>");
     emit_line("std::string CB_HIR_to_string_helper(T* value) {");
     emit_line("    std::stringstream ss;");
-    emit_line("    ss << \"0x\" << std::hex << reinterpret_cast<uintptr_t>(value);");
+    emit_line(
+        "    ss << \"0x\" << std::hex << reinterpret_cast<uintptr_t>(value);");
     emit_line("    return ss.str();");
     emit_line("}");
     emit_line("");
