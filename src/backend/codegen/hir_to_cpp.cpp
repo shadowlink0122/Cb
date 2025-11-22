@@ -221,17 +221,18 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     // インポート処理
     generate_imports(program);
 
-    // Typedef
-    generate_typedefs(program.typedefs);
-
     // FFI関数宣言
     generate_foreign_functions(program.foreign_functions);
 
     // 前方宣言
     generate_forward_declarations(program);
 
+    // v0.14.0: Enum定義をTypedefの前に移動（enum typedefのサポート）
     // Enum定義
     generate_enums(program.enums);
+
+    // Typedef（enumを参照するtypedefがあるため、enumの後に配置）
+    generate_typedefs(program.typedefs);
 
     // Union定義
     generate_unions(program.unions);

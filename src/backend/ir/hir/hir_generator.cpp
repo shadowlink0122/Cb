@@ -287,8 +287,15 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
             // 単純なtypedef（typedef int MyInt; など）の処理
             HIRTypedef typedef_def;
             typedef_def.name = node->name;
+
+            // v0.14.0: enum型のtypedefの場合、TYPE_ENUMを使用
+            TypeInfo actual_type_info = node->type_info;
+            if (enum_names_.find(node->type_name) != enum_names_.end()) {
+                actual_type_info = TYPE_ENUM;
+            }
+
             typedef_def.target_type =
-                convert_type(node->type_info, node->type_name);
+                convert_type(actual_type_info, node->type_name);
             typedef_def.location = convert_location(node->location);
             program->typedefs.push_back(std::move(typedef_def));
             break;
