@@ -1411,6 +1411,20 @@ void init_interpreter_messages(std::vector<DebugMessageTemplate> &messages) {
         "[SIMPLE_EVENT_LOOP] Task %d woke up",
         "[SIMPLE_EVENT_LOOP] タスク %d が起床"};
 
+    // TypedValue pointer debug messages
+    messages[static_cast<int>(DebugMsgId::TYPED_VALUE_POINTER_CONSTRUCT)] = {
+        "[TypedValue] Pointer constructor: value=%lld (0x%llx)",
+        "[TypedValue] ポインタコンストラクタ: value=%lld (0x%llx)"};
+    messages[static_cast<int>(
+        DebugMsgId::TYPED_VALUE_POINTER_CONSTRUCT_LD)] = {
+        "[TypedValue] Pointer constructor (long double): val=%Lf, value=%lld "
+        "(0x%llx)",
+        "[TypedValue] ポインタコンストラクタ (long double): val=%Lf, "
+        "value=%lld (0x%llx)"};
+    messages[static_cast<int>(DebugMsgId::TYPED_VALUE_AS_NUMERIC_POINTER)] = {
+        "[TypedValue] as_numeric pointer: value=%lld (0x%llx)",
+        "[TypedValue] as_numeric ポインタ: value=%lld (0x%llx)"};
+
     // 他の未設定のメッセージにはデフォルト値を設定
     for (size_t i = 0; i < messages.size(); ++i) {
         if (messages[i].en == nullptr) {

@@ -1443,8 +1443,6 @@ void VariableManager::assign_variable(const std::string &name,
     }
 
     if (existing_var->is_const && existing_var->is_assigned) {
-        std::fprintf(stderr, "Cannot reassign const variable: %s\n",
-                     name.c_str());
         error_msg(DebugMsgId::CONST_REASSIGN_ERROR, name.c_str());
         std::exit(1);
     }

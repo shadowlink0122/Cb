@@ -1,5 +1,6 @@
 #pragma once
 #include "../../../common/ast.h"
+#include "../../../common/debug.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -83,10 +84,8 @@ struct TypedValue {
         // デバッグ: ポインタ型の場合のみ出力
         extern bool debug_mode;
         if (debug_mode && t.type_info == TYPE_POINTER) {
-            fprintf(stderr,
-                    "[TypedValue int64_t constructor] value=%lld (0x%llx), "
-                    "type=POINTER\n",
-                    (long long)val, (unsigned long long)val);
+            debug_msg(DebugMsgId::TYPED_VALUE_POINTER_CONSTRUCT,
+                      (long long)val, (unsigned long long)val);
         }
     }
 
@@ -118,10 +117,8 @@ struct TypedValue {
         // デバッグ: ポインタ型の場合のみ出力
         extern bool debug_mode;
         if (debug_mode && t.type_info == TYPE_POINTER) {
-            fprintf(stderr,
-                    "[TypedValue long double constructor] val=%Lf, "
-                    "reinterpreted value=%lld (0x%llx)\n",
-                    val, (long long)value, (unsigned long long)value);
+            debug_msg(DebugMsgId::TYPED_VALUE_POINTER_CONSTRUCT_LD,
+                      (long double)val, (long long)value, (unsigned long long)value);
         }
     }
 
@@ -192,10 +189,8 @@ struct TypedValue {
         // デバッグ: ポインタ型の場合のみ出力
         extern bool debug_mode;
         if (debug_mode && numeric_type == TYPE_POINTER) {
-            fprintf(stderr,
-                    "[TypedValue::as_numeric] Returning pointer value=%lld "
-                    "(0x%llx)\n",
-                    (long long)value, (unsigned long long)value);
+            debug_msg(DebugMsgId::TYPED_VALUE_AS_NUMERIC_POINTER,
+                      (long long)value, (unsigned long long)value);
         }
         return value;
     }
