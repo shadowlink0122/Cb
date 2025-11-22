@@ -80,6 +80,10 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
               generate_type(stmt.var_type).c_str(), stmt.var_name.c_str());
 
     emit_indent();
+    // v0.14.0: static修飾子のサポート
+    if (stmt.var_type.is_static) {
+        emit("static ");
+    }
     if (stmt.is_const) {
         emit("const ");
     }

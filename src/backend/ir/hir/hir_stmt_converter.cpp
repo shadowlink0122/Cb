@@ -135,6 +135,8 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
         }
 
         stmt.is_const = node->is_const;
+        // v0.14.0: static修飾子のサポート
+        stmt.var_type.is_static = node->is_static;
         if (debug_mode) {
             DEBUG_PRINT(DebugMsgId::HIR_STMT_VAR_DECL, node->name.c_str());
         }

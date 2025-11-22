@@ -21,11 +21,7 @@ std::string HIRToCpp::generate_type(const HIRType &type) {
 
     std::string result;
 
-    // static修飾子
-    if (type.is_static) {
-        result += "static ";
-    }
-
+    // v0.14.0: staticは変数宣言で出力するため、ここでは出力しない
     // const修飾子（値型の場合）
     if (type.is_const && type.kind != HIRType::TypeKind::Pointer) {
         result += "const ";
