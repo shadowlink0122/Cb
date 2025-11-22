@@ -139,10 +139,25 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
     }
 
     // v0.14.0: enum値アクセス (EnumName::member)
+    // 引数なしのenum variant (e.g., Option<int>::None)
     case ASTNodeType::AST_ENUM_ACCESS: {
-        expr.kind = HIRExpr::ExprKind::Variable;
-        // EnumName::member 形式の変数名として扱う
-        expr.var_name = node->enum_name + "::" + node->enum_member;
+        // For builtin types like Option::None, Result::Ok, etc.
+        // Treat as a function call with no arguments
+        if (node->enum_name.find("Option") == 0 ||
+            node->enum_name.find("Result") == 0 ||
+            node->enum_name.find("Future") == 0) {
+            expr.kind = HIRExpr::ExprKind::FunctionCall;
+            expr.func_name = node->enum_name + "::" + node->enum_member;
+            // No arguments for variants like None
+            if (debug_mode) {
+                std::cerr << "[HIR_EXPR] Enum access (no args): " << expr.func_name
+                          << std::endl;
+            }
+        } else {
+            // For regular enums, treat as variable access
+            expr.kind = HIRExpr::ExprKind::Variable;
+            expr.var_name = node->enum_name + "::" + node->enum_member;
+        }
         break;
     }
 
