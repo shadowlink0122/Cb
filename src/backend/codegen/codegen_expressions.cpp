@@ -264,10 +264,8 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
                 is_pointer_arithmetic = true;
             }
             // _ptr, _node, _array などの命名規則
-            else if (left_expr_str.find("CB_HIR_current") !=
-                     std::string::npos) {
-                is_pointer_arithmetic = true;
-            } else if ((left_expr_str.find("_ptr") != std::string::npos &&
+            // v0.14.0: CB_HIR_current チェックを削除（static int currentとの名前衝突を回避）
+            else if ((left_expr_str.find("_ptr") != std::string::npos &&
                         left_expr_str.find("ptr_size") == std::string::npos) ||
                        (left_expr_str.find("_node") != std::string::npos &&
                         left_expr_str.find("node_count") ==
