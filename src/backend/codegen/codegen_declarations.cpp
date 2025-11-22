@@ -48,6 +48,8 @@
 #include "../../common/debug.h"
 #include "hir_to_cpp.h"
 #include <set>
+#include <unordered_set>
+#include <functional>
 
 namespace cb {
 namespace codegen {
@@ -217,8 +219,74 @@ void HIRToCpp::generate_forward_declarations(const HIRProgram &program) {
 }
 
 void HIRToCpp::generate_structs(const std::vector<HIRStruct> &structs) {
+    // v0.14.0: トポロジカルソートで構造体を依存関係順に出力
+    // 依存関係グラフを構築
+    std::unordered_map<std::string, std::vector<std::string>> dependencies;
+    std::unordered_map<std::string, const HIRStruct*> struct_map;
+
+    // 構造体マップを作成
     for (const auto &struct_def : structs) {
-        generate_struct(struct_def);
+        struct_map[struct_def.name] = &struct_def;
+        dependencies[struct_def.name] = {};
+    }
+
+    // 各構造体の依存関係を解析
+    for (const auto &struct_def : structs) {
+        for (const auto &field : struct_def.fields) {
+            // フィールドの型が他の構造体を参照している場合
+            if (field.type.kind == HIRType::TypeKind::Struct &&
+                !field.type.name.empty() &&
+                struct_map.find(field.type.name) != struct_map.end()) {
+                // この構造体は field.type.name に依存している
+                dependencies[struct_def.name].push_back(field.type.name);
+            }
+        }
+    }
+
+    // トポロジカルソート（DFS）
+    std::unordered_set<std::string> visited;
+    std::unordered_set<std::string> in_stack;
+    std::vector<std::string> sorted_order;
+
+    std::function<bool(const std::string&)> dfs = [&](const std::string& name) -> bool {
+        if (in_stack.find(name) != in_stack.end()) {
+            // 循環依存を検出
+            std::cerr << "[WARN] Circular dependency detected involving struct: "
+                      << name << std::endl;
+            return false;
+        }
+
+        if (visited.find(name) != visited.end()) {
+            return true;
+        }
+
+        visited.insert(name);
+        in_stack.insert(name);
+
+        // 依存している構造体を先に訪問
+        for (const auto& dep : dependencies[name]) {
+            if (!dfs(dep)) {
+                return false;
+            }
+        }
+
+        in_stack.erase(name);
+        sorted_order.push_back(name);
+        return true;
+    };
+
+    // すべての構造体をソート
+    for (const auto &struct_def : structs) {
+        if (visited.find(struct_def.name) == visited.end()) {
+            dfs(struct_def.name);
+        }
+    }
+
+    // ソートされた順序で構造体を生成
+    for (const auto &name : sorted_order) {
+        if (struct_map.find(name) != struct_map.end()) {
+            generate_struct(*struct_map[name]);
+        }
     }
 }
 

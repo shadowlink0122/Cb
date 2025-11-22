@@ -516,6 +516,13 @@ std::string HIRToCpp::generate_method_call(const HIRExpr &expr) {
 }
 
 std::string HIRToCpp::generate_member_access(const HIRExpr &expr) {
+    // v0.14.0: セグフォ修正 - objectがnullでないかチェック
+    if (!expr.object) {
+        std::cerr << "[ERROR] MemberAccess expression has null object for member: "
+                  << expr.member_name << std::endl;
+        return "/* ERROR: null object in member access */";
+    }
+
     std::string object_str = generate_expr(*expr.object);
     std::string result = object_str;
     result += expr.is_arrow ? "->" : ".";
