@@ -852,6 +852,17 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
         stmt.kind = HIRStmt::StmtKind::Block;
         // 空のブロック（C++生成時には何も出力されない）
         break;
+    }
+
+    // v0.14.0: 関数内構造体宣言のサポート
+    case ASTNodeType::AST_STRUCT_DECL: {
+        // 構造体定義は既にグローバルレベルで処理されているため、
+        // 関数内での構造体宣言は空のブロックとして扱う（無視する）
+        stmt.kind = HIRStmt::StmtKind::Block;
+        break;
+    }
+
+    default: {
         std::string error_msg =
             "Unsupported statement type in HIR generation: AST node type " +
             std::to_string(static_cast<int>(node->node_type));
