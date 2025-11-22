@@ -106,14 +106,15 @@ struct HIRExpr {
         StructLiteral,
         ArrayLiteral,
         Block,
-        AddressOf,   // &expr - アドレス取得
-        Dereference, // *expr - 間接参照
-        SizeOf,      // sizeof(type) or sizeof(expr)
-        New,         // new Type - メモリ確保
-        Await,       // await expr - async/await
-        PreIncDec,   // ++i, --i
-        PostIncDec,  // i++, i--
-        Range        // start...end - 範囲式
+        AddressOf,       // &expr - アドレス取得
+        Dereference,     // *expr - 間接参照
+        SizeOf,          // sizeof(type) or sizeof(expr)
+        New,             // new Type - メモリ確保
+        Await,           // await expr - async/await
+        PreIncDec,       // ++i, --i
+        PostIncDec,      // i++, i--
+        Range,           // start...end - 範囲式
+        ErrorPropagation // expr? - エラー伝播演算子 (v0.12.1)
     };
 
     ExprKind kind;

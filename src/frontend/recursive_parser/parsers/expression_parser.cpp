@@ -706,7 +706,8 @@ ASTNode *ExpressionParser::parsePostfix() {
             if (parser_->check(TokenType::TOK_LPAREN)) {
                 parser_->advance(); // consume '('
 
-                ASTNode *funcPtrCall = new ASTNode(ASTNodeType::AST_FUNC_PTR_CALL);
+                ASTNode *funcPtrCall =
+                    new ASTNode(ASTNodeType::AST_FUNC_PTR_CALL);
                 funcPtrCall->left = std::unique_ptr<ASTNode>(primary);
 
                 // 引数をパース
@@ -714,17 +715,24 @@ ASTNode *ExpressionParser::parsePostfix() {
                     do {
                         ASTNode *arg = parser_->parseExpression();
                         if (!arg) {
-                            std::cerr << "[PARSER ERROR] parseExpression returned null for function pointer call argument" << std::endl;
+                            std::cerr
+                                << "[PARSER ERROR] parseExpression returned "
+                                   "null for function pointer call argument"
+                                << std::endl;
                             return nullptr;
                         }
-                        funcPtrCall->arguments.push_back(std::unique_ptr<ASTNode>(arg));
+                        funcPtrCall->arguments.push_back(
+                            std::unique_ptr<ASTNode>(arg));
                     } while (parser_->match(TokenType::TOK_COMMA));
                 }
 
-                parser_->consume(TokenType::TOK_RPAREN, "Expected ')' after function pointer call arguments");
+                parser_->consume(
+                    TokenType::TOK_RPAREN,
+                    "Expected ')' after function pointer call arguments");
                 primary = funcPtrCall;
 
-                debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS, "array element function pointer call");
+                debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS,
+                          "array element function pointer call");
             }
         } else if (parser_->check(TokenType::TOK_DOT)) {
             // メンバアクセス: obj.member

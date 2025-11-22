@@ -214,6 +214,21 @@ HIRFunction HIRDeclTypeConverter::convert_function(const ASTNode *node) {
     } else {
         func.return_type = generator_->convert_type(actual_return_type,
                                                     node->return_type_name);
+
+        // Handle reference return types (T& or T&&)
+        if (node->is_reference) {
+            HIRType ref_type;
+            ref_type.kind = HIRType::TypeKind::Reference;
+            ref_type.inner_type =
+                std::make_unique<HIRType>(std::move(func.return_type));
+            func.return_type = std::move(ref_type);
+        } else if (node->is_rvalue_reference) {
+            HIRType ref_type;
+            ref_type.kind = HIRType::TypeKind::RvalueReference;
+            ref_type.inner_type =
+                std::make_unique<HIRType>(std::move(func.return_type));
+            func.return_type = std::move(ref_type);
+        }
     }
 
 continue_conversion:
@@ -246,6 +261,43 @@ continue_conversion:
         hir_param.type =
             generator_->convert_type(param->type_info, param->type_name);
         hir_param.is_const = param->is_const;
+
+        // Handle reference types (T& or T&&)
+        if (param->is_reference) {
+            HIRType ref_type;
+            ref_type.kind = HIRType::TypeKind::Reference;
+            ref_type.inner_type =
+                std::make_unique<HIRType>(std::move(hir_param.type));
+            hir_param.type = std::move(ref_type);
+        } else if (param->is_rvalue_reference) {
+            HIRType ref_type;
+            ref_type.kind = HIRType::TypeKind::RvalueReference;
+            ref_type.inner_type =
+                std::make_unique<HIRType>(std::move(hir_param.type));
+            hir_param.type = std::move(ref_type);
+        }
+
+        // Convert array parameters to pointers (C convention)
+        // e.g., int[] → int*, int*[] → int**, int[5] → int*
+        if (hir_param.type.kind == HIRType::TypeKind::Array ||
+            !hir_param.type.array_dimensions.empty() ||
+            hir_param.type.array_size > 0) {
+
+            // Create a pointer type with the array's element type
+            HIRType ptr_type;
+            ptr_type.kind = HIRType::TypeKind::Pointer;
+            // Move the inner type instead of copying to avoid segfault
+            ptr_type.inner_type = std::move(hir_param.type.inner_type);
+            hir_param.type = std::move(ptr_type);
+
+            // Store the POINTER type in symbol table
+            // This ensures that when the parameter is used inside the function,
+            // it's treated as a pointer, not an array
+            generator_->variable_types_[hir_param.name] = hir_param.type;
+        } else {
+            // Non-array parameter - just store the type as-is
+            generator_->variable_types_[hir_param.name] = hir_param.type;
+        }
 
         // デフォルト引数のサポート (v0.14.0)
         if (param->has_default_value && param->default_value) {
@@ -340,6 +392,9 @@ HIREnum HIRDeclTypeConverter::convert_enum(const ASTNode *node) {
 
     enum_def.name = node->enum_definition.name;
     enum_def.location = generator_->convert_location(node->location);
+
+    // v0.14.0: Track enum names for array type resolution
+    generator_->enum_names_.insert(node->enum_definition.name);
 
     // メンバーの変換
     for (const auto &member : node->enum_definition.members) {
@@ -551,23 +606,36 @@ HIRDeclTypeConverter::convert_array_type(const ArrayTypeInfo &array_info) {
     HIRType hir_type;
     hir_type.kind = HIRType::TypeKind::Array;
 
+    std::cerr << "[HIR_ARRAY_ENTRY] base_type=" << array_info.base_type
+              << ", element_type_name='" << array_info.element_type_name << "'"
+              << ", enum_names_.size()=" << generator_->enum_names_.size()
+              << std::endl;
+
     // 基底型を変換
     if (array_info.base_type != TYPE_UNKNOWN) {
         hir_type.inner_type = std::make_unique<HIRType>();
 
-        // v0.14.0: ポインタ配列の場合、element_type_nameを使用
-        if (array_info.base_type == TYPE_POINTER &&
-            !array_info.element_type_name.empty()) {
-            if (debug_mode) {
-                std::cerr << "[HIR_ARRAY] Using element_type_name: "
+        // v0.14.0:
+        // element_type_nameがある場合は使用（構造体配列やポインタ配列など）
+        if (!array_info.element_type_name.empty()) {
+            std::cerr << "[HIR_ARRAY] Using element_type_name: "
+                      << array_info.element_type_name << std::endl;
+
+            // v0.14.0: Check if element_type_name is an enum
+            TypeInfo actual_base_type = array_info.base_type;
+            if (generator_->enum_names_.find(array_info.element_type_name) !=
+                generator_->enum_names_.end()) {
+                actual_base_type = TYPE_ENUM;
+                std::cerr << "[HIR_ARRAY] Detected enum element type: "
                           << array_info.element_type_name << std::endl;
             }
+
             *hir_type.inner_type = generator_->convert_type(
-                array_info.base_type, array_info.element_type_name);
+                actual_base_type, array_info.element_type_name);
         } else {
-            if (debug_mode && array_info.base_type == TYPE_POINTER) {
-                std::cerr << "[HIR_ARRAY] element_type_name is empty for "
-                             "pointer array!"
+            if (debug_mode) {
+                std::cerr << "[HIR_ARRAY] Converting base_type without "
+                             "element_type_name"
                           << std::endl;
             }
             *hir_type.inner_type =
@@ -723,11 +791,26 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
                 element_type_info = TYPE_DOUBLE;
             else if (element_type_str == "string")
                 element_type_info = TYPE_STRING;
-            else
+            else if (generator_->enum_names_.find(element_type_str) !=
+                     generator_->enum_names_.end()) {
+                element_type_info = TYPE_ENUM;
+                if (debug_mode) {
+                    std::cerr
+                        << "[HIR_TYPE] Detected enum type for array element: "
+                        << element_type_str << std::endl;
+                }
+            } else
                 element_type_info = TYPE_STRUCT;
 
             *hir_type.inner_type =
                 generator_->convert_type(element_type_info, element_type_str);
+
+            if (debug_mode && element_type_info == TYPE_ENUM) {
+                std::cerr << "[HIR_TYPE] After convert_type for enum: kind="
+                          << static_cast<int>(hir_type.inner_type->kind)
+                          << ", name='" << hir_type.inner_type->name << "'"
+                          << std::endl;
+            }
         }
 
         if (debug_mode) {
@@ -789,6 +872,12 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
     case TYPE_STRUCT:
         hir_type.kind = HIRType::TypeKind::Struct;
         hir_type.name = actual_type_name;
+
+        if (debug_mode) {
+            std::cerr << "[HIR_TYPE] Struct type: actual_type_name='"
+                      << actual_type_name << "', hir_type.name='"
+                      << hir_type.name << "'" << std::endl;
+        }
 
         // v0.14.0: Check if this is a value-type interface (Interface_Value)
         if (actual_type_name.length() > 6 &&
@@ -1024,6 +1113,12 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
                         } else if (element_type_name == "string") {
                             hir_type.inner_type->kind =
                                 HIRType::TypeKind::String;
+                        } else if (generator_->enum_names_.find(
+                                       element_type_name) !=
+                                   generator_->enum_names_.end()) {
+                            // v0.14.0: Enum type detection for arrays
+                            hir_type.inner_type->kind = HIRType::TypeKind::Enum;
+                            hir_type.inner_type->name = element_type_name;
                         } else {
                             // 構造体として扱う
                             hir_type.inner_type->kind =

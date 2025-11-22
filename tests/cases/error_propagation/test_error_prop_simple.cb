@@ -1,0 +1,47 @@
+// Test: ? operator with simple Result<int, string> type
+// This tests the basic ? operator functionality
+
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        Result<int, string> err_result;
+        err_result.tag = Result<int, string>::Tag::Err;
+        err_result.err_value = "division by zero";
+        return err_result;
+    }
+    Result<int, string> ok_result;
+    ok_result.tag = Result<int, string>::Tag::Ok;
+    ok_result.ok_value = a / b;
+    return ok_result;
+}
+
+Result<int, string> complex_calc(int a, int b, int c) {
+    int r1 = divide(a, b)?;
+    int r2 = divide(r1, c)?;
+
+    Result<int, string> result;
+    result.tag = Result<int, string>::Tag::Ok;
+    result.ok_value = r2;
+    return result;
+}
+
+int main() {
+    // Success case: 100 / 10 / 2 = 5
+    Result<int, string> r1 = complex_calc(100, 10, 2);
+    if (r1.is_ok()) {
+        println("Success: ", r1.ok_value);
+    }
+
+    // Error case: division by zero in first operation
+    Result<int, string> r2 = complex_calc(100, 0, 2);
+    if (r2.is_err()) {
+        println("Error in first div: ", r2.err_value);
+    }
+
+    // Error case: division by zero in second operation
+    Result<int, string> r3 = complex_calc(100, 10, 0);
+    if (r3.is_err()) {
+        println("Error in second div: ", r3.err_value);
+    }
+
+    return 0;
+}

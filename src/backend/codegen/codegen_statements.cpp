@@ -175,6 +175,11 @@ void HIRToCpp::generate_var_decl(const HIRStmt &stmt) {
             emit(generate_type(stmt.var_type.param_types[i]));
         }
         emit(")");
+    } else if (stmt.init_expr &&
+               stmt.init_expr->kind == HIRExpr::ExprKind::Lambda) {
+        // Special handling for lambda initialization: use auto
+        emit("auto");
+        emit(" " + add_hir_prefix(stmt.var_name));
     } else {
         emit(generate_type(stmt.var_type));
         emit(" " + add_hir_prefix(stmt.var_name));

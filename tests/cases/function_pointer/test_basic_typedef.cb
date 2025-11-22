@@ -6,8 +6,8 @@ int add(int a, int b) {
 
 int main() {
     // 関数ポインタの直接宣言（typedefなし）
-    int (*op)(int, int) = &add;
-    int result = (*op)(5, 3);
+    int* op = &add;
+    int result = op(5, 3);
     println(result); // 期待値: 8
 
     // 直接呼び出しもテスト

@@ -12,8 +12,11 @@ using namespace ir::hir;
 std::string HIRToCpp::generate_type(const HIRType &type) {
     if (debug_mode) {
         std::cerr << "[CODEGEN_TYPE] Generating type: kind="
-                  << static_cast<int>(type.kind) << ", name=" << type.name
-                  << std::endl;
+                  << static_cast<int>(type.kind) << ", name='" << type.name
+                  << "'"
+                  << ", array_size=" << type.array_size
+                  << ", array_dimensions.size()="
+                  << type.array_dimensions.size() << std::endl;
     }
 
     std::string result;
@@ -75,6 +78,10 @@ std::string HIRToCpp::generate_type(const HIRType &type) {
     case HIRType::TypeKind::Struct:
     case HIRType::TypeKind::Enum:
     case HIRType::TypeKind::Interface:
+        if (type.kind == HIRType::TypeKind::Enum) {
+            std::cerr << "[CODEGEN_ENUM] Processing enum type, name='"
+                      << type.name << "'" << std::endl;
+        }
         // v0.14.0: Handle Option and Result generic types specially
         // Convert mangled names like "Option_int" to proper generic syntax
         // "Option<int>"
@@ -241,6 +248,14 @@ std::string HIRToCpp::generate_array_type(const HIRType &type) {
         return "std::vector<int>"; // fallback
     }
 
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_ARRAY] Array type: kind="
+                  << static_cast<int>(type.inner_type->kind)
+                  << ", name=" << type.inner_type->name
+                  << ", array_dimensions.size=" << type.array_dimensions.size()
+                  << ", array_size=" << type.array_size << std::endl;
+    }
+
     // Special handling for function pointer arrays
     // Generate: RetType (*name[size])(params) style
     if (type.inner_type->kind == HIRType::TypeKind::Function) {
@@ -252,7 +267,63 @@ std::string HIRToCpp::generate_array_type(const HIRType &type) {
 
     // 多次元配列のサポート
     if (!type.array_dimensions.empty()) {
-        std::string result = generate_type(*type.inner_type);
+        // inner_typeを再帰的にたどって基本型（非配列型）を取得
+        const HIRType *current = &type;
+        while (current->inner_type &&
+               (current->inner_type->kind == HIRType::TypeKind::Array ||
+                !current->inner_type->array_dimensions.empty())) {
+            current = current->inner_type.get();
+        }
+
+        // 基本型（最も内側の要素型）を生成
+        std::string result;
+        if (current->inner_type &&
+            current->inner_type->kind != HIRType::TypeKind::Array &&
+            current->inner_type->array_dimensions.empty()) {
+            // inner_typeがある場合で、それが配列でない場合のみ使用
+            result = generate_type(*current->inner_type);
+        } else {
+            // inner_typeがない場合は、currentの型kindから基本型を生成
+            switch (current->kind) {
+            case HIRType::TypeKind::Int:
+                result = "int";
+                break;
+            case HIRType::TypeKind::Long:
+                result = "long";
+                break;
+            case HIRType::TypeKind::Short:
+                result = "short";
+                break;
+            case HIRType::TypeKind::Tiny:
+                result = "int8_t";
+                break;
+            case HIRType::TypeKind::Char:
+                result = "char";
+                break;
+            case HIRType::TypeKind::Bool:
+                result = "bool";
+                break;
+            case HIRType::TypeKind::Float:
+                result = "float";
+                break;
+            case HIRType::TypeKind::Double:
+                result = "double";
+                break;
+            case HIRType::TypeKind::String:
+                result = "string";
+                break;
+            case HIRType::TypeKind::Struct:
+                result = current->name;
+                break;
+            case HIRType::TypeKind::Enum:
+                result = current->name;
+                break;
+            default:
+                // フォールバック: 再帰呼び出しを避けて直接生成
+                result = "int"; // デフォルト
+                break;
+            }
+        }
 
         // 各次元に対してstd::arrayまたはstd::vectorでラップ
         for (auto it = type.array_dimensions.rbegin();
@@ -274,7 +345,15 @@ std::string HIRToCpp::generate_array_type(const HIRType &type) {
     // 1次元配列（後方互換性）
     if (type.array_size > 0) {
         // 固定長配列
-        return "std::array<" + generate_type(*type.inner_type) + ", " +
+        std::string inner_type_str = generate_type(*type.inner_type);
+        if (debug_mode) {
+            std::cerr << "[CODEGEN_TYPE] 1D Array - inner_type_str: '"
+                      << inner_type_str << "', inner_type.kind="
+                      << static_cast<int>(type.inner_type->kind)
+                      << ", inner_type.name='" << type.inner_type->name << "'"
+                      << std::endl;
+        }
+        return "std::array<" + inner_type_str + ", " +
                std::to_string(type.array_size) + ">";
     } else {
         // 動的配列

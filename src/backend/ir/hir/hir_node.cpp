@@ -9,8 +9,11 @@ namespace hir {
 
 // HIRTypeのコピーコンストラクタ
 HIRType::HIRType(const HIRType &other)
-    : kind(other.kind), name(other.name), array_size(other.array_size),
-      is_const(other.is_const) {
+    : kind(other.kind), name(other.name),
+      array_dimensions(other.array_dimensions), array_size(other.array_size),
+      is_const(other.is_const), is_static(other.is_static),
+      is_volatile(other.is_volatile), is_pointer_const(other.is_pointer_const),
+      is_pointee_const(other.is_pointee_const), is_unsigned(other.is_unsigned) {
 
     if (other.inner_type) {
         inner_type = std::make_unique<HIRType>(*other.inner_type);
@@ -29,8 +32,14 @@ HIRType &HIRType::operator=(const HIRType &other) {
     if (this != &other) {
         kind = other.kind;
         name = other.name;
+        array_dimensions = other.array_dimensions;
         array_size = other.array_size;
         is_const = other.is_const;
+        is_static = other.is_static;
+        is_volatile = other.is_volatile;
+        is_pointer_const = other.is_pointer_const;
+        is_pointee_const = other.is_pointee_const;
+        is_unsigned = other.is_unsigned;
 
         if (other.inner_type) {
             inner_type = std::make_unique<HIRType>(*other.inner_type);

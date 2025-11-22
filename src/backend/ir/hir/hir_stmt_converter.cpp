@@ -118,10 +118,29 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
             stmt.var_type =
                 generator_->convert_type(adjusted_type_info, type_name_to_use);
         }
+
+        // Handle reference types (T& or T&&)
+        if (node->is_reference) {
+            HIRType ref_type;
+            ref_type.kind = HIRType::TypeKind::Reference;
+            ref_type.inner_type =
+                std::make_unique<HIRType>(std::move(stmt.var_type));
+            stmt.var_type = std::move(ref_type);
+        } else if (node->is_rvalue_reference) {
+            HIRType ref_type;
+            ref_type.kind = HIRType::TypeKind::RvalueReference;
+            ref_type.inner_type =
+                std::make_unique<HIRType>(std::move(stmt.var_type));
+            stmt.var_type = std::move(ref_type);
+        }
+
         stmt.is_const = node->is_const;
         if (debug_mode) {
             DEBUG_PRINT(DebugMsgId::HIR_STMT_VAR_DECL, node->name.c_str());
         }
+
+        // Register variable type in symbol table for type inference
+        generator_->variable_types_[node->name] = stmt.var_type;
 
         // v0.14.0: init_exprを優先的に使用（新しいパーサーフォーマット）
         ASTNode *init_node = nullptr;
@@ -295,6 +314,12 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
 
             // v0.14.0: Use array_type_info if this is an array
             if (first_var->is_array && first_var->array_type_info.is_array()) {
+                if (debug_mode) {
+                    std::cerr << "[HIR_STMT] Converting as array type with "
+                                 "element_type_name: '"
+                              << first_var->array_type_info.element_type_name
+                              << "'" << std::endl;
+                }
                 stmt.var_type =
                     generator_->convert_array_type(first_var->array_type_info);
             } else {
@@ -430,6 +455,10 @@ HIRStmt HIRStmtConverter::convert_stmt(const ASTNode *node) {
         if (debug_mode) {
             DEBUG_PRINT(DebugMsgId::HIR_STMT_VAR_DECL, node->name.c_str());
         }
+
+        // Register array variable type in symbol table for type inference
+        generator_->variable_types_[node->name] = stmt.var_type;
+
         // Array initialization
         if (node->init_expr) {
             stmt.init_expr = std::make_unique<HIRExpr>(

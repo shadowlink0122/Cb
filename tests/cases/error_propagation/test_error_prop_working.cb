@@ -1,0 +1,55 @@
+// Test: ? operator (error propagation) with explicit template arguments
+// Tests that ? correctly unwraps and propagates errors
+
+Option<int> get_value(int val, bool should_fail) {
+    if (should_fail) {
+        return Option<int>::None();
+    }
+    return Option<int>::Some(val);
+}
+
+Option<int> add_values(int a, int b, bool fail_first, bool fail_second) {
+    // Use ? operator to unwrap or propagate error
+    int val1 = get_value(a, fail_first)?;
+    int val2 = get_value(b, fail_second)?;
+
+    return Option<int>::Some(val1 + val2);
+}
+
+int main() {
+    println("Testing ? operator (error propagation)");
+
+    // Test 1: Both succeed
+    println("\n=== Test 1: Both calls succeed ===");
+    Option<int> r1 = add_values(10, 20, false, false);
+    if (r1.is_some()) {
+        println("Success: result = ", r1.some_value);
+        assert(r1.some_value == 30);
+    } else {
+        println("ERROR: Should have succeeded!");
+        assert(false);
+    }
+
+    // Test 2: First call fails
+    println("\n=== Test 2: First call fails ===");
+    Option<int> r2 = add_values(10, 20, true, false);
+    if (r2.is_none()) {
+        println("Correctly propagated None from first call");
+    } else {
+        println("ERROR: Should have propagated None!");
+        assert(false);
+    }
+
+    // Test 3: Second call fails
+    println("\n=== Test 3: Second call fails ===");
+    Option<int> r3 = add_values(10, 20, false, true);
+    if (r3.is_none()) {
+        println("Correctly propagated None from second call");
+    } else {
+        println("ERROR: Should have propagated None!");
+        assert(false);
+    }
+
+    println("\n=== All error propagation tests passed! ===");
+    return 0;
+}

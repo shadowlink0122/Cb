@@ -52,6 +52,8 @@ std::string HIRToCpp::generate_expr(const HIRExpr &expr) {
         return generate_pre_incdec(expr);
     case HIRExpr::ExprKind::PostIncDec:
         return generate_post_incdec(expr);
+    case HIRExpr::ExprKind::ErrorPropagation:
+        return generate_error_propagation(expr);
     default:
         return "/* unsupported expr */";
     }
@@ -396,7 +398,19 @@ std::string HIRToCpp::generate_function_call(const HIRExpr &expr) {
     for (size_t i = 0; i < expr.arguments.size(); i++) {
         if (i > 0)
             result += ", ";
-        result += generate_expr(expr.arguments[i]);
+
+        std::string arg_expr = generate_expr(expr.arguments[i]);
+
+        // If argument is an array type, add .data() to convert to pointer
+        // Check if the HIRExpr has type information set (from symbol table)
+        if (expr.arguments[i].type.kind == HIRType::TypeKind::Array ||
+            (!expr.arguments[i].type.array_dimensions.empty()) ||
+            (expr.arguments[i].type.array_size > 0)) {
+            // Array argument - convert to pointer with .data()
+            arg_expr += ".data()";
+        }
+
+        result += arg_expr;
     }
 
     result += ")";
@@ -552,28 +566,56 @@ std::string HIRToCpp::generate_lambda(const HIRExpr &expr) {
     result += generate_type(expr.lambda_return_type);
     result += " { ";
 
-    // Generate lambda body if it exists
+    // Generate lambda body
     if (expr.lambda_body) {
-        // For now, generate a simplified body
-        // TODO: Properly generate complex lambda bodies
         if (expr.lambda_body->kind == HIRStmt::StmtKind::Return &&
             expr.lambda_body->return_expr) {
+            // Simple return statement
             result += "return ";
             result += generate_expr(*expr.lambda_body->return_expr);
             result += "; ";
         } else if (expr.lambda_body->kind == HIRStmt::StmtKind::Block) {
-            // Handle block statements
+            // Block statement - generate all statements in the block
             for (const auto &stmt : expr.lambda_body->block_stmts) {
                 if (stmt.kind == HIRStmt::StmtKind::Return &&
                     stmt.return_expr) {
                     result += "return ";
                     result += generate_expr(*stmt.return_expr);
                     result += "; ";
-                    break; // Only handle first return for now
+                } else if (stmt.kind == HIRStmt::StmtKind::VarDecl) {
+                    // Variable declaration
+                    if (stmt.is_const)
+                        result += "const ";
+                    result += generate_type(stmt.var_type);
+                    result += " " + add_hir_prefix(stmt.var_name);
+                    if (stmt.init_expr) {
+                        result += " = ";
+                        result += generate_expr(*stmt.init_expr);
+                    }
+                    result += "; ";
+                } else if (stmt.kind == HIRStmt::StmtKind::ExprStmt) {
+                    // Expression statement
+                    if (stmt.expr) {
+                        result += generate_expr(*stmt.expr);
+                        result += "; ";
+                    }
+                } else if (stmt.kind == HIRStmt::StmtKind::Assignment) {
+                    // Assignment
+                    if (stmt.lhs && stmt.rhs) {
+                        result += generate_expr(*stmt.lhs);
+                        result += " = ";
+                        result += generate_expr(*stmt.rhs);
+                        result += "; ";
+                    }
+                } else {
+                    // Other statement types - TODO
+                    result += "/* statement type " +
+                              std::to_string(static_cast<int>(stmt.kind)) +
+                              " */ ";
                 }
             }
         } else {
-            result += "/* complex lambda body */ ";
+            result += "/* unsupported lambda body type */ ";
         }
     } else {
         result += "/* empty lambda */ ";
@@ -749,6 +791,51 @@ std::string HIRToCpp::generate_pre_incdec(const HIRExpr &expr) {
 
 std::string HIRToCpp::generate_post_incdec(const HIRExpr &expr) {
     return generate_expr(*expr.operand) + expr.op;
+}
+
+// v0.12.1: エラー伝播演算子 (?) の実装
+std::string HIRToCpp::generate_error_propagation(const HIRExpr &expr) {
+    if (!expr.operand) {
+        std::cerr << "[ERROR] Error propagation without operand!" << std::endl;
+        return "/* ERROR: error propagation without operand */";
+    }
+
+    // 一時変数を生成
+    std::string temp_var =
+        "CB_HIR_error_prop_temp_" + std::to_string(temp_var_counter++);
+    std::string operand_str = generate_expr(*expr.operand);
+
+    // GNU statement expressionを使用して早期リターンを実装
+    // ({ auto temp = expr; if (temp.is_none()) return None; temp.some_value; })
+    std::string result = "({ ";
+    result += "auto " + temp_var + " = " + operand_str + "; ";
+
+    // Option型かResult型かを関数の戻り値型から判定
+    // TypeKindだけでなく、型名も確認する（ジェネリック型はStructとして表現される）
+    bool is_result =
+        (current_function_return_type.kind == HIRType::TypeKind::Result) ||
+        (current_function_return_type.name.find("Result<") == 0);
+
+    if (is_result) {
+        // Result<T, E>の場合
+        result += "if (" + temp_var + ".is_err()) return ";
+        result += generate_type(current_function_return_type) + "::Err(" +
+                  temp_var + ".err_value); ";
+        result += temp_var + ".ok_value; ";
+    } else {
+        // Option<T>の場合（デフォルト）
+        result += "if (" + temp_var + ".is_none()) return ";
+        result += generate_type(current_function_return_type) + "::None(); ";
+        result += temp_var + ".some_value; ";
+    }
+
+    result += "})";
+
+    if (debug_mode) {
+        std::cerr << "[CODEGEN_ERROR_PROP] Generated: " << result << std::endl;
+    }
+
+    return result;
 }
 
 } // namespace codegen

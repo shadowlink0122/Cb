@@ -129,6 +129,12 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
     case ASTNodeType::AST_IDENTIFIER: {
         expr.kind = HIRExpr::ExprKind::Variable;
         expr.var_name = node->name;
+
+        // Lookup variable type from symbol table for type inference
+        auto it = generator_->variable_types_.find(node->name);
+        if (it != generator_->variable_types_.end()) {
+            expr.type = it->second;
+        }
         break;
     }
 
@@ -527,9 +533,10 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
         }
         expr.lambda_return_type =
             generator_->convert_type(node->type_info, node->return_type_name);
-        if (node->body) {
+        // パーサーはlambda_bodyフィールドに本体を設定するので、それを参照する
+        if (node->lambda_body) {
             expr.lambda_body = std::make_unique<HIRStmt>(
-                generator_->convert_stmt(node->body.get()));
+                generator_->convert_stmt(node->lambda_body.get()));
         }
         break;
     }
@@ -612,6 +619,36 @@ HIRExpr HIRExprConverter::convert_expr(const ASTNode *node) {
             std::cerr << "[HIR_EXPR] Enum construct: " << full_name << " with "
                       << node->arguments.size() << " arguments" << std::endl;
         }
+        break;
+    }
+
+    // v0.12.1: エラー伝播演算子 (?)
+    case ASTNodeType::AST_ERROR_PROPAGATION: {
+        expr.kind = HIRExpr::ExprKind::ErrorPropagation;
+
+        // 内部式を変換（leftフィールドを使用）
+        if (node->left) {
+            expr.operand = std::make_unique<HIRExpr>(
+                generator_->convert_expr(node->left.get()));
+        }
+
+        if (debug_mode) {
+            std::cerr << "[HIR_EXPR] Error propagation operator (?)"
+                      << std::endl;
+        }
+        break;
+    }
+
+    // v0.14.0: Discard variable (_) - 読み込み禁止
+    case ASTNodeType::AST_DISCARD_VARIABLE: {
+        // Discard変数を式の中で参照することは禁止
+        std::string error_msg = "Cannot reference discard variable '_'";
+        generator_->report_error(error_msg, node->location);
+
+        // エラー後もコンパイルを続行するため、ダミーのリテラルを返す
+        expr.kind = HIRExpr::ExprKind::Literal;
+        expr.literal_value = "0";
+        expr.literal_type = generator_->convert_type(TYPE_INT);
         break;
     }
 

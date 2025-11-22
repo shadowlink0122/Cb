@@ -359,10 +359,16 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
             global_var.type = convert_type(node->type_info, node->type_name);
             global_var.is_const = node->is_const;
             global_var.is_exported = node->is_exported;
-            if (node->right) {
+
+            // v0.14.0: init_exprを優先的に使用（新しいパーサーフォーマット）
+            if (node->init_expr) {
+                global_var.init_expr = std::make_unique<HIRExpr>(
+                    convert_expr(node->init_expr.get()));
+            } else if (node->right) {
                 global_var.init_expr =
                     std::make_unique<HIRExpr>(convert_expr(node->right.get()));
             }
+
             global_var.location = convert_location(node->location);
             program->global_vars.push_back(std::move(global_var));
 

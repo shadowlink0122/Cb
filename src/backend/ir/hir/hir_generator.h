@@ -86,6 +86,10 @@ class HIRGenerator {
     uint32_t next_var_id = 0;
     int error_count = 0;
     std::unordered_set<std::string> interface_names_;
+    std::unordered_set<std::string> enum_names_;
+
+    // Symbol table for type inference (variable name -> type)
+    std::unordered_map<std::string, hir::HIRType> variable_types_;
 
     // AST nodes for lookup during conversion
     const std::vector<std::unique_ptr<ASTNode>> *ast_nodes_ = nullptr;

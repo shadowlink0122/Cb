@@ -110,6 +110,8 @@ class HIRToCpp {
     std::string generate_await(const ir::hir::HIRExpr &expr);
     std::string generate_pre_incdec(const ir::hir::HIRExpr &expr);
     std::string generate_post_incdec(const ir::hir::HIRExpr &expr);
+    std::string
+    generate_error_propagation(const ir::hir::HIRExpr &expr); // v0.12.1
 
     // 文の生成（追加）
     void generate_assert(const ir::hir::HIRStmt &stmt);

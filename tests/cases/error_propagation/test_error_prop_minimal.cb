@@ -1,0 +1,54 @@
+// Minimal test for ? operator
+// Uses manual Option construction to avoid parser limitations
+
+Option<int> get_number(int value, bool fail) {
+    Option<int> result;
+    if (fail) {
+        result.tag = 0; // None
+    } else {
+        result.tag = 1; // Some
+        result.some_value = value;
+    }
+    return result;
+}
+
+Option<int> add_numbers(int a, int b, bool fail1, bool fail2) {
+    // Test error propagation with ?
+    int num1 = get_number(a, fail1)?;
+    int num2 = get_number(b, fail2)?;
+
+    Option<int> result;
+    result.tag = 1; // Some
+    result.some_value = num1 + num2;
+    return result;
+}
+
+int main() {
+    println("Testing ? operator (error propagation)");
+
+    // Success case: both calls succeed
+    Option<int> r1 = add_numbers(10, 20, false, false);
+    if (r1.tag == 1) {  // Some
+        println("Success: 10 + 20 = ", r1.some_value);
+    } else {
+        println("ERROR: Should have succeeded!");
+    }
+
+    // Error case: first call fails
+    Option<int> r2 = add_numbers(10, 20, true, false);
+    if (r2.tag == 0) {  // None
+        println("Correctly propagated error from first call");
+    } else {
+        println("ERROR: Should have failed!");
+    }
+
+    // Error case: second call fails
+    Option<int> r3 = add_numbers(10, 20, false, true);
+    if (r3.tag == 0) {  // None
+        println("Correctly propagated error from second call");
+    } else {
+        println("ERROR: Should have failed!");
+    }
+
+    return 0;
+}

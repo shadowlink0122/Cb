@@ -329,7 +329,10 @@ ASTNode *EnumParser::parseEnumTypedefDeclaration() {
     node->name = alias_name;
     node->type_info = TYPE_ENUM;
 
-    // enum定義情報をASTに格納
+    // v0.14.0: enum定義をASTノードに埋め込む（HIR変換で使用）
+    node->enum_definition = enum_def;
+
+    // enum定義情報をASTに格納（後方互換性のため）
     for (const auto &member : enum_def.members) {
         ASTNode *member_node = new ASTNode(ASTNodeType::AST_VAR_DECL);
         member_node->name = member.name;
