@@ -376,6 +376,21 @@ HIRGenerator::generate(const std::vector<std::unique_ptr<ASTNode>> &ast_nodes) {
                     std::make_unique<HIRExpr>(convert_expr(node->right.get()));
             }
 
+            // v0.14.0: const int変数の値を保存（配列サイズ解決用）
+            if (node->is_const && node->type_info == TYPE_INT) {
+                const ASTNode *init_node =
+                    node->init_expr ? node->init_expr.get() : node->right.get();
+                if (init_node && init_node->node_type == ASTNodeType::AST_NUMBER) {
+                    const_int_values_[node->name] =
+                        static_cast<int>(init_node->int_value);
+                    if (debug_mode) {
+                        std::cerr << "[HIR_CONST] Stored const int: "
+                                  << node->name << " = " << init_node->int_value
+                                  << std::endl;
+                    }
+                }
+            }
+
             global_var.location = convert_location(node->location);
             program->global_vars.push_back(std::move(global_var));
 

@@ -91,6 +91,9 @@ class HIRGenerator {
     // Symbol table for type inference (variable name -> type)
     std::unordered_map<std::string, hir::HIRType> variable_types_;
 
+    // v0.14.0: Constant value resolution (for array sizes with named constants)
+    std::unordered_map<std::string, int> const_int_values_;
+
     // AST nodes for lookup during conversion
     const std::vector<std::unique_ptr<ASTNode>> *ast_nodes_ = nullptr;
 };

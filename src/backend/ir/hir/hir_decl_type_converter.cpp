@@ -61,6 +61,25 @@ HIRDeclTypeConverter::HIRDeclTypeConverter(HIRGenerator *generator)
 
 HIRDeclTypeConverter::~HIRDeclTypeConverter() {}
 
+// v0.14.0: Helper to resolve array size from string (handles both numeric
+// literals and named constants)
+int HIRDeclTypeConverter::resolve_array_size(const std::string &size_str) {
+    // First, try to check if it's a named constant
+    if (generator_->const_int_values_.find(size_str) !=
+        generator_->const_int_values_.end()) {
+        return generator_->const_int_values_[size_str];
+    }
+
+    // Otherwise, try to parse as numeric literal
+    try {
+        return std::stoi(size_str);
+    } catch (const std::exception &e) {
+        std::cerr << "[ERROR] Could not resolve array size: " << size_str
+                  << " (not a number or known constant)" << std::endl;
+        return -1; // Return -1 for dynamic/unknown array size
+    }
+}
+
 HIRFunction HIRDeclTypeConverter::convert_function(const ASTNode *node) {
     HIRFunction func;
 
@@ -145,7 +164,7 @@ HIRFunction HIRDeclTypeConverter::convert_function(const ASTNode *node) {
                         open_bracket + 1, close_bracket - open_bracket - 1);
                     int size = -1;
                     if (!size_str.empty()) {
-                        size = std::stoi(size_str);
+                        size = resolve_array_size(size_str);
                     }
 
                     array_info.dimensions.push_back(
@@ -522,7 +541,7 @@ HIRUnion HIRDeclTypeConverter::convert_union(const ASTNode *node) {
 
             // サイズを設定
             if (!size_str.empty()) {
-                hir_type.array_size = std::stoi(size_str);
+                hir_type.array_size = resolve_array_size(size_str);
             } else {
                 hir_type.array_size = 0; // 動的配列
             }
@@ -756,7 +775,7 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
             std::string size_str =
                 actual_type_name.substr(pos + 1, close_bracket - pos - 1);
             if (!size_str.empty()) {
-                dimensions.push_back(std::stoi(size_str));
+                dimensions.push_back(resolve_array_size(size_str));
             } else {
                 dimensions.push_back(-1); // 動的配列
             }
@@ -1044,7 +1063,7 @@ HIRType HIRDeclTypeConverter::convert_type(TypeInfo type_info,
                         std::string size_str = actual_type_name.substr(
                             bracket_pos + 1, close_bracket - bracket_pos - 1);
                         if (!size_str.empty()) {
-                            hir_type.array_size = std::stoi(size_str);
+                            hir_type.array_size = resolve_array_size(size_str);
                         }
                     }
 

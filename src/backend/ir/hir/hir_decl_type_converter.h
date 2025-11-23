@@ -27,6 +27,10 @@ class HIRDeclTypeConverter {
 
   private:
     HIRGenerator *generator_;
+
+    // v0.14.0: Helper to resolve array size (handles both literals and const
+    // variables)
+    int resolve_array_size(const std::string &size_str);
 };
 
 } // namespace ir
