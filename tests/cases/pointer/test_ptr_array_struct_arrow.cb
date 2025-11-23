@@ -21,12 +21,12 @@ void main() {
     Point* ptr = &points[0];
     
     // ptr[index]->member で読み取り
-    println("ptr[0]->x = %d", ptr[0]->x);
-    println("ptr[0]->y = %d", ptr[0]->y);
-    println("ptr[1]->x = %d", ptr[1]->x);
-    println("ptr[1]->y = %d", ptr[1]->y);
-    println("ptr[2]->x = %d", ptr[2]->x);
-    println("ptr[2]->y = %d", ptr[2]->y);
+    println("ptr[0]->x = {ptr[0]->x}");
+    println("ptr[0]->y = {ptr[0]->y}");
+    println("ptr[1]->x = {ptr[1]->x}");
+    println("ptr[1]->y = {ptr[1]->y}");
+    println("ptr[2]->x = {ptr[2]->x}");
+    println("ptr[2]->y = {ptr[2]->y}");
     
     // ptr[index]->member で書き込み
     ptr[0]->x = 100;
@@ -34,14 +34,14 @@ void main() {
     ptr[1]->x = 300;
     
     println("\nAfter write:");
-    println("ptr[0]->x = %d", ptr[0]->x);
-    println("ptr[0]->y = %d", ptr[0]->y);
-    println("ptr[1]->x = %d", ptr[1]->x);
+    println("ptr[0]->x = {ptr[0]->x}");
+    println("ptr[0]->y = {ptr[0]->y}");
+    println("ptr[1]->x = {ptr[1]->x}");
     
     println("\nOriginal array:");
-    println("points[0].x = %d", points[0].x);
-    println("points[0].y = %d", points[0].y);
-    println("points[1].x = %d", points[1].x);
+    println("points[0].x = {points[0].x}");
+    println("points[0].y = {points[0].y}");
+    println("points[1].x = {points[1].x}");
     
     println("\n✅ Struct pointer array arrow test passed!");
 }

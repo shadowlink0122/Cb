@@ -19,36 +19,36 @@ int main() {
     // 基本的な三項演算子戻り値テスト
     int max_val = get_max(10, 20);
     if (max_val != 20) {
-        print("ERROR: Expected 20, got %d", max_val);
+        print("ERROR: Expected 20, got {max_val}");
         return 1;
     }
     
     string status = get_status(true);
     if (status != "Active") {
-        print("ERROR: Expected 'Active', got '%s'", status);
+        print("ERROR: Expected 'Active', got '{status}'");
         return 1;
     }
     
     // ネストした三項演算子戻り値テスト
     int grade = calculate_grade(85);
     if (grade != 80) {
-        print("ERROR: Expected 80, got %d", grade);
+        print("ERROR: Expected 80, got {grade}");
         return 1;
     }
     
     // 複雑な三項演算子テスト
     int complex_result = true ? (false ? 1 : 2) : 3;
     if (complex_result != 2) {
-        print("ERROR: Expected 2, got %d", complex_result);
+        print("ERROR: Expected 2, got {complex_result}");
         return 1;
     }
     
     // 期待される出力形式
     string result1 = get_sign(5);
-    println("Result1: %s", result1);
+    println("Result1: {result1}");
     
     string result2 = get_sign(-3);
-    println("Result2: %s", result2);
+    println("Result2: {result2}");
     
     return 0;
 }

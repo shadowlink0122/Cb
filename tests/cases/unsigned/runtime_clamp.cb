@@ -1,29 +1,29 @@
 unsigned int global_clamped = -5;
 
 void verify_param(unsigned int value) {
-    println("param=%d", value);
+    println("param={value}");
 }
 
 int main() {
-    println("global=%d", global_clamped);
+    println("global={global_clamped}");
 
     unsigned int local_init = -3;
-    println("local_init=%d", local_init);
+    println("local_init={local_init}");
 
     unsigned int local_assign = 10;
     local_assign = -42;
-    println("local_assign=%d", local_assign);
+    println("local_assign={local_assign}");
 
     verify_param(-9);
 
     unsigned int positive = 15;
-    println("positive=%d", positive);
+    println("positive={positive}");
 
     unsigned int[4] literal_array = [1, -2, 3, -4];
-    println("array_init=%d,%d,%d,%d", literal_array[0], literal_array[1], literal_array[2], literal_array[3]);
+    println("array_init={literal_array[0]},{literal_array[1]},{literal_array[2]},{literal_array[3]}");
 
     literal_array[2] = -7;
-    println("array_assign=%d", literal_array[2]);
+    println("array_assign={literal_array[2]}");
 
     return 0;
 }

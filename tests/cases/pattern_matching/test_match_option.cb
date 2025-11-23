@@ -1,0 +1,51 @@
+// Test match statement with Option type
+int test_option_match(Option<int> value) {
+    match (value) {
+        Some(x) => {
+            return x * 2;
+        }
+        None() => {
+            return -1;
+        }
+    }
+}
+
+string test_result_match(Result<int, string> result) {
+    match (result) {
+        Ok(value) => {
+            string msg = "Success: ";
+            // Convert int to string manually for now
+            return msg;
+        }
+        Err(msg) => {
+            string error = "Error: ";
+            return error;
+        }
+    }
+}
+
+int main() {
+    // Test with Some
+    Option<int> some_value = Option<int>::Some(42);
+    int result1 = test_option_match(some_value);
+    println("Some(42) * 2 = ");
+    println(result1);
+
+    // Test with None
+    Option<int> none_value = Option<int>::None();
+    int result2 = test_option_match(none_value);
+    println("None = ");
+    println(result2);
+
+    // Test with Ok
+    Result<int, string> ok_result = Result<int, string>::Ok(100);
+    string msg1 = test_result_match(ok_result);
+    println(msg1);
+
+    // Test with Err
+    Result<int, string> err_result = Result<int, string>::Err("Something went wrong");
+    string msg2 = test_result_match(err_result);
+    println(msg2);
+
+    return 0;
+}

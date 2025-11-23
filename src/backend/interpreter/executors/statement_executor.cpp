@@ -16,6 +16,7 @@
 #include "managers/types/manager.h"
 #include "managers/variables/manager.h"
 #include "services/array_processing_service.h"
+#include <inttypes.h>
 
 StatementExecutor::StatementExecutor(Interpreter &interpreter)
     : interpreter_(interpreter) {}
@@ -352,11 +353,11 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
                 member_it->second.type = typed_value.type.type_info;
                 {
                     char dbg_buf[512];
-                    snprintf(
-                        dbg_buf, sizeof(dbg_buf),
-                        "DEBUG_ASSIGN: Assigned integer %lld to %s.%s[%d].%s",
-                        value, obj_name.c_str(), array_member_name.c_str(),
-                        array_index, member_name.c_str());
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "DEBUG_ASSIGN: Assigned integer %" PRId64
+                             " to %s.%s[%d].%s",
+                             value, obj_name.c_str(), array_member_name.c_str(),
+                             array_index, member_name.c_str());
                     debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
                 }
             }
@@ -380,10 +381,10 @@ void StatementExecutor::execute_member_array_assignment(const ASTNode *node) {
             direct_var->is_assigned = true;
             {
                 char dbg_buf[512];
-                snprintf(
-                    dbg_buf, sizeof(dbg_buf),
-                    "DEBUG_ASSIGN: Updated direct access variable: %s = %lld",
-                    direct_access_name.c_str(), direct_var->value);
+                snprintf(dbg_buf, sizeof(dbg_buf),
+                         "DEBUG_ASSIGN: Updated direct access variable: %s = "
+                         "%" PRId64,
+                         direct_access_name.c_str(), direct_var->value);
                 debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
             }
         }

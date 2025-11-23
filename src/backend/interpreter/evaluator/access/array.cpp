@@ -5,6 +5,7 @@
 #include "../../core/error_handler.h"
 #include "../../core/interpreter.h"
 #include "../../core/pointer_metadata.h"
+#include <inttypes.h>
 #include <iostream>
 #include <stdexcept>
 
@@ -105,8 +106,8 @@ int64_t evaluate_array_ref(
             for (size_t i = 0; i < indices.size(); i++) {
                 {
                     char dbg_buf[512];
-                    snprintf(dbg_buf, sizeof(dbg_buf), "  index[%zu] = %lld", i,
-                             indices[i]);
+                    snprintf(dbg_buf, sizeof(dbg_buf),
+                             "  index[%zu] = %" PRId64, i, indices[i]);
                     debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
                 }
             }
@@ -330,7 +331,8 @@ int64_t evaluate_array_ref(
             {
                 char dbg_buf[512];
                 snprintf(dbg_buf, sizeof(dbg_buf),
-                         "Pointer array access: ptr=%lld, index=%lld",
+                         "Pointer array access: ptr=%" PRId64
+                         ", index=%" PRId64,
                          ptr_value, index);
                 debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
             }

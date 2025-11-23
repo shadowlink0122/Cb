@@ -14,6 +14,7 @@
 #include "../variables/static.h"
 #include <algorithm>
 #include <functional>
+#include <inttypes.h>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_set>
@@ -723,7 +724,7 @@ int64_t StructOperations::get_struct_member_multidim_array_element(
         for (size_t i = 0; i < indices.size(); i++) {
             {
                 char dbg_buf[512];
-                snprintf(dbg_buf, sizeof(dbg_buf), "[%lld]", indices[i]);
+                snprintf(dbg_buf, sizeof(dbg_buf), "[%" PRId64 "]", indices[i]);
                 debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
             }
         }
@@ -784,7 +785,7 @@ int64_t StructOperations::get_struct_member_multidim_array_element(
             {
                 char dbg_buf[512];
                 snprintf(dbg_buf, sizeof(dbg_buf),
-                         "Reading from multidim_array_values[%zu] = %lld",
+                         "Reading from multidim_array_values[%zu] = %" PRId64,
                          flat_index,
                          member_var->multidim_array_values[flat_index]);
                 debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);

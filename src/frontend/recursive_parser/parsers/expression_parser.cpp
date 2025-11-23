@@ -701,6 +701,39 @@ ASTNode *ExpressionParser::parsePostfix() {
             }
 
             primary = array_ref; // 次のアクセスのベースとして設定
+
+            // 配列要素が関数ポインタの場合の呼び出し処理: arr[i](args)
+            if (parser_->check(TokenType::TOK_LPAREN)) {
+                parser_->advance(); // consume '('
+
+                ASTNode *funcPtrCall =
+                    new ASTNode(ASTNodeType::AST_FUNC_PTR_CALL);
+                funcPtrCall->left = std::unique_ptr<ASTNode>(primary);
+
+                // 引数をパース
+                if (!parser_->check(TokenType::TOK_RPAREN)) {
+                    do {
+                        ASTNode *arg = parser_->parseExpression();
+                        if (!arg) {
+                            std::cerr
+                                << "[PARSER ERROR] parseExpression returned "
+                                   "null for function pointer call argument"
+                                << std::endl;
+                            return nullptr;
+                        }
+                        funcPtrCall->arguments.push_back(
+                            std::unique_ptr<ASTNode>(arg));
+                    } while (parser_->match(TokenType::TOK_COMMA));
+                }
+
+                parser_->consume(
+                    TokenType::TOK_RPAREN,
+                    "Expected ')' after function pointer call arguments");
+                primary = funcPtrCall;
+
+                debug_msg(DebugMsgId::PARSE_EXPR_ARRAY_ACCESS,
+                          "array element function pointer call");
+            }
         } else if (parser_->check(TokenType::TOK_DOT)) {
             // メンバアクセス: obj.member
             primary = parseMemberAccess(primary);

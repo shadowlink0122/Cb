@@ -1,0 +1,37 @@
+// ポインタの基本テスト
+
+struct Point {
+    int x;
+    int y;
+};
+
+void test_pointer_basic() {
+    int x = 42;
+    int* ptr = &x;
+    int value = *ptr;
+    
+    println("Value:", value);
+}
+
+void test_pointer_modify() {
+    int x = 10;
+    int* ptr = &x;
+    *ptr = 20;
+    
+    println("Modified x:", x);
+}
+
+void test_pointer_to_struct() {
+    Point p = {5, 10};
+    Point* ptr = &p;
+    
+    println("ptr->x:", ptr->x);
+    println("ptr->y:", ptr->y);
+}
+
+void main() {
+    println("=== Pointer Basic Tests ===");
+    test_pointer_basic();
+    test_pointer_modify();
+    test_pointer_to_struct();
+}

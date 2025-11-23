@@ -889,6 +889,13 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
                 var_node->is_array = true;
                 var_node->array_type_info =
                     ArrayTypeInfo(TYPE_ENUM, dimensions);
+                // v0.14.0: enum配列の要素型名を設定（ポインタマーカーを含む）
+                std::string element_type = type_name;
+                if (pointer_depth > 0) {
+                    element_type += std::string(pointer_depth, '*');
+                    var_node->array_type_info.base_type = TYPE_POINTER;
+                }
+                var_node->array_type_info.element_type_name = element_type;
                 var_node->type_info =
                     static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_ENUM);
 
@@ -954,6 +961,13 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
                 multi_node->is_array = true;
                 multi_node->array_type_info =
                     ArrayTypeInfo(TYPE_ENUM, dimensions);
+                // v0.14.0: enum配列の要素型名を設定（ポインタマーカーを含む）
+                std::string element_type = type_name;
+                if (pointer_depth > 0) {
+                    element_type += std::string(pointer_depth, '*');
+                    multi_node->array_type_info.base_type = TYPE_POINTER;
+                }
+                multi_node->array_type_info.element_type_name = element_type;
             }
 
             // 各変数をvar_declarations_に追加
@@ -984,6 +998,14 @@ ASTNode *StatementParser::parseTypedefTypeStatement(
                     var_node->is_array = true;
                     var_node->array_type_info =
                         ArrayTypeInfo(TYPE_ENUM, dimensions);
+                    // v0.14.0:
+                    // enum配列の要素型名を設定（ポインタマーカーを含む）
+                    std::string element_type = type_name;
+                    if (pointer_depth > 0) {
+                        element_type += std::string(pointer_depth, '*');
+                        var_node->array_type_info.base_type = TYPE_POINTER;
+                    }
+                    var_node->array_type_info.element_type_name = element_type;
                     var_node->type_info =
                         static_cast<TypeInfo>(TYPE_ARRAY_BASE + TYPE_ENUM);
 
@@ -1034,10 +1056,12 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
         !parser_->check(TokenType::TOK_BIG) &&
         !parser_->check(TokenType::TOK_QUAD)) {
 
+        // unsigned alone means unsigned int - allow proceeding
         if (isUnsigned) {
-            parser_->error("Expected type specifier after 'unsigned'");
+            // Continue to process as unsigned int
+        } else {
+            return nullptr;
         }
-        return nullptr;
     }
 
     // 型名を取得
@@ -1066,8 +1090,21 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
         base_type_name = "big";
     else if (parser_->check(TokenType::TOK_QUAD))
         base_type_name = "quad";
+    else if (isUnsigned) {
+        // unsigned alone means unsigned int
+        base_type_name = "int";
+        // Don't advance - no token to consume
+    }
 
-    parser_->advance(); // consume type
+    if (!base_type_name.empty() && !isUnsigned) {
+        parser_->advance(); // consume type token (but not for unsigned alone)
+    } else if (!base_type_name.empty() && isUnsigned &&
+               (parser_->check(TokenType::TOK_INT) ||
+                parser_->check(TokenType::TOK_LONG) ||
+                parser_->check(TokenType::TOK_SHORT) ||
+                parser_->check(TokenType::TOK_TINY))) {
+        parser_->advance(); // consume type token for "unsigned int" etc.
+    }
 
     // ポインタ修飾子のチェック
     int pointer_depth = 0;
@@ -1250,6 +1287,279 @@ ASTNode *StatementParser::parseBasicTypeStatement(bool isStatic, bool isConst,
                 declared_type_info, pointer_depth, isStatic, isConst,
                 isUnsigned, is_reference, is_pointer_const);
         }
+    } else if (parser_->check(TokenType::TOK_LPAREN)) {
+        // 関数ポインタの直接宣言または関数ポインタを返す関数の可能性をチェック
+        // 構文: type (*name)(params) または type (*name(params))(params)
+        parser_->advance(); // (
+
+        if (parser_->check(TokenType::TOK_MUL)) {
+            parser_->advance(); // *
+
+            // 関数ポインタの宣言または関数宣言
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected function pointer name after (*");
+            }
+            std::string fp_name = parser_->advance().value;
+
+            // ここで分岐:
+            // - ')' なら関数ポインタ変数宣言
+            // - '(' なら関数ポインタを返す関数宣言
+            if (parser_->check(TokenType::TOK_RPAREN)) {
+                // 関数ポインタ変数宣言: int (*fp)(params)
+                parser_->advance(); // )
+
+                if (!parser_->match(TokenType::TOK_LPAREN)) {
+                    parser_->error(
+                        "Expected '(' for function pointer parameters");
+                }
+
+                // パラメータを解析（関数ポインタ変数の場合）
+                FunctionPointerTypeInfo fp_info;
+                fp_info.return_type = parser_->getTypeInfoFromString(type_name);
+                fp_info.return_type_name = type_name;
+
+                if (!parser_->check(TokenType::TOK_RPAREN)) {
+                    do {
+                        std::string param_type = parser_->parseType();
+                        ParsedTypeInfo param_parsed =
+                            parser_->getLastParsedTypeInfo();
+
+                        fp_info.param_types.push_back(
+                            parser_->getTypeInfoFromString(param_type));
+                        fp_info.param_type_names.push_back(param_type);
+
+                        // オプション: パラメータ名
+                        if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                            fp_info.param_names.push_back(
+                                parser_->advance().value);
+                        } else {
+                            fp_info.param_names.push_back("");
+                        }
+                    } while (parser_->match(TokenType::TOK_COMMA));
+                }
+
+                if (!parser_->match(TokenType::TOK_RPAREN)) {
+                    parser_->error(
+                        "Expected ')' after function pointer parameters");
+                }
+
+                // 初期化式を解析
+                std::unique_ptr<ASTNode> init_expr = nullptr;
+                if (parser_->match(TokenType::TOK_ASSIGN)) {
+                    init_expr =
+                        std::unique_ptr<ASTNode>(parser_->parseExpression());
+                }
+
+                if (!parser_->match(TokenType::TOK_SEMICOLON)) {
+                    parser_->error(
+                        "Expected ';' after function pointer declaration");
+                }
+
+                // 関数ポインタノードを作成
+                ASTNode *node = new ASTNode(ASTNodeType::AST_VAR_DECL);
+                node->name = fp_name;
+                node->type_name =
+                    type_name; // 戻り値の型（実際には後で関数ポインタ型に変更）
+                node->is_function_pointer = true;
+                node->function_pointer_type = fp_info;
+                node->type_info = TYPE_FUNCTION_POINTER;
+
+                if (init_expr) {
+                    node->init_expr = std::move(init_expr);
+                }
+
+                parser_->setLocation(node, parser_->current_token_);
+                return node;
+            } else if (parser_->check(TokenType::TOK_LBRACKET)) {
+                // 関数ポインタ配列の宣言: int (*funcs[N])(params)
+                parser_->advance(); // [
+
+                // 配列サイズを解析
+                int array_size = -1;
+                if (parser_->check(TokenType::TOK_NUMBER)) {
+                    array_size = std::stoi(parser_->advance().value);
+                }
+
+                if (!parser_->match(TokenType::TOK_RBRACKET)) {
+                    parser_->error("Expected ']' after array size");
+                }
+
+                if (!parser_->match(TokenType::TOK_RPAREN)) {
+                    parser_->error("Expected ')' after array declaration");
+                }
+
+                // 関数ポインタ型のパラメータを解析
+                if (!parser_->match(TokenType::TOK_LPAREN)) {
+                    parser_->error(
+                        "Expected '(' for function pointer parameters");
+                }
+
+                // FunctionPointerTypeInfoの宣言をここで追加
+                FunctionPointerTypeInfo array_fp_info;
+                array_fp_info.return_type =
+                    parser_->getTypeInfoFromString(type_name);
+                array_fp_info.return_type_name = type_name;
+
+                if (!parser_->check(TokenType::TOK_RPAREN)) {
+                    do {
+                        std::string param_type = parser_->parseType();
+                        array_fp_info.param_types.push_back(
+                            parser_->getTypeInfoFromString(param_type));
+                        array_fp_info.param_type_names.push_back(param_type);
+
+                        // オプション: パラメータ名
+                        if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                            array_fp_info.param_names.push_back(
+                                parser_->advance().value);
+                        } else {
+                            array_fp_info.param_names.push_back("");
+                        }
+                    } while (parser_->match(TokenType::TOK_COMMA));
+                }
+
+                if (!parser_->match(TokenType::TOK_RPAREN)) {
+                    parser_->error("Expected ')' after parameters");
+                }
+
+                // 初期化式を解析（オプション）
+                std::unique_ptr<ASTNode> init_expr = nullptr;
+                if (parser_->match(TokenType::TOK_ASSIGN)) {
+                    init_expr =
+                        std::unique_ptr<ASTNode>(parser_->parseExpression());
+                }
+
+                if (!parser_->match(TokenType::TOK_SEMICOLON)) {
+                    parser_->error("Expected ';' after function pointer array "
+                                   "declaration");
+                }
+
+                // 関数ポインタ配列ノードを作成
+                ASTNode *node = new ASTNode(ASTNodeType::AST_ARRAY_DECL);
+                node->name = fp_name;
+                node->type_name = type_name; // 戻り値の型
+                node->is_function_pointer = true;
+                node->function_pointer_type = array_fp_info;
+                node->type_info = TYPE_FUNCTION_POINTER;
+                node->is_array = true;
+
+                // 配列情報を設定
+                node->array_type_info.base_type = TYPE_FUNCTION_POINTER;
+                node->array_type_info.element_type_name = "function_pointer";
+                if (array_size > 0) {
+                    node->array_type_info.dimensions.push_back(
+                        ArrayDimension(array_size, false));
+                }
+
+                if (init_expr) {
+                    node->init_expr = std::move(init_expr);
+                }
+
+                parser_->setLocation(node, parser_->current_token_);
+                return node;
+            } else if (parser_->check(TokenType::TOK_LPAREN)) {
+                // 関数ポインタを返す関数宣言: int (*func(params))(params)
+                parser_->advance(); // (
+
+                // 関数のパラメータを解析
+                std::vector<std::unique_ptr<ASTNode>> func_params;
+                if (!parser_->check(TokenType::TOK_RPAREN)) {
+                    do {
+                        std::string param_type = parser_->parseType();
+                        if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                            parser_->error("Expected parameter name");
+                        }
+                        std::string param_name = parser_->advance().value;
+
+                        auto param_node = std::make_unique<ASTNode>(
+                            ASTNodeType::AST_PARAM_DECL);
+                        param_node->name = param_name;
+                        param_node->type_name = param_type;
+                        param_node->type_info =
+                            parser_->getTypeInfoFromString(param_type);
+                        func_params.push_back(std::move(param_node));
+                    } while (parser_->match(TokenType::TOK_COMMA));
+                }
+
+                if (!parser_->match(TokenType::TOK_RPAREN)) {
+                    parser_->error("Expected ')' after function parameters");
+                }
+
+                if (!parser_->match(TokenType::TOK_RPAREN)) {
+                    parser_->error("Expected ')' after function declaration");
+                }
+
+                // 戻り値の関数ポインタ型のパラメータを解析
+                if (!parser_->match(TokenType::TOK_LPAREN)) {
+                    parser_->error("Expected '(' for return type parameters");
+                }
+
+                FunctionPointerTypeInfo return_fp_info;
+                return_fp_info.return_type =
+                    parser_->getTypeInfoFromString(type_name);
+                return_fp_info.return_type_name = type_name;
+
+                if (!parser_->check(TokenType::TOK_RPAREN)) {
+                    do {
+                        std::string param_type = parser_->parseType();
+                        return_fp_info.param_types.push_back(
+                            parser_->getTypeInfoFromString(param_type));
+                        return_fp_info.param_type_names.push_back(param_type);
+
+                        // オプション: パラメータ名
+                        if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                            return_fp_info.param_names.push_back(
+                                parser_->advance().value);
+                        } else {
+                            return_fp_info.param_names.push_back("");
+                        }
+                    } while (parser_->match(TokenType::TOK_COMMA));
+                }
+
+                if (!parser_->match(TokenType::TOK_RPAREN)) {
+                    parser_->error("Expected ')' after return type parameters");
+                }
+
+                // 関数本体を解析
+                if (!parser_->match(TokenType::TOK_LBRACE)) {
+                    parser_->error("Expected '{' for function body");
+                }
+
+                auto func_node =
+                    std::make_unique<ASTNode>(ASTNodeType::AST_FUNC_DECL);
+                func_node->name = fp_name;
+                func_node->parameters = std::move(func_params);
+                func_node->is_function_pointer_return = true;
+                func_node->function_pointer_type = return_fp_info;
+                func_node->return_type_name =
+                    type_name; // 基本的な戻り値の型（intなど）
+
+                // 関数本体のステートメントを解析
+                auto body_node =
+                    std::make_unique<ASTNode>(ASTNodeType::AST_STMT_LIST);
+                while (!parser_->check(TokenType::TOK_RBRACE) &&
+                       !parser_->isAtEnd()) {
+                    ASTNode *stmt = parser_->parseStatement();
+                    if (stmt != nullptr) {
+                        body_node->statements.push_back(
+                            std::unique_ptr<ASTNode>(stmt));
+                    }
+                }
+
+                if (!parser_->match(TokenType::TOK_RBRACE)) {
+                    parser_->error("Expected '}' to end function body");
+                }
+
+                func_node->body = std::move(body_node);
+                parser_->setLocation(func_node.get(), parser_->current_token_);
+                return func_node.release();
+            } else {
+                parser_->error("Expected ')' or '(' after function/variable "
+                               "name in function pointer declaration");
+            }
+        } else {
+            parser_->error("Unexpected '(' after type declaration");
+            return nullptr;
+        }
     } else {
         parser_->error("Expected identifier after type");
         return nullptr;
@@ -1353,7 +1663,7 @@ ASTNode *StatementParser::parseArrayDeclaration(
                 dimensions.push_back(ArrayDimension(dim_size, false));
             } else {
                 // 変数または式なので動的サイズとしてマーク
-                dimensions.push_back(ArrayDimension(-1, true));
+                dimensions.push_back(ArrayDimension(-1, true, size));
             }
         } else {
             // 動的サイズ
@@ -1361,6 +1671,15 @@ ASTNode *StatementParser::parseArrayDeclaration(
         }
     }
     node->array_type_info = ArrayTypeInfo(base_type_info, dimensions);
+
+    // v0.14.0: 配列要素の型名を設定（ポインタ配列、構造体配列、enum配列など）
+    // type_nameは配列部分を除いた基本型名（例: "Color", "int*", "Point"）
+    node->array_type_info.element_type_name = type_name;
+
+    // ポインタ配列の場合、base_typeをPOINTERに設定
+    if (pointer_depth > 0) {
+        node->array_type_info.base_type = TYPE_POINTER;
+    }
 
     // 配列次元をASTノードに設定
     for (const auto &size : array_sizes) {

@@ -2,13 +2,13 @@
 int main() {
     for (int i = 1; i <= 15; i = i + 1) {
         if ((i % 3 == 0) && (i % 5 == 0)) {
-            println("%d: FizzBuzz", i);
+            println("{i}: FizzBuzz");
         } else if (i % 3 == 0) {
-            println("%d: Fizz", i);
+            println("{i}: Fizz");
         } else if (i % 5 == 0) {
-            println("%d: Buzz", i);
+            println("{i}: Buzz");
         } else {
-            println("%d", i);
+            println("{i}");
         }
     }
     return 0;

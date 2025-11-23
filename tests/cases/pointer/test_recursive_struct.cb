@@ -16,7 +16,7 @@ int main() {
         println("ERROR: node1.value initialization failed");
         return 1;
     }
-    println("Node1 value: %d", node1.value);
+    println("Node1 value: {node1.value}");
     println("Node1 next: nullptr");
     
     println("\n=== Test 2: Creating multiple nodes ===");
@@ -28,8 +28,8 @@ int main() {
     node3.value = 30;
     node3.next = nullptr;
     
-    println("Node2 value: %d", node2.value);
-    println("Node3 value: %d", node3.value);
+    println("Node2 value: {node2.value}");
+    println("Node3 value: {node3.value}");
     
     println("\n=== Test 3: Binary tree structure ===");
     struct TreeNode {
@@ -47,7 +47,7 @@ int main() {
         println("ERROR: TreeNode initialization failed");
         return 1;
     }
-    println("TreeNode root data: %d", root.data);
+    println("TreeNode root data: {root.data}");
     println("TreeNode left: nullptr");
     println("TreeNode right: nullptr");
     
@@ -67,7 +67,7 @@ int main() {
         println("ERROR: MultiNode initialization failed");
         return 1;
     }
-    println("MultiNode id: %d", multi.id);
+    println("MultiNode id: {multi.id}");
     println("MultiNode next: nullptr");
     println("MultiNode indirect: nullptr");
     
@@ -89,7 +89,7 @@ int main() {
         println("ERROR: Person initialization failed");
         return 1;
     }
-    println("Person: %s, age %d", alice.name, alice.age);
+    println("Person: {alice.name}, age {alice.age}");
     println("Friend: nullptr");
     println("Parent: nullptr");
     

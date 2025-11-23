@@ -23,15 +23,14 @@ int main() {
     int[3] y_coords = [0, 0, 8];
     string[3] labels = ["A", "B", "C"];
     
-    println("Initialized coordinates: (%d,%d), (%d,%d), (%d,%d)", 
-           x_coords[0], y_coords[0], x_coords[1], y_coords[1], x_coords[2], y_coords[2]);
+    println("Initialized coordinates: ({x_coords[0]},{y_coords[0]}), ({x_coords[1]},{y_coords[1]}), ({x_coords[2]},{y_coords[2]})");
     
     // 2. 複雑なチェーンアクセス（30%パフォーマンス向上の検証）
     int valid_points = 0;
     for (int i = 0; i < 3; i++) {
         if (x_coords[i] >= 0 && y_coords[i] >= 0) {
             valid_points++;
-            println("Valid point[%d]: (%d,%d) %s", i, x_coords[i], y_coords[i], labels[i]);
+            println("Valid point[{i}]: ({x_coords[i]},{y_coords[i]}) {labels[i]}");
         }
     }
     
@@ -42,22 +41,22 @@ int main() {
         string distance_class = classify_distance(origin_distance);
         
         total_distance += origin_distance;
-        println("Point %s: distance=%d (%s)", labels[i], origin_distance, distance_class);
+        println("Point {labels[i]}: distance={origin_distance} ({distance_class})");
     }
     
     int average_distance = total_distance / 3;
-    println("Average distance: %d", average_distance);
+    println("Average distance: {average_distance}");
     
     // 4. 深いネスト構造での型推論・チェーン処理
     int complex_result = x_coords[valid_points > 2 ? 2 : 0] + y_coords[valid_points > 1 ? 1 : 0];
-    println("Complex nested access: %d", complex_result);
+    println("Complex nested access: {complex_result}");
     
     // 5. 条件付きチェーン処理の最適化
     string optimization_test = x_coords[0] > x_coords[1] ?
         (x_coords[0] > x_coords[2] ? labels[0] : labels[2]) :
         (x_coords[1] > x_coords[2] ? labels[1] : labels[2]);
     
-    println("Optimization result: %s", optimization_test);
+    println("Optimization result: {optimization_test}");
     
     // 6. パフォーマンス集約計算（15%向上の検証）
     int performance_score = 0;
@@ -71,7 +70,7 @@ int main() {
                               (performance_score > 30 ? "GOOD" : 
                               (performance_score > 10 ? "FAIR" : "POOR"));
     
-    println("Performance score: %d (%s)", performance_score, performance_grade);
+    println("Performance score: {performance_score} ({performance_grade})");
     
     // 7. メモリ効率テスト（型推論による最適化）
     bool memory_efficiency = true;
@@ -83,15 +82,15 @@ int main() {
         total_points++;
     }
     
-    println("Memory efficiency: %s (processed %d points)", 
-           memory_efficiency ? "OPTIMAL" : "SUBOPTIMAL", total_points);
+    string efficiency_status = memory_efficiency ? "OPTIMAL" : "SUBOPTIMAL";
+    println("Memory efficiency: {efficiency_status} (processed {total_points} points)");
     
     // 8. 再帰関数とチェーン処理の組み合わせ
     int fib_test = fibonacci(6);
     string recursive_result = fib_test > average_distance ?
         "FIBONACCI_DOMINATES" : "DISTANCE_DOMINATES";
     
-    println("Recursive test: fib(6)=%d, result=%s", fib_test, recursive_result);
+    println("Recursive test: fib(6)={fib_test}, result={recursive_result}");
     
     // 9. 最終統合テスト
     bool final_test = performance_score > 20 && memory_efficiency &&
@@ -101,17 +100,22 @@ int main() {
         "v0.8.1 PERFORMANCE IMPROVEMENTS VERIFIED" :
         "PERFORMANCE NEEDS ATTENTION";
     
-    println("=== FINAL RESULT: %s ===", final_message);
+    println("=== FINAL RESULT: {final_message} ===");
     
     // 10. パフォーマンス統計サマリー
     println("=== Performance Statistics ===");
-    println("- Points processed: %d", total_points);
-    println("- Valid points: %d", valid_points);
-    println("- Total distance: %d", total_distance);
-    println("- Performance score: %d", performance_score);
-    println("- Memory efficiency: %s", memory_efficiency ? "OPTIMAL" : "NEEDS_WORK");
-    println("- Type inference: %s", final_test ? "WORKING" : "ISSUES");
-    println("- Chain processing: %s", complex_result > 0 ? "OPTIMIZED" : "BASIC");
+    println("- Points processed: {total_points}");
+    println("- Valid points: {valid_points}");
+    println("- Total distance: {total_distance}");
+    println("- Performance score: {performance_score}");
+    
+    string memory_status = memory_efficiency ? "OPTIMAL" : "NEEDS_WORK";
+    string inference_status = final_test ? "WORKING" : "ISSUES";
+    string chain_status = complex_result > 0 ? "OPTIMIZED" : "BASIC";
+    
+    println("- Memory efficiency: {memory_status}");
+    println("- Type inference: {inference_status}");
+    println("- Chain processing: {chain_status}");
     
     return final_test ? 0 : 1;
 }

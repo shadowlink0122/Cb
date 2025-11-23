@@ -19,7 +19,11 @@ inline void test_literal_union() {
             INTEGRATION_ASSERT_CONTAINS(output, "Server Error: 500", "Should show HTTP Server Error status");
             INTEGRATION_ASSERT_CONTAINS(output, "Enabled: 1", "Should show boolean true as 1");
             INTEGRATION_ASSERT_CONTAINS(output, "Disabled: 0", "Should show boolean false as 0");
-            INTEGRATION_ASSERT_CONTAINS(output, "Excellent: A", "Should show grade A");
+            INTEGRATION_ASSERT_CONTAINS(output, "Excellent: A", "Should show grade A as character");
+            INTEGRATION_ASSERT_CONTAINS(output, "Good: B", "Should show grade B as character");
+            INTEGRATION_ASSERT_CONTAINS(output, "Average: C", "Should show grade C as character");
+            INTEGRATION_ASSERT_CONTAINS(output, "Poor: D", "Should show grade D as character");
+            INTEGRATION_ASSERT_CONTAINS(output, "Fail: F", "Should show grade F as character");
             INTEGRATION_ASSERT_CONTAINS(output, "Debug: DEBUG", "Should show debug log level");
             INTEGRATION_ASSERT_CONTAINS(output, "Error: ERROR", "Should show error log level");
             INTEGRATION_ASSERT_CONTAINS(output, "=== 基本リテラル値ユニオンテスト完了 ===", "Should contain test completion");

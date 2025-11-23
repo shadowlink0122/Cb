@@ -562,6 +562,189 @@ enum class DebugMsgId {
     SLEEP_TASK_SLEEPING,           // タスクがまだsleep中
     SLEEP_TASK_WOKE_UP,            // タスクがsleepから起床
 
+    // HIR (High-level Intermediate Representation) 関連
+    HIR_GENERATION_START,    // HIR生成開始
+    HIR_GENERATION_COMPLETE, // HIR生成完了
+    HIR_PROCESSING_NODE,     // ノード処理中
+
+    // HIR関数処理
+    HIR_FUNCTION_PROCESSING,       // 関数処理中
+    HIR_FUNCTION_ADDED,            // 関数追加
+    HIR_FUNCTION_BODY_START,       // 関数本体処理開始
+    HIR_FUNCTION_BODY_COMPLETE,    // 関数本体処理完了
+    HIR_FUNCTION_PARAM_PROCESSING, // 関数パラメータ処理中
+    HIR_FUNCTION_PARAM_ADDED,      // 関数パラメータ追加
+
+    // HIR構造体処理
+    HIR_STRUCT_PROCESSING,       // 構造体処理中
+    HIR_STRUCT_ADDED,            // 構造体追加
+    HIR_STRUCT_FIELD_PROCESSING, // 構造体フィールド処理中
+    HIR_STRUCT_FIELD_ADDED,      // 構造体フィールド追加
+
+    // HIR列挙型処理
+    HIR_ENUM_PROCESSING,       // 列挙型処理中
+    HIR_ENUM_ADDED,            // 列挙型追加
+    HIR_ENUM_VALUE_PROCESSING, // 列挙値処理中
+    HIR_ENUM_VALUE_ADDED,      // 列挙値追加
+
+    // HIRインターフェース処理
+    HIR_INTERFACE_PROCESSING,        // インターフェース処理中
+    HIR_INTERFACE_ADDED,             // インターフェース追加
+    HIR_INTERFACE_METHOD_PROCESSING, // インターフェースメソッド処理中
+    HIR_INTERFACE_METHOD_ADDED, // インターフェースメソッド追加
+
+    // HIR実装処理
+    HIR_IMPL_PROCESSING,        // 実装処理中
+    HIR_IMPL_ADDED,             // 実装追加
+    HIR_IMPL_METHOD_PROCESSING, // 実装メソッド処理中
+    HIR_IMPL_METHOD_ADDED,      // 実装メソッド追加
+
+    // HIRグローバル変数処理
+    HIR_GLOBAL_VAR_PROCESSING, // グローバル変数処理中
+    HIR_GLOBAL_VAR_ADDED,      // グローバル変数追加
+
+    // HIR FFI関数処理
+    HIR_FFI_FUNCTION_PROCESSING, // FFI関数処理中
+    HIR_FFI_FUNCTION_ADDED,      // FFI関数追加
+
+    // HIRステートメント処理
+    HIR_STATEMENT_PROCESSING, // ステートメント処理中
+    HIR_STATEMENT_CONVERTED,  // ステートメント変換完了
+    HIR_STMT_RETURN,          // return文処理
+    HIR_STMT_IF,              // if文処理
+    HIR_STMT_WHILE,           // while文処理
+    HIR_STMT_FOR,             // for文処理
+    HIR_STMT_EXPR,            // 式文処理
+    HIR_STMT_VAR_DECL,        // 変数宣言文処理
+    HIR_STMT_BLOCK,           // ブロック文処理
+
+    // HIR式処理
+    HIR_EXPRESSION_PROCESSING, // 式処理中
+    HIR_EXPRESSION_CONVERTED,  // 式変換完了
+    HIR_EXPR_LITERAL,          // リテラル式
+    HIR_EXPR_VARIABLE,         // 変数式
+    HIR_EXPR_BINARY_OP,        // 二項演算式
+    HIR_EXPR_UNARY_OP,         // 単項演算式
+    HIR_EXPR_FUNC_CALL,        // 関数呼び出し式
+    HIR_EXPR_MEMBER_ACCESS,    // メンバアクセス式
+    HIR_EXPR_ARRAY_ACCESS,     // 配列アクセス式
+    HIR_EXPR_CAST,             // キャスト式
+    HIR_EXPR_TERNARY,          // 三項演算式
+
+    // HIR型処理
+    HIR_TYPE_RESOLUTION, // 型解決
+    HIR_TYPE_RESOLVED,   // 型解決完了
+    HIR_TYPE_PRIMITIVE,  // プリミティブ型
+    HIR_TYPE_STRUCT,     // 構造体型
+    HIR_TYPE_ARRAY,      // 配列型
+    HIR_TYPE_POINTER,    // ポインタ型
+    HIR_TYPE_FUNCTION,   // 関数型
+
+    // HIRジェネリック処理
+    HIR_GENERIC_INSTANTIATION,    // ジェネリック具体化
+    HIR_GENERIC_PARAM_PROCESSING, // ジェネリックパラメータ処理
+    HIR_GENERIC_CONSTRAINT,       // ジェネリック制約処理
+
+    // C++コード生成 (HIR to C++)
+    CODEGEN_CPP_START,              // C++コード生成開始
+    CODEGEN_CPP_COMPLETE,           // C++コード生成完了
+    CODEGEN_CPP_PROGRAM,            // プログラム全体の生成
+    CODEGEN_CPP_HEADER,             // ヘッダー生成
+    CODEGEN_CPP_IMPORTS,            // インポート生成
+    CODEGEN_CPP_TYPEDEFS,           // typedef生成
+    CODEGEN_CPP_FORWARD_DECL,       // 前方宣言生成
+    CODEGEN_CPP_STRUCT_START,       // 構造体生成開始
+    CODEGEN_CPP_STRUCT_COMPLETE,    // 構造体生成完了
+    CODEGEN_CPP_ENUM_START,         // enum生成開始
+    CODEGEN_CPP_ENUM_COMPLETE,      // enum生成完了
+    CODEGEN_CPP_UNION_START,        // union生成開始
+    CODEGEN_CPP_UNION_COMPLETE,     // union生成完了
+    CODEGEN_CPP_INTERFACE_START,    // interface生成開始
+    CODEGEN_CPP_INTERFACE_COMPLETE, // interface生成完了
+    CODEGEN_CPP_FUNCTION_START,     // 関数生成開始
+    CODEGEN_CPP_FUNCTION_COMPLETE,  // 関数生成完了
+    CODEGEN_CPP_FUNCTION_SIGNATURE, // 関数シグネチャ生成
+    CODEGEN_CPP_FUNCTION_BODY,      // 関数本体生成
+    CODEGEN_CPP_IMPL_START,         // impl生成開始
+    CODEGEN_CPP_IMPL_COMPLETE,      // impl生成完了
+    CODEGEN_CPP_IMPL_METHOD,        // implメソッド生成
+    CODEGEN_CPP_GLOBAL_VAR,         // グローバル変数生成
+    CODEGEN_CPP_FFI_FUNC,           // FFI関数生成
+
+    // C++ステートメント生成
+    CODEGEN_CPP_STMT_START,      // ステートメント生成開始
+    CODEGEN_CPP_STMT_VAR_DECL,   // 変数宣言生成
+    CODEGEN_CPP_STMT_ASSIGNMENT, // 代入文生成
+    CODEGEN_CPP_STMT_IF,         // if文生成
+    CODEGEN_CPP_STMT_WHILE,      // while文生成
+    CODEGEN_CPP_STMT_FOR,        // for文生成
+    CODEGEN_CPP_STMT_RETURN,     // return文生成
+    CODEGEN_CPP_STMT_BLOCK,      // ブロック生成
+    CODEGEN_CPP_STMT_SWITCH,     // switch文生成
+    CODEGEN_CPP_STMT_DEFER,      // defer文生成
+    CODEGEN_CPP_STMT_DELETE,     // delete文生成
+    CODEGEN_CPP_STMT_TRY_CATCH,  // try-catch文生成
+    CODEGEN_CPP_STMT_ASSERT,     // assert文生成
+
+    // C++式生成
+    CODEGEN_CPP_EXPR_START,          // 式生成開始
+    CODEGEN_CPP_EXPR_LITERAL,        // リテラル式生成
+    CODEGEN_CPP_EXPR_VARIABLE,       // 変数参照生成
+    CODEGEN_CPP_EXPR_BINARY_OP,      // 二項演算生成
+    CODEGEN_CPP_EXPR_UNARY_OP,       // 単項演算生成
+    CODEGEN_CPP_EXPR_FUNC_CALL,      // 関数呼び出し生成
+    CODEGEN_CPP_EXPR_METHOD_CALL,    // メソッド呼び出し生成
+    CODEGEN_CPP_EXPR_MEMBER_ACCESS,  // メンバアクセス生成
+    CODEGEN_CPP_EXPR_ARRAY_ACCESS,   // 配列アクセス生成
+    CODEGEN_CPP_EXPR_CAST,           // キャスト生成
+    CODEGEN_CPP_EXPR_TERNARY,        // 三項演算子生成
+    CODEGEN_CPP_EXPR_LAMBDA,         // ラムダ式生成
+    CODEGEN_CPP_EXPR_STRUCT_LITERAL, // 構造体リテラル生成
+    CODEGEN_CPP_EXPR_ARRAY_LITERAL,  // 配列リテラル生成
+    CODEGEN_CPP_EXPR_NEW,            // new式生成
+    CODEGEN_CPP_EXPR_AWAIT,          // await式生成
+
+    // C++ポインタ操作生成
+    CODEGEN_CPP_POINTER_TYPE_START, // ポインタ型生成開始
+    CODEGEN_CPP_POINTER_TYPE,       // ポインタ型: T*
+    CODEGEN_CPP_POINTER_CONST,      // const pointer: T* const
+    CODEGEN_CPP_POINTER_TO_CONST,   // pointer to const: const T*
+    CODEGEN_CPP_POINTER_ADDRESS_OF, // アドレス演算子 &
+    CODEGEN_CPP_POINTER_DEREF,      // デリファレンス *
+    CODEGEN_CPP_POINTER_ARROW,      // アロー演算子 ->
+    CODEGEN_CPP_POINTER_NULL,       // nullptr生成
+    CODEGEN_CPP_POINTER_CAST,       // ポインタキャスト
+    CODEGEN_CPP_POINTER_ARITHMETIC, // ポインタ算術演算
+
+    // C++参照型生成
+    CODEGEN_CPP_REFERENCE_TYPE,  // 参照型 &
+    CODEGEN_CPP_RVALUE_REF_TYPE, // 右辺値参照 &&
+
+    // C++型生成詳細
+    CODEGEN_CPP_TYPE_START,    // 型生成開始
+    CODEGEN_CPP_TYPE_BASIC,    // 基本型生成
+    CODEGEN_CPP_TYPE_ARRAY,    // 配列型生成
+    CODEGEN_CPP_TYPE_FUNCTION, // 関数型生成
+    CODEGEN_CPP_TYPE_GENERIC,  // ジェネリック型生成
+    CODEGEN_CPP_TYPE_COMPLETE, // 型生成完了
+
+    // ポインタ実装デバッグ
+    POINTER_IMPL_ALLOC,         // ポインタメモリ割り当て
+    POINTER_IMPL_FREE,          // ポインタメモリ解放
+    POINTER_IMPL_COPY,          // ポインタコピー
+    POINTER_IMPL_ASSIGN,        // ポインタ代入
+    POINTER_IMPL_COMPARE,       // ポインタ比較
+    POINTER_IMPL_NULL_CHECK,    // ポインタNULLチェック
+    POINTER_IMPL_DEREF_CHECK,   // デリファレンス前チェック
+    POINTER_IMPL_BOUNDS_CHECK,  // ポインタ境界チェック
+    POINTER_IMPL_TYPE_MISMATCH, // ポインタ型不一致
+
+    // TypedValue デバッグ
+    TYPED_VALUE_POINTER_CONSTRUCT, // TypedValue int64_t constructor (pointer)
+    TYPED_VALUE_POINTER_CONSTRUCT_LD, // TypedValue long double constructor
+                                      // (pointer)
+    TYPED_VALUE_AS_NUMERIC_POINTER,   // TypedValue::as_numeric (pointer)
+
     // 汎用デバッグ（最後の手段として残す）
     GENERIC_DEBUG, // 汎用デバッグライン出力
 
@@ -577,6 +760,10 @@ void debug_msg(DebugMsgId msg_id, ...);
 
 // 多言語対応エラー出力関数
 void error_msg(DebugMsgId msg_id, ...);
+
+// デバッグマクロ
+#define DEBUG_PRINT(...) debug_msg(__VA_ARGS__)
+#define ERROR_PRINT(...) error_msg(__VA_ARGS__)
 
 inline void debug_log_line(const std::string &message) {
     if (!debug_mode)

@@ -22,17 +22,17 @@ int main() {
     
     // Verify individual enum values
     if (color_val != 0) {
-        println("ERROR: Color::red should be 0, got %d", color_val);
+        println("ERROR: Color::red should be 0, got {color_val}");
         return 1;
     }
     
     if (size_val != 30) {
-        println("ERROR: Size::large should be 30, got %d", size_val);
+        println("ERROR: Size::large should be 30, got {size_val}");
         return 1;
     }
     
     if (state_val != 1) {
-        println("ERROR: State::on should be 1, got %d", state_val);
+        println("ERROR: State::on should be 1, got {state_val}");
         return 1;
     }
     
@@ -41,24 +41,24 @@ int main() {
     
     // Verify enum combination
     if (combined != 12) {
-        println("ERROR: Color::blue + Size::small should be 12, got %d", combined);
+        println("ERROR: Color::blue + Size::small should be 12, got {combined}");
         return 1;
     }
     
     // Test more combinations
     int another_combo = Size::medium - Color::green; // 20 - 1 = 19
     if (another_combo != 19) {
-        println("ERROR: Size::medium - Color::green should be 19, got %d", another_combo);
+        println("ERROR: Size::medium - Color::green should be 19, got {another_combo}");
         return 1;
     }
     
     println("Multiple enum values:");
-    println("  Color::red = %d", color_val);
-    println("  Size::large = %d", size_val);
-    println("  State::on = %d", state_val);
+    println("  Color::red = {color_val}");
+    println("  Size::large = {size_val}");
+    println("  State::on = {state_val}");
     println("Enum combinations:");
-    println("  Color::blue + Size::small = %d", combined);
-    println("  Size::medium - Color::green = %d", another_combo);
+    println("  Color::blue + Size::small = {combined}");
+    println("  Size::medium - Color::green = {another_combo}");
     println("Multiple enums test passed");
     return 0;
 }

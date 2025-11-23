@@ -16,7 +16,7 @@ int main() {
         println("ERROR: Node initialization failed");
         return 1;
     }
-    println("Node value: %d", head.value);
+    println("Node value: {head.value}");
     println("Node next: nullptr");
     
     println("\n=== Test 2: Multiple typedef nodes ===");
@@ -28,8 +28,8 @@ int main() {
     node2.value = 20;
     node2.next = nullptr;
     
-    println("Node1 value: %d", node1.value);
-    println("Node2 value: %d", node2.value);
+    println("Node1 value: {node1.value}");
+    println("Node2 value: {node2.value}");
     
     println("\n=== Test 3: Binary tree with typedef ===");
     typedef struct TreeTag {
@@ -47,7 +47,7 @@ int main() {
         println("ERROR: TreeNode initialization failed");
         return 1;
     }
-    println("TreeNode data: %d", root.data);
+    println("TreeNode data: {root.data}");
     println("TreeNode left: nullptr");
     println("TreeNode right: nullptr");
     

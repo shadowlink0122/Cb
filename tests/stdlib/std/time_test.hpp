@@ -14,7 +14,7 @@ namespace stdlib_tests {
 // Cb プログラムを実行して出力を取得するヘルパー関数
 inline std::string run_cb_program(const std::string& filepath) {
     // tests/stdlib ディレクトリから実行されることを想定
-    std::string command = "cd ../.. && ./main " + filepath + " 2>&1";
+    std::string command = "cd ../.. && ./cb " + filepath + " 2>&1";
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
         throw std::runtime_error("Failed to run command: " + command);

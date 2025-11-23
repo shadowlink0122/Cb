@@ -10,7 +10,7 @@ struct SystemAllocator {};
 
 impl Allocator for SystemAllocator {
     void* allocate(int size) {
-        println("SystemAllocator.allocate(%d)", size);
+        println("SystemAllocator.allocate({size})");
         return nullptr;
     }
     
@@ -27,5 +27,5 @@ void main() {
     // This should pass: SystemAllocator implements Allocator
     Vector<int, SystemAllocator> vec;
     vec.capacity = 10;
-    println("Valid interface bound: OK (capacity=%d)", vec.capacity);
+    println("Valid interface bound: OK (capacity={vec.capacity})");
 }

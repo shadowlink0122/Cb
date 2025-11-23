@@ -6,6 +6,7 @@
 #include "../../core/interpreter.h"
 #include "../../core/pointer_metadata.h"
 #include <functional>
+#include <inttypes.h>
 #include <stdexcept>
 #include <string>
 
@@ -633,7 +634,7 @@ case_4_arrow_access:
         {
             char dbg_buf[512];
             snprintf(dbg_buf, sizeof(dbg_buf),
-                     "[EVAL_RESOLVER] Array index: %lld", index);
+                     "[EVAL_RESOLVER] Array index: %" PRId64, index);
             debug_msg(DebugMsgId::GENERIC_DEBUG, dbg_buf);
         }
 

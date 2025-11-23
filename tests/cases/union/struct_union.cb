@@ -24,10 +24,10 @@ int main() {
     Person bob = {"Bob", 30}; // 位置ベース初期化
     
     println("Struct Literal Initialization:");
-    println("  Origin: (%d, %d)", origin.x, origin.y);
-    println("  Target: (%d, %d)", target.x, target.y);
-    println("  Alice: %s, %d years old", alice.name, alice.age);
-    println("  Bob: %s, %d years old", bob.name, bob.age);
+    println("  Origin: ({origin.x}, {origin.y})");
+    println("  Target: ({target.x}, {target.y})");
+    println("  Alice: {alice.name}, {alice.age} years old");
+    println("  Bob: {bob.name}, {bob.age} years old");
     
     // 構造体変数をユニオンに代入
     ShapeOrPerson item1 = origin;

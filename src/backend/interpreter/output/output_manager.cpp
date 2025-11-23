@@ -64,6 +64,19 @@ void write_numeric_value(IOInterface *io_interface, TypeInfo type,
     }
 
     switch (type) {
+    case TYPE_POINTER: {
+        // Display pointers in hexadecimal
+        uint64_t unsigned_val = static_cast<uint64_t>(int_value);
+        // Remove tag bit from pointer metadata
+        uint64_t clean_value = unsigned_val;
+        if (unsigned_val & (1ULL << 63)) {
+            clean_value &= ~(1ULL << 63);
+        }
+        std::ostringstream oss;
+        oss << "0x" << std::hex << clean_value;
+        io_interface->write_string(oss.str().c_str());
+        break;
+    }
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
         io_interface->write_float(double_value);
@@ -118,6 +131,85 @@ const ASTNode *OutputManager::find_function(const std::string &name) {
 void OutputManager::print_value(const ASTNode *expr) {
     if (!expr) {
         io_interface_->write_string("(null)");
+        return;
+    }
+
+    // Handle ADDRESS_OF expressions - display as hex pointer
+    if (expr->node_type == ASTNodeType::AST_UNARY_OP &&
+        expr->op == "ADDRESS_OF") {
+        TypedValue typed = interpreter_->evaluate_typed_expression(expr);
+        if (typed.is_numeric() && typed.numeric_type == TYPE_POINTER) {
+            int64_t value = typed.as_numeric();
+            uint64_t clean_value = static_cast<uint64_t>(value);
+            if (value & (1LL << 63)) {
+                clean_value &= ~(1ULL << 63);
+            }
+            std::ostringstream oss;
+            oss << "0x" << std::hex << clean_value;
+            io_interface_->write_string(oss.str().c_str());
+            return;
+        }
+    }
+
+    // String literals with interpolation should be handled first
+    if (expr->node_type == ASTNodeType::AST_STRING_LITERAL &&
+        !expr->interpolation_segments.empty()) {
+        // Process interpolated string
+        for (const auto &segment : expr->interpolation_segments) {
+            if (segment->is_interpolation_text) {
+                // Text segment
+                io_interface_->write_string(segment->str_value.c_str());
+            } else if (segment->is_interpolation_expr) {
+                // Expression segment - evaluate and print with format specifier
+                if (segment->left) {
+                    // Check if format specifier requires hex formatting
+                    bool need_hex = false;
+                    if (!segment->interpolation_format.empty()) {
+                        if (segment->interpolation_format == ":x" ||
+                            segment->interpolation_format == "x") {
+                            need_hex = true;
+                        }
+                    }
+
+                    // Evaluate expression
+                    TypedValue typed = interpreter_->evaluate_typed_expression(
+                        segment->left.get());
+
+                    // Format and output based on type and format specifier
+                    if (typed.is_numeric()) {
+                        TypeInfo value_type = typed.numeric_type != TYPE_UNKNOWN
+                                                  ? typed.numeric_type
+                                                  : typed.type.type_info;
+
+                        // Pointers should always be displayed in hex format
+                        // Also apply hex formatting if explicitly requested
+                        // with :x
+                        if (value_type == TYPE_POINTER || need_hex) {
+                            int64_t value = typed.as_numeric();
+                            uint64_t unsigned_val =
+                                static_cast<uint64_t>(value);
+                            // Remove tag bit from pointer metadata
+                            uint64_t clean_value = unsigned_val;
+                            if (value & (1LL << 63)) {
+                                clean_value &= ~(1ULL << 63);
+                            }
+                            std::ostringstream oss;
+                            oss << "0x" << std::hex << clean_value;
+                            io_interface_->write_string(oss.str().c_str());
+                        } else {
+                            write_numeric_value(
+                                io_interface_, value_type, typed.as_numeric(),
+                                typed.as_double(), typed.as_quad());
+                        }
+                    } else if (typed.is_string()) {
+                        io_interface_->write_string(typed.as_string().c_str());
+                    } else {
+                        // Fallback to recursive print_value
+                        print_value(segment->left.get());
+                    }
+                }
+            }
+        }
         return;
     }
 
@@ -211,6 +303,11 @@ void OutputManager::print_value(const ASTNode *expr) {
                 }
                 std::ostringstream oss;
                 oss << "0x" << std::hex << clean_value;
+                if (debug_mode) {
+                    fprintf(stderr,
+                            "[evaluate_numeric_and_write] POINTER output: %s\n",
+                            oss.str().c_str());
+                }
                 io_interface_->write_string(oss.str().c_str());
                 return;
             }
@@ -471,6 +568,43 @@ void OutputManager::print_value(const ASTNode *expr) {
     }
 
     if (expr->node_type == ASTNodeType::AST_STRING_LITERAL) {
+        if (debug_mode) {
+            fprintf(stderr,
+                    "[print_value] STRING_LITERAL: has %zu "
+                    "interpolation_segments\n",
+                    expr->interpolation_segments.size());
+        }
+        // Check if there are interpolation segments
+        if (!expr->interpolation_segments.empty()) {
+            // Process interpolated string
+            for (const auto &segment : expr->interpolation_segments) {
+                if (segment->is_interpolation_text) {
+                    // Text segment
+                    io_interface_->write_string(segment->str_value.c_str());
+                } else if (segment->is_interpolation_expr) {
+                    // Expression segment - evaluate and print
+                    if (segment->left) {
+                        if (debug_mode) {
+                            fprintf(stderr,
+                                    "[print_value interpolation] Calling "
+                                    "print_value recursively for expression, "
+                                    "node_type=%d, op='%s'\n",
+                                    (int)segment->left->node_type,
+                                    segment->left->op.c_str());
+                        }
+                        print_value(segment->left.get());
+                    }
+                }
+            }
+            return;
+        }
+        // No interpolation - just print the string value
+        if (debug_mode) {
+            fprintf(
+                stderr,
+                "[print_value] No interpolation, printing str_value: '%s'\n",
+                expr->str_value.c_str());
+        }
         io_interface_->write_string(expr->str_value.c_str());
         return;
     }
@@ -527,8 +661,20 @@ void OutputManager::print_value(const ASTNode *expr) {
 
                 io_interface_->write_string(oss.str().c_str());
             } else {
-                write_numeric_value(io_interface_, var->type, var->value,
-                                    var->double_value, var->quad_value);
+                // For union types, use current_type if available
+                TypeInfo display_type = var->type;
+                if (var->current_type != TYPE_UNKNOWN) {
+                    display_type = var->current_type;
+                }
+
+                // Special handling for char type - print as character
+                if (display_type == TYPE_CHAR) {
+                    char c = static_cast<char>(var->value);
+                    io_interface_->write_char(c);
+                } else {
+                    write_numeric_value(io_interface_, display_type, var->value,
+                                        var->double_value, var->quad_value);
+                }
             }
             return;
         }
@@ -987,87 +1133,13 @@ std::string OutputManager::process_escape_sequences(const std::string &input) {
 }
 
 bool OutputManager::has_unescaped_format_specifiers(const std::string &str) {
-    debug_msg(DebugMsgId::PRINT_FORMAT_SPEC_CHECKING, str.c_str());
-    for (size_t i = 0; i < str.length(); i++) {
-        if (str[i] == '%') {
-            // \% でエスケープされているかチェック
-            if (i > 0 && str[i - 1] == '\\') {
-                continue; // エスケープされている
-            }
-            // 次の文字がフォーマット指定子かチェック
-            if (i + 1 < str.length()) {
-                // 幅指定子（数字）をスキップ
-                size_t pos = i + 1;
-                while (pos < str.length() && std::isdigit(str[pos])) {
-                    pos++;
-                }
-
-                // 幅指定後の文字を確認
-                if (pos < str.length()) {
-                    char format_char = str[pos];
-                    if (format_char == 'd' || format_char == 's' ||
-                        format_char == 'c' || format_char == 'p' ||
-                        format_char == 'f' || format_char == '%') {
-                        debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND,
-                                  std::string(1, format_char).c_str());
-                        return true;
-                    }
-                    // %lld のチェック
-                    if (format_char == 'l' && pos + 2 < str.length() &&
-                        str[pos + 1] == 'l' && str[pos + 2] == 'd') {
-                        debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "lld");
-                        return true;
-                    }
-                }
-            }
-        }
-    }
-    debug_msg(DebugMsgId::PRINT_NO_FORMAT_SPECIFIERS);
+    // Format specifiers are deprecated - always return false
     return false;
 }
 
 size_t OutputManager::count_format_specifiers(const std::string &str) {
-    size_t count = 0;
-    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, str.c_str());
-    for (size_t i = 0; i < str.length(); i++) {
-        if (str[i] == '%') {
-            // \% でエスケープされているかチェック
-            if (i > 0 && str[i - 1] == '\\') {
-                continue; // エスケープされている
-            }
-            if (i + 1 < str.length()) {
-                // 幅指定子（数字）をスキップ
-                size_t pos = i + 1;
-                while (pos < str.length() && std::isdigit(str[pos])) {
-                    pos++;
-                }
-
-                // 幅指定後の文字を確認
-                if (pos < str.length()) {
-                    char format_char = str[pos];
-                    if (format_char == 'd' || format_char == 's' ||
-                        format_char == 'c' || format_char == 'p' ||
-                        format_char == 'f') {
-                        count++;
-                        debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT,
-                                  std::to_string(count).c_str());
-                    } else if (format_char == 'l' && pos + 2 < str.length() &&
-                               str[pos + 1] == 'l' && str[pos + 2] == 'd') {
-                        count++;
-                        debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT,
-                                  std::to_string(count).c_str());
-                        i = pos + 2; // %lld をスキップ
-                    } else if (format_char == '%') {
-                        // %% は引数を消費しないのでカウントしない
-                        debug_msg(DebugMsgId::OUTPUT_FORMAT_SPEC_FOUND, "%%");
-                    }
-                }
-                // %% は引数を消費しないのでカウントしない
-            }
-        }
-    }
-    debug_msg(DebugMsgId::OUTPUT_FORMAT_COUNT, std::to_string(count).c_str());
-    return count;
+    // Format specifiers are deprecated - always return 0
+    return 0;
 }
 
 void OutputManager::print_multiple(const ASTNode *arg_list) {

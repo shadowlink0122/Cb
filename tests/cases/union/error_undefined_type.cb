@@ -8,12 +8,12 @@ int main() {
     // 正常ケース
     DefinedUnion validUnion = 123;
     println("Valid assignment:");
-    println("  DefinedUnion: %d", validUnion);
+    println("  DefinedUnion: {validUnion}");
     
     // エラーケース: 未定義の型を使用
     // この行はコンパイルエラーを発生させる
     UndefinedUnion invalidUnion = 999;  // UndefinedUnionは定義されていない
-    println("This should not be reached: %d", invalidUnion);
+    println("This should not be reached: {invalidUnion}");
     
     return 0;
 }

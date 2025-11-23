@@ -1,7 +1,5 @@
 CC=g++
 CXX=g++
-LEX=flex
-YACC=bison
 
 # ディレクトリ設定
 SRC_DIR=src
@@ -27,6 +25,13 @@ INTERPRETER_SERVICES=$(INTERPRETER_DIR)/services
 INTERPRETER_OUTPUT=$(INTERPRETER_DIR)/output
 INTERPRETER_EVENT_LOOP=$(INTERPRETER_DIR)/event_loop
 INTERPRETER_TYPES=$(INTERPRETER_DIR)/types
+
+# v0.14.0: IR（中間表現）サブディレクトリ
+IR_DIR=$(BACKEND_DIR)/ir
+IR_HIR=$(IR_DIR)/hir
+IR_MIR=$(IR_DIR)/mir
+IR_LIR=$(IR_DIR)/lir
+IR_COMMON=$(IR_DIR)/common
 
 # コンパイラフラグ
 CXXFLAGS=-Wall -g -std=c++17
@@ -146,6 +151,35 @@ INTERPRETER_TYPES_OBJS = \
 INTERPRETER_FFI_OBJS = \
 	$(INTERPRETER_DIR)/ffi_manager.o
 
+# v0.14.0: IRオブジェクトファイル
+IR_HIR_OBJS = \
+	$(IR_HIR)/hir_generator.o \
+	$(IR_HIR)/hir_expr_converter.o \
+	$(IR_HIR)/hir_stmt_converter.o \
+	$(IR_HIR)/hir_decl_type_converter.o \
+	$(IR_HIR)/hir_node.o \
+	$(IR_HIR)/hir_builder.o
+
+# v0.14.0: Codegen (Code Generation) のオブジェクトファイル
+CODEGEN_DIR=$(BACKEND_DIR)/codegen
+CODEGEN_OBJS = \
+	$(CODEGEN_DIR)/hir_to_cpp.o \
+	$(CODEGEN_DIR)/codegen_types.o \
+	$(CODEGEN_DIR)/codegen_expressions.o \
+	$(CODEGEN_DIR)/codegen_statements.o \
+	$(CODEGEN_DIR)/codegen_declarations.o
+
+# 	$(IR_HIR)/hir_visitor.o \
+# 	$(IR_HIR)/hir_dumper.o
+
+# IR_MIR_OBJS = \
+# 	$(IR_MIR)/mir_generator.o \
+# 	$(IR_MIR)/cfg_builder.o \
+# 	$(IR_MIR)/ssa_builder.o
+
+IR_OBJS = $(IR_HIR_OBJS) $(CODEGEN_OBJS)
+# $(IR_MIR_OBJS)
+
 # Backendオブジェクト（全て統合）
 BACKEND_OBJS = \
 	$(INTERPRETER_CORE_OBJS) \
@@ -157,12 +191,22 @@ BACKEND_OBJS = \
 	$(INTERPRETER_OUTPUT_OBJS) \
 	$(INTERPRETER_EVENT_LOOP_OBJS) \
 	$(INTERPRETER_TYPES_OBJS) \
-	$(INTERPRETER_FFI_OBJS)
+	$(INTERPRETER_FFI_OBJS) \
+	$(IR_OBJS)
 PLATFORM_OBJS=$(NATIVE_DIR)/native_stdio_output.o $(BAREMETAL_DIR)/baremetal_uart_output.o
-COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(COMMON_DIR)/ast.o $(PLATFORM_OBJS)
+# デバッグメッセージモジュール
+DEBUG_DIR=$(COMMON_DIR)/debug
+DEBUG_OBJS = \
+	$(DEBUG_DIR)/debug_parser_messages.o \
+	$(DEBUG_DIR)/debug_ast_messages.o \
+	$(DEBUG_DIR)/debug_interpreter_messages.o \
+	$(DEBUG_DIR)/debug_hir_messages.o \
+	$(DEBUG_DIR)/debug_codegen_cpp_messages.o
+
+COMMON_OBJS=$(COMMON_DIR)/type_utils.o $(COMMON_DIR)/type_alias.o $(COMMON_DIR)/array_type_info.o $(COMMON_DIR)/utf8_utils.o $(COMMON_DIR)/io_interface.o $(COMMON_DIR)/debug_impl.o $(COMMON_DIR)/debug_messages.o $(DEBUG_OBJS) $(COMMON_DIR)/ast.o $(PLATFORM_OBJS)
 
 # 実行ファイル
-MAIN_TARGET=main
+MAIN_TARGET=cb
 CGEN_TARGET=cgen_main
 
 # OSごとのライブラリ拡張子
@@ -187,7 +231,7 @@ endif
 FFI_LIBS=$(STDLIB_FOREIGN_DIR)/libcppexample.$(LIB_EXT) \
          $(STDLIB_FOREIGN_DIR)/libadvanced.$(LIB_EXT)
 
-.PHONY: all clean lint fmt unit-test integration-test integration-test-verbose integration-test-old test debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version ffi-libs clean-ffi test-ffi
+.PHONY: all clean lint fmt unit-test integration-test integration-test-interpreter integration-test-compiler integration-test-unified integration-test-unified-interpreter integration-test-unified-compiler integration-test-verbose hir-integration-test integration-test-old test test-interpreter test-hir test-compiler test-all debug setup-dirs deep-clean clean-all backup-old help install-vscode-extension build-extension clean-extension update-extension-version verify-extension-version ffi-libs clean-ffi test-ffi stdlib-test stdlib-cpp-test stdlib-cb-test stdlib-cb-test-interpreter stdlib-cb-test-compiler
 
 all: setup-dirs $(MAIN_TARGET) ffi-libs
 
@@ -269,6 +313,10 @@ $(BACKEND_DIR)/managers/common/%.o: $(BACKEND_DIR)/managers/common/%.cpp $(COMMO
 $(COMMON_DIR)/%.o: $(COMMON_DIR)/%.cpp $(COMMON_DIR)/ast.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+# デバッグメッセージモジュールのコンパイル
+$(DEBUG_DIR)/%.o: $(DEBUG_DIR)/%.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 # プラットフォーム固有オブジェクト生成
 $(NATIVE_DIR)/%.o: $(NATIVE_DIR)/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -323,19 +371,79 @@ unit-test: $(TESTS_DIR)/unit/test_main
 $(TESTS_DIR)/integration/test_main: $(TESTS_DIR)/integration/main.cpp $(MAIN_TARGET)
 	@cd tests/integration && $(CC) $(CFLAGS) -I. -o test_main main.cpp
 
-integration-test: $(TESTS_DIR)/integration/test_main
+# Integration test - Interpreter mode only
+integration-test-interpreter: $(TESTS_DIR)/integration/test_main
 	@echo "============================================================="
-	@echo "Running Cb Integration Test Suite"
+	@echo "Running Cb Integration Test Suite (INTERPRETER MODE)"
 	@echo "============================================================="
-	@bash -c "set -o pipefail; cd tests/integration && ./test_main 2>&1 | tee /tmp/cb_integration_raw.log | fold -s -w 80"; \
-	if grep -q "^Failed: [1-9]" /tmp/cb_integration_raw.log; then \
+	@bash -c "set -o pipefail; cd tests/integration && ./test_main 2>&1 | tee /tmp/cb_integration_interpreter.log | fold -s -w 80"; \
+	if grep -q "^Failed: [1-9]" /tmp/cb_integration_interpreter.log; then \
 		exit 1; \
 	fi
+
+# Integration test - Compiler mode only
+# NEW: Unified integration tests - Run same Cb test files in both modes
+integration-test-unified: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Cb Unified Integration Tests (BOTH MODES)"
+	@echo "Testing all .cb test files in both interpreter and compiler"
+	@echo "============================================================="
+	@bash tests/run_unified_integration_tests.sh both
+
+integration-test-unified-interpreter: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Cb Unified Integration Tests (INTERPRETER ONLY)"
+	@echo "============================================================="
+	@bash tests/run_unified_integration_tests.sh interpreter
+
+integration-test-unified-compiler: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Cb Unified Integration Tests (COMPILER ONLY)"
+	@echo "============================================================="
+	@bash tests/run_unified_integration_tests.sh compiler
+
+# OLD: Legacy integration test targets (C++ test framework)
+integration-test-compiler: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Cb Integration Test Suite (COMPILER MODE - Legacy)"
+	@echo "============================================================="
+	@echo "Testing all integration test cases via compilation..."
+	@bash tests/integration/run_compiler_tests.sh 2>&1 | tee /tmp/cb_integration_compiler.log | fold -s -w 80; \
+	if grep -q "FAILED" /tmp/cb_integration_compiler.log; then \
+		exit 1; \
+	fi
+
+# Integration test - Both modes (default) - Uses C++ test framework for interpreter
+integration-test: integration-test-interpreter integration-test-compiler
+	@echo ""
+	@echo "✅ Integration tests completed for both INTERPRETER and COMPILER modes"
 
 # より詳細な出力が必要な場合の統合テスト（フル出力）
 integration-test-verbose: $(TESTS_DIR)/integration/test_main
 	@echo "Running integration tests (verbose mode)..."
 	@cd tests/integration && ./test_main
+
+# HIR統合テスト：HIRコンパイル経由で統合テストを実行
+# integration-testと同じテストケースをHIRコンパイルしたバイナリで実行
+hir-integration-test: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running HIR Integration Test Suite"
+	@echo "============================================================="
+	@echo "Compiling integration test cases via HIR..."
+	@bash tests/integration/run_hir_tests.sh 2>&1 | tee /tmp/cb_hir_integration_raw.log | fold -s -w 80; \
+	if grep -q "FAILED" /tmp/cb_hir_integration_raw.log; then \
+		exit 1; \
+	fi
+
+# test-interpreter: インタープリタモードのみでテスト実行
+test-interpreter: integration-test-interpreter stdlib-cb-test-interpreter
+	@echo ""
+	@echo "✅ Interpreter mode tests completed successfully"
+
+# test-hir: HIRコンパイルモードでテスト実行
+test-hir: hir-integration-test
+	@echo ""
+	@echo "✅ HIR compilation tests completed successfully"
 
 # Stdlib test binary target
 $(TESTS_DIR)/stdlib/test_main: $(TESTS_DIR)/stdlib/main.cpp $(MAIN_TARGET)
@@ -348,13 +456,29 @@ stdlib-cpp-test: $(TESTS_DIR)/stdlib/test_main
 	@echo "============================================================="
 	@cd tests/stdlib && ./test_main
 
-# Stdlib tests (Cb language tests) - 1つのファイルで全テスト実行
-stdlib-cb-test: $(MAIN_TARGET)
+# Stdlib tests (Cb language tests) - Interpreter mode
+stdlib-cb-test-interpreter: $(MAIN_TARGET)
 	@echo "============================================================="
-	@echo "[2/4] Running Standard Library Tests (Cb Language)"
+	@echo "Running Standard Library Tests (Cb Language - INTERPRETER)"
 	@echo "Testing stdlib modules written in Cb"
 	@echo "============================================================="
-	@./$(MAIN_TARGET) tests/cases/stdlib/test_stdlib_all.cb || exit 1
+	@./$(MAIN_TARGET) run tests/cases/stdlib/test_stdlib_all.cb || exit 1
+
+# Stdlib tests (Cb language tests) - Compiler mode
+stdlib-cb-test-compiler: $(MAIN_TARGET)
+	@echo "============================================================="
+	@echo "Running Standard Library Tests (Cb Language - COMPILER)"
+	@echo "Testing stdlib modules written in Cb"
+	@echo "============================================================="
+	@./$(MAIN_TARGET) compile tests/cases/stdlib/test_stdlib_all.cb -o /tmp/cb_stdlib_test && \
+	/tmp/cb_stdlib_test && \
+	rm -f /tmp/cb_stdlib_test || exit 1
+
+# Stdlib tests (Cb language tests) - Both modes
+# Stdlib tests (Cb language tests) - Currently only interpreter mode due to HIR limitations
+stdlib-cb-test: stdlib-cb-test-interpreter
+	@echo ""
+	@echo "✅ Stdlib Cb tests completed (INTERPRETER mode only - HIR compilation has known issues)"
 
 # Run both C++ and Cb stdlib tests
 stdlib-test:
@@ -488,7 +612,10 @@ clean: clean-ffi
 	rm -f tests/unit/test_main tests/unit/dummy.o
 	rm -f tests/stdlib/test_main
 	rm -f /tmp/cb_integration_test.log
-	find . -name "*.o" -type f -delete
+	find src -name "*.o" -type f -delete
+	find tests -name "*.o" -type f -delete
+	find sample -name "*.o" -type f -delete
+	rm -rf tmp/*
 	rm -rf **/*.dSYM *.dSYM
 	rm -rf tests/integration/*.dSYM
 	rm -rf tests/unit/*.dSYM
@@ -600,7 +727,13 @@ help:
 	@echo ""
 	@echo "Test targets:"
 	@echo "  test                   - Run all 4 test suites"
-	@echo "  integration-test       - Run integration tests"
+	@echo "  test-interpreter       - Run tests in interpreter mode"
+	@echo "  test-hir               - Run tests in HIR compilation mode"
+	@echo "  integration-test       - Run integration tests (C++ framework)"
+	@echo "  integration-test-unified       - Run unified tests (.cb files, both modes)"
+	@echo "  integration-test-unified-interpreter  - Run unified tests (interpreter only)"
+	@echo "  integration-test-unified-compiler     - Run unified tests (compiler only)"
+	@echo "  hir-integration-test   - Run HIR integration tests (89 tests, 97.8% pass)"
 	@echo "  unit-test              - Run unit tests (30 tests)"
 	@echo "  stdlib-cpp-test        - Run stdlib C++ infrastructure tests"
 	@echo "  stdlib-cb-test         - Run stdlib Cb language tests"

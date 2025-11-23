@@ -3,7 +3,7 @@
 
 async void background_task() {
     for (int i = 0; i < 6; i = i + 1) {
-        println("[BG] Step %d", i);
+        println("[BG] Step {i}");
     }
     return;
 }
@@ -13,9 +13,9 @@ int recursive_countdown(int n) {
         println("[Recursion] Base case reached");
         return 0;
     }
-    println("[Recursion] Level %d", n);
+    println("[Recursion] Level {n}");
     int result = recursive_countdown(n - 1);
-    println("[Recursion] Returning from level %d", n);
+    println("[Recursion] Returning from level {n}");
     return result + n;
 }
 
@@ -26,7 +26,7 @@ void main() {
     
     println("[Main] Starting recursive function");
     int sum = recursive_countdown(5);
-    println("[Main] Recursive function done, sum: %d\n", sum);
+    println("[Main] Recursive function done, sum: {sum}\n");
     
     await f;
     println("[Main] Done");

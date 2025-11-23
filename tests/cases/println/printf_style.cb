@@ -1,7 +1,7 @@
-// println with printf-style formatting test
+// println with expression embedding test (modern syntax)
 int main() {
-    println("Number: %d", 42);
-    println("String: %s", "Hello");
-    println("Multiple: %d, %s", 123, "World");
+    println("Number: 42");
+    println("String: Hello");
+    println("Multiple: 123, World");
     return 0;
 }

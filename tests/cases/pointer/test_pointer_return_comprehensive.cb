@@ -35,11 +35,11 @@ int main() {
     int* px = &x;
     int* result = returnPointer(px);
     
-    println("x = %d, *result = %d", x, *result);
+    println("x = {x}, *result = {*result}");
     assert(*result == 42);
     
     *result = 100;
-    println("After *result = 100: x = %d", x);
+    println("After *result = 100: x = {x}");
     assert(x == 100);
     println("");
     
@@ -49,23 +49,23 @@ int main() {
     int b = 30;
     
     int* max_ptr = getPointerToMax(&a, &b);
-    println("a = %d, b = %d", a, b);
-    println("max via pointer = %d", *max_ptr);
+    println("a = {a}, b = {b}");
+    println("max via pointer = {*max_ptr}");
     assert(*max_ptr == 50);
     
     *max_ptr = 999;
-    println("After *max_ptr = 999: a = %d, b = %d", a, b);
+    println("After *max_ptr = 999: a = {a}, b = {b}");
     assert(a == 999);
     println("");
     
     // Test 3: ポインタを受け取り、初期化して返す
     println("Test 3: Allocate and initialize");
     int storage = 0;
-    println("Before: storage = %d", storage);
+    println("Before: storage = {storage}");
     
     int* initialized = allocateAndInit(&storage, 777);
-    println("After allocateAndInit: storage = %d", storage);
-    println("*initialized = %d", *initialized);
+    println("After allocateAndInit: storage = {storage}");
+    println("*initialized = {*initialized}");
     assert(storage == 777);
     assert(*initialized == 777);
     println("");
@@ -77,22 +77,22 @@ int main() {
     int** ppv = &pv;
     
     int** result_pp = returnDoublePointer(ppv);
-    println("value = %d", value);
-    println("**result_pp = %d", **result_pp);
+    println("value = {value}");
+    println("**result_pp = {**result_pp}");
     assert(**result_pp == 123);
     
     **result_pp = 456;
-    println("After **result_pp = 456: value = %d", value);
+    println("After **result_pp = 456: value = {value}");
     assert(value == 456);
     println("");
     
     // Test 5: void関数でポインタ経由の変更
     println("Test 5: Void function modifying via pointer");
     int target = 10;
-    println("Before: target = %d", target);
+    println("Before: target = {target}");
     
     modifyViaPointer(&target, 20);
-    println("After modifyViaPointer(&target, 20): target = %d", target);
+    println("After modifyViaPointer(&target, 20): target = {target}");
     assert(target == 20);
     println("");
     
@@ -102,10 +102,10 @@ int main() {
     int* p1 = returnPointer(&original);
     int* p2 = returnPointer(p1);
     
-    println("original = %d, *p1 = %d, *p2 = %d", original, *p1, *p2);
+    println("original = {original}, *p1 = {*p1}, *p2 = {*p2}");
     
     *p2 = 15;
-    println("After *p2 = 15: original = %d", original);
+    println("After *p2 = 15: original = {original}");
     assert(original == 15);
     println("");
     

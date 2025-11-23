@@ -3,7 +3,7 @@
 // typedef string Name;
 
 void process_data(int count, string identifier) {
-    println("Processing: %s with count: %d", identifier, count);
+    println("Processing: {identifier} with count: {count}");
 }
 
 int main() {
@@ -16,7 +16,7 @@ int main() {
     
     // 型エイリアスでの演算
     int total = items * 2;
-    println("Total after doubling: %d", total);
+    println("Total after doubling: {total}");
     
     // 型エイリアスでの条件分岐
     if (total > 15) {

@@ -8,8 +8,8 @@ int main() {
     int temp0 = numbers[0];
     int temp1 = numbers[1];
     
-    println("numbers[0] = %d", temp0);
-    println("numbers[1] = %d", temp1);
+    println("numbers[0] = {temp0}");
+    println("numbers[1] = {temp1}");
     
     return 0;
 }

@@ -3,39 +3,39 @@ int main(){
     println("Boolean expression test:");
     
     // Boolean equals
-    println("true == 1: %d", (true == 1)); // 1
-    println("false == 0: %d", (false == 0)); // 1
-    println("true == 0: %d", (true == 0)); // 0
-    println("false == 1: %d", (false == 1)); // 0
-    println("true: %d", true); // 1
-    println("false: %d", false); // 0
+    println("true == 1: {(true == 1)}"); // 1
+    println("false == 0: {(false == 0)}"); // 1
+    println("true == 0: {(true == 0)}"); // 0
+    println("false == 1: {(false == 1)}"); // 0
+    println("true: {true}"); // 1
+    println("false: {false}"); // 0
 
     // Comparison operators
-    println("3 > 2: %d", (3 > 2)); // 1
-    println("2 > 3: %d", (2 > 3)); // 0
-    println("2 >= 2: %d", (2 >= 2)); // 1
-    println("2 >= 3: %d", (2 >= 3)); // 0
-    println("2 < 3: %d", (2 < 3)); // 1
-    println("3 < 2: %d", (3 < 2)); // 0
-    println("2 <= 2: %d", (2 <= 2)); // 1
-    println("3 <= 2: %d", (3 <= 2)); // 0
+    println("3 > 2: {(3 > 2)}"); // 1
+    println("2 > 3: {(2 > 3)}"); // 0
+    println("2 >= 2: {(2 >= 2)}"); // 1
+    println("2 >= 3: {(2 >= 3)}"); // 0
+    println("2 < 3: {(2 < 3)}"); // 1
+    println("3 < 2: {(3 < 2)}"); // 0
+    println("2 <= 2: {(2 <= 2)}"); // 1
+    println("3 <= 2: {(3 <= 2)}"); // 0
 
     // Parentheses and operator precedence
-    println("1 + 2 * 3: %d", 1 + 2 * 3); // 7
-    println("(1 + 2) * 3: %d", (1 + 2) * 3); // 9
+    println("1 + 2 * 3: {1 + 2 * 3}"); // 7
+    println("(1 + 2) * 3: {(1 + 2) * 3}"); // 9
 
     // NOT operator
-    println("!true: %d", !true); // 0
-    println("!false: %d", !false); // 1
-    println("!(1 > 2): %d", !(1 > 2)); // 1
-    println("!(2 > 1): %d", !(2 > 1)); // 0
-    println("!0: %d", !0); // 1
-    println("!1: %d", !1); // 0
+    println("!true: {!true}"); // 0
+    println("!false: {!false}"); // 1
+    println("!(1 > 2): {!(1 > 2)}"); // 1
+    println("!(2 > 1): {!(2 > 1)}"); // 0
+    println("!0: {!0}"); // 1
+    println("!1: {!1}"); // 0
 
     // Complex expressions
-    println("true && !false: %d", (true && !false)); // 1
-    println("false || !false: %d", (false || !false)); // 1
-    println("true && false || true: %d", (true && false || true)); // 1
+    println("true && !false: {(true && !false)}"); // 1
+    println("false || !false: {(false || !false)}"); // 1
+    println("true && false || true: {(true && false || true)}"); // 1
     
     println("Boolean expression test passed");
     return 0;

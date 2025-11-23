@@ -10,8 +10,8 @@ int main() {
     bool complex_result1 = (a && !b) || (b && !a);
     bool complex_result2 = !(a && b) && (a || b);
     
-    println("Complex AND/OR: %d", complex_result1);
-    println("Nested conditions: %d", complex_result2);
+    println("Complex AND/OR: {complex_result1}");
+    println("Nested conditions: {complex_result2}");
     
     // Test with numeric comparisons
     int x = 10;
@@ -41,9 +41,9 @@ int main() {
         bool odd_and_lt4 = is_odd && (i < 4);
         
         if (even_and_gt2) {
-            println("Even number > 2: %d", i);
+            println("Even number > 2: {i}");
         } else if (odd_and_lt4) {
-            println("Odd number < 4: %d", i);
+            println("Odd number < 4: {i}");
         }
     }
     

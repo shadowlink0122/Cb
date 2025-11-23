@@ -13,10 +13,9 @@ int main() {
     int[5] sequence = [10, 20, 30, 40, 50];
     
     println("Array Literal Initialization:");
-    println("  Numbers: [%d, %d, %d]", numbers[0], numbers[1], numbers[2]);
-    println("  Flags: [%d, %d]", flags[0], flags[1]);
-    println("  Sequence: [%d, %d, %d, %d, %d]", 
-            sequence[0], sequence[1], sequence[2], sequence[3], sequence[4]);
+    println("  Numbers: [{numbers[0]}, {numbers[1]}, {numbers[2]}]");
+    println("  Flags: [{flags[0]}, {flags[1]}]");
+    println("  Sequence: [{sequence[0]}, {sequence[1]}, {sequence[2]}, {sequence[3]}, {sequence[4]}]");
     
     // 配列変数をユニオンに代入
     ArrayUnion array1 = numbers;
@@ -43,11 +42,11 @@ int main() {
     
     // 配列要素の確認（可能であれば）
     println("Array Element Access Test:");
-    println("  coords[0]: %d", coords[0]);
-    println("  coords[1]: %d", coords[1]);
-    println("  coords[2]: %d", coords[2]);
-    println("  options[0]: %d", options[0]);
-    println("  options[1]: %d", options[1]);
+    println("  coords[0]: {coords[0]}");
+    println("  coords[1]: {coords[1]}");
+    println("  coords[2]: {coords[2]}");
+    println("  options[0]: {options[0]}");
+    println("  options[1]: {options[1]}");
     
     println("=== 配列型ユニオンテスト完了 ===");
     return 0;

@@ -10,7 +10,7 @@ int main() {
     }
     
     println("If statement test:");
-    println("x = %d", x);
+    println("x = {x}");
     
     if (x == 4) {
         println("if-else test: ok");

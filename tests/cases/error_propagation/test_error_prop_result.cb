@@ -1,0 +1,57 @@
+// Test: ? operator with Result<T, E> type
+// Tests error propagation with Result type
+
+Result<int, string> divide(int a, int b) {
+    if (b == 0) {
+        return Result<int, string>::Err("Division by zero");
+    }
+    return Result<int, string>::Ok(a / b);
+}
+
+Result<int, string> complex_division(int a, int b, int c) {
+    // Use ? to unwrap or propagate errors
+    int r1 = divide(a, b)?;
+    int r2 = divide(r1, c)?;
+
+    return Result<int, string>::Ok(r2);
+}
+
+int main() {
+    println("Testing ? operator with Result type");
+
+    // Test 1: All divisions succeed
+    println("\n=== Test 1: 100 / 10 / 2 = 5 ===");
+    Result<int, string> r1 = complex_division(100, 10, 2);
+    if (r1.is_ok()) {
+        println("Success: result = ", r1.ok_value);
+        assert(r1.ok_value == 5);
+    } else {
+        println("ERROR: Should have succeeded!");
+        assert(false);
+    }
+
+    // Test 2: First division fails (divide by zero)
+    println("\n=== Test 2: 100 / 0 / 2 (error in first division) ===");
+    Result<int, string> r2 = complex_division(100, 0, 2);
+    if (r2.is_err()) {
+        println("Correctly propagated error: ", r2.err_value);
+        assert(r2.err_value == "Division by zero");
+    } else {
+        println("ERROR: Should have failed!");
+        assert(false);
+    }
+
+    // Test 3: Second division fails
+    println("\n=== Test 3: 100 / 10 / 0 (error in second division) ===");
+    Result<int, string> r3 = complex_division(100, 10, 0);
+    if (r3.is_err()) {
+        println("Correctly propagated error: ", r3.err_value);
+        assert(r3.err_value == "Division by zero");
+    } else {
+        println("ERROR: Should have failed!");
+        assert(false);
+    }
+
+    println("\n=== All Result error propagation tests passed! ===");
+    return 0;
+}

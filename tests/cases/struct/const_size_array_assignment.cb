@@ -18,13 +18,13 @@ int main() {
     s.y = 75;
     
     // 個別アクセスでの出力（これは以前から動作していた）
-    println("Individual access: %d, %d, %d", s.arr[0], s.arr[1], s.arr[2]);
+    println("Individual access: {s.arr[0]}, {s.arr[1]}, {s.arr[2]}");
     
     // printf内での配列アクセス（修正前は [0,0,0] になっていた）
-    println("Direct printf: [%d, %d, %d]", s.arr[0], s.arr[1], s.arr[2]);
+    println("Direct printf: [{s.arr[0]}, {s.arr[1]}, {s.arr[2]}]");
     
     // 通常メンバーも正常動作確認
-    println("Other members: x=%d, y=%d", s.x, s.y);
+    println("Other members: x={s.x}, y={s.y}");
     
     // 期待される出力:
     // Individual access: 100, 200, 300

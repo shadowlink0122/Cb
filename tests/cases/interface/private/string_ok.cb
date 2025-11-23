@@ -42,13 +42,14 @@ int main() {
     IStringProcessor processor = text;
     
     string formatted = processor.format();
-    println("formatted = %s", formatted);
+    println("formatted = {formatted}");
     
     int length = processor.getLength();
-    println("length = %d", length);
+    println("length = {length}");
     
     bool empty = processor.isEmpty();
-    println("empty = %d", empty ? 1 : 0);
+    int emptyValue = empty ? 1 : 0;
+    println("empty = {emptyValue}");
     
     println("String private method test passed");
     return 0;

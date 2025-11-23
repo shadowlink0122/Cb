@@ -1,0 +1,31 @@
+// 関数ポインタ配列のテスト（簡略版）
+
+int add(int a, int b) {
+    return a + b;
+}
+
+int subtract(int a, int b) {
+    return a - b;
+}
+
+int multiply(int a, int b) {
+    return a * b;
+}
+
+int main() {
+    // 関数ポインタ配列の宣言と初期化
+    int (*operations[3])(int, int) = {&add, &subtract, &multiply};
+
+    // 配列の各要素を関数ポインタ変数に代入して使用
+    int (*op1)(int, int) = operations[0];
+    int result1 = op1(10, 5);
+    println(result1);  // 15
+
+    int (*op2)(int, int) = operations[1];
+    int result2 = op2(10, 5);
+    println(result2);  // 5
+
+    int (*op3)(int, int) = operations[2];
+    int result3 = op3(10, 5);
+    println(result3);  // 50
+}

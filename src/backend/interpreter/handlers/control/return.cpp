@@ -488,7 +488,8 @@ void ReturnHandler::handle_array_variable_return(const ASTNode *node,
                     std::vector<std::string> row;
                     for (int j = 0; j < cols; j++) {
                         int flat_index = i * cols + j;
-                        if (flat_index < var->multidim_array_strings.size()) {
+                        if (static_cast<size_t>(flat_index) <
+                            var->multidim_array_strings.size()) {
                             row.push_back(
                                 var->multidim_array_strings[flat_index]);
                         } else {
@@ -564,7 +565,8 @@ void ReturnHandler::handle_array_variable_return(const ASTNode *node,
                 std::vector<int64_t> row;
                 for (int j = 0; j < cols; j++) {
                     int flat_index = i * cols + j;
-                    if (flat_index < var->multidim_array_values.size()) {
+                    if (static_cast<size_t>(flat_index) <
+                        var->multidim_array_values.size()) {
                         row.push_back(var->multidim_array_values[flat_index]);
                     } else {
                         row.push_back(0);

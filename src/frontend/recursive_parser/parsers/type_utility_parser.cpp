@@ -234,8 +234,15 @@ std::string TypeUtilityParser::parseType() {
                 // ジェネリックenumをインスタンス化
                 parser_->instantiateGenericEnum(identifier, type_arguments);
 
-                // インスタンス化された型名を返す
-                set_base_type(instantiated_name);
+                // v0.14.0: For Option and Result types, use the original
+                // generic syntax instead of the mangled name for better C++
+                // codegen compatibility
+                if (identifier == "Option" || identifier == "Result") {
+                    set_base_type(original_type); // Use "Option<int>" format
+                } else {
+                    // For other generic types, use the instantiated name
+                    set_base_type(instantiated_name);
+                }
             } else {
                 // 非ジェネリックenumまたはジェネリックでも型引数なし
                 original_type = identifier;
@@ -343,6 +350,9 @@ std::string TypeUtilityParser::parseType() {
             set_base_type(identifier);
             // NOTE: 値メンバーとして使用された場合のエラーは後で検出される
         }
+    } else if (saw_unsigned && base_type.empty()) {
+        // unsigned alone means unsigned int
+        set_base_type("int");
     } else {
         parser_->error("Expected type specifier");
         return "";
@@ -473,10 +483,20 @@ std::string TypeUtilityParser::parseType() {
     if (saw_unsigned) {
         switch (parsed.base_type_info) {
         case TYPE_TINY:
+            parsed.is_unsigned = true;
+            parsed.base_type_info = TYPE_UNSIGNED_TINY;
+            break;
         case TYPE_SHORT:
+            parsed.is_unsigned = true;
+            parsed.base_type_info = TYPE_UNSIGNED_SHORT;
+            break;
         case TYPE_INT:
+            parsed.is_unsigned = true;
+            parsed.base_type_info = TYPE_UNSIGNED_INT;
+            break;
         case TYPE_LONG:
             parsed.is_unsigned = true;
+            parsed.base_type_info = TYPE_UNSIGNED_LONG;
             break;
         case TYPE_FLOAT:
         case TYPE_DOUBLE:

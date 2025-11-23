@@ -220,10 +220,13 @@ ASTNode *InterfaceParser::parseInterfaceDeclaration() {
                     }
                 }
 
-                // v0.13.1: 型パラメータ名も保存
+                // v0.13.1: 完全な型名を保存（MapNode<K, V>*など）
+                // ジェネリック型パラメータの場合もparam_typeを使用
+                std::string full_param_type_name =
+                    is_param_type_param ? param_type_param_name : param_type;
                 method.add_parameter(param_name, param_type_info,
                                      param_parsed.is_unsigned,
-                                     param_type_param_name);
+                                     full_param_type_name);
 
                 if (!parser_->check(TokenType::TOK_COMMA)) {
                     break;
@@ -873,17 +876,6 @@ ASTNode *InterfaceParser::parseImplDeclaration() {
 
                             bool expected_return_unsigned =
                                 interface_method.return_is_unsigned;
-
-                            TypeInfo actual_return_type_info = TYPE_UNKNOWN;
-                            if (!method_impl->return_types.empty()) {
-                                actual_return_type_info =
-                                    method_impl->return_types[0];
-                            } else {
-                                actual_return_type_info =
-                                    parser_->getTypeInfoFromString(return_type);
-                            }
-                            bool actual_return_unsigned =
-                                method_impl->is_unsigned;
 
                             // v0.13.0 Phase 2.0: asyncフラグのチェック
                             bool expected_is_async = interface_method.is_async;

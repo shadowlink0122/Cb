@@ -30,14 +30,10 @@ int main() {
     large.labels[3] = "fourth";
     large.labels[4] = "fifth";
     
-    println("Large Struct: %s (ID: %d)", large.name, large.id);
-    println("First 5 data values: [%d, %d, %d, %d, %d]", 
-            large.data[0], large.data[1], large.data[2], 
-            large.data[3], large.data[4]);
-    println("Metadata: [%d, %d, %d]", 
-            large.metadata[0], large.metadata[1], large.metadata[2]);
-    println("First 3 labels: [%s, %s, %s]", 
-            large.labels[0], large.labels[1], large.labels[2]);
+    println("Large Struct: {large.name} (ID: {large.id})");
+    println("First 5 data values: [{large.data[0]}, {large.data[1]}, {large.data[2]}, {large.data[3]}, {large.data[4]}]");
+    println("Metadata: [{large.metadata[0]}, {large.metadata[1]}, {large.metadata[2]}]");
+    println("First 3 labels: [{large.labels[0]}, {large.labels[1]}, {large.labels[2]}]");
     
     return 0;
 }

@@ -12,7 +12,7 @@ T2 second<T1, T2>(T1 a, T2 b) {
 
 // ペアを作る関数（将来的には構造体を返す）
 void print_pair<T1, T2>(T1 a, T2 b) {
-    println("Pair: (%d, %d)", a, b);
+    println("Pair: ({a}, {b})");
 }
 
 int main() {

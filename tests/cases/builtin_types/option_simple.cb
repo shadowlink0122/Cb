@@ -1,0 +1,19 @@
+// Simple test for Option<T> type
+// Testing basic construction and usage
+
+fn main() {
+    // Test Option<int> creation
+    Option<int> some_value = Option<int>::Some(42);
+    Option<int> none_value = Option<int>::None();
+
+    // Test that they work (basic existence check)
+    if (some_value.is_some()) {
+        println("Some value is Some");
+    }
+
+    if (none_value.is_none()) {
+        println("None value is None");
+    }
+
+    println("Option<int> test passed!");
+}

@@ -60,6 +60,95 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
         parser_->advance();
     }
 
+    // 関数ポインタの直接宣言をチェック
+    // 構文: type (*name)(params)
+    if (parser_->check(TokenType::TOK_LPAREN)) {
+        // 先読みして (*identifier) パターンかチェック
+        Token saved_token = parser_->current_token_;
+        parser_->advance(); // (
+
+        if (parser_->check(TokenType::TOK_MUL)) {
+            parser_->advance(); // *
+
+            // 関数ポインタの直接宣言
+            if (!parser_->check(TokenType::TOK_IDENTIFIER)) {
+                parser_->error("Expected function pointer name after (*");
+            }
+            std::string fp_name = parser_->advance().value;
+
+            if (!parser_->match(TokenType::TOK_RPAREN)) {
+                parser_->error("Expected ')' after function pointer name");
+            }
+
+            if (!parser_->match(TokenType::TOK_LPAREN)) {
+                parser_->error("Expected '(' for function pointer parameters");
+            }
+
+            // パラメータを解析
+            FunctionPointerTypeInfo fp_info;
+            fp_info.return_type = parser_->getTypeInfoFromString(var_type);
+            fp_info.return_type_name = var_type;
+
+            if (!parser_->check(TokenType::TOK_RPAREN)) {
+                do {
+                    std::string param_type = parser_->parseType();
+                    ParsedTypeInfo param_parsed =
+                        parser_->getLastParsedTypeInfo();
+
+                    fp_info.param_types.push_back(
+                        parser_->getTypeInfoFromString(param_type));
+                    fp_info.param_type_names.push_back(param_type);
+
+                    // オプション: パラメータ名
+                    if (parser_->check(TokenType::TOK_IDENTIFIER)) {
+                        fp_info.param_names.push_back(parser_->advance().value);
+                    } else {
+                        fp_info.param_names.push_back("");
+                    }
+                } while (parser_->match(TokenType::TOK_COMMA));
+            }
+
+            if (!parser_->match(TokenType::TOK_RPAREN)) {
+                parser_->error(
+                    "Expected ')' after function pointer parameters");
+            }
+
+            // 初期化式を解析
+            std::unique_ptr<ASTNode> init_expr = nullptr;
+            if (parser_->match(TokenType::TOK_ASSIGN)) {
+                init_expr =
+                    std::unique_ptr<ASTNode>(parser_->parseExpression());
+            }
+
+            if (!parser_->match(TokenType::TOK_SEMICOLON)) {
+                parser_->error(
+                    "Expected ';' after function pointer declaration");
+            }
+
+            // 関数ポインタノードを作成
+            auto node = std::make_unique<ASTNode>(ASTNodeType::AST_VAR_DECL);
+            node->name = fp_name;
+            node->type_name =
+                var_type; // 戻り値の型（実際には後で関数ポインタ型に変更）
+            node->is_function_pointer = true;
+            node->function_pointer_type = fp_info;
+            node->type_info = TYPE_FUNCTION_POINTER;
+
+            if (init_expr) {
+                node->init_expr = std::move(init_expr);
+            }
+
+            parser_->setLocation(node.get(), parser_->current_token_);
+            return node.release();
+        } else {
+            // 関数ポインタではない、'(' を処理しなかったことにする
+            // Note: RecursiveLexer doesn't support backtracking, so this is
+            // complex For now, we'll error out if we see '(' after a type but
+            // it's not a function pointer
+            parser_->error("Unexpected '(' after type declaration");
+        }
+    }
+
     // 変数名のリストを収集
     struct VariableInfo {
         std::string name;
@@ -147,6 +236,16 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
                                            ? TYPE_POINTER
                                            : var_parsed.base_type_info;
             }
+            // v0.14.0: 配列要素の型名を保存（ポインタ配列、構造体配列など）
+            // element_type_nameが未設定の場合のみ設定
+            // Note: base_typeを使用（full_typeは配列次元を含むため）
+            if (array_info.element_type_name.empty()) {
+                array_info.element_type_name = var_parsed.base_type;
+                if (debug_mode) {
+                    debug_log_line("[ARRAY] Setting element_type_name: " +
+                                   var_parsed.base_type);
+                }
+            }
 
             while (parser_->check(TokenType::TOK_LBRACKET)) {
                 parser_->advance();
@@ -169,6 +268,11 @@ ASTNode *VariableDeclarationParser::parseVariableDeclaration() {
             array_info.base_type = var_parsed.is_pointer
                                        ? TYPE_POINTER
                                        : var_parsed.base_type_info;
+        }
+        // v0.14.0: 配列要素の型名を保存（ポインタ配列、構造体配列など）
+        // Note: base_typeを使用（full_typeは配列次元を含むため）
+        if (is_array && array_info.element_type_name.empty()) {
+            array_info.element_type_name = var_parsed.base_type;
         }
 
         // デバッグ出力: 配列の基本型を確認

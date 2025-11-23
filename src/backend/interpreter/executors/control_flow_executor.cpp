@@ -337,6 +337,17 @@ void ControlFlowExecutor::execute_match_statement(const ASTNode *node) {
             enum_value.has_associated_value = false;
         }
         // needs_cleanup = true;
+    } else if (match_expr->node_type == ASTNodeType::AST_ARRAY_REF) {
+        // 配列要素の場合、TypedValueとして評価
+        TypedValue typed_result = interpreter_->evaluate_typed(match_expr);
+        if (typed_result.is_struct() && typed_result.struct_data &&
+            typed_result.struct_data->is_enum) {
+            enum_value = *typed_result.struct_data;
+            // needs_cleanup = true;
+        } else {
+            throw std::runtime_error(
+                "Array element in match expression must be an enum");
+        }
     } else {
         throw std::runtime_error("Match expression must be a variable, "
                                  "function call, or enum constructor");

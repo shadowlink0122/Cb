@@ -11,10 +11,17 @@
 enum TypeInfo {
     TYPE_UNKNOWN = -1,
     TYPE_VOID = 0,
+    // 符号付き整数型
     TYPE_TINY = 1,
     TYPE_SHORT = 2,
     TYPE_INT = 3,
     TYPE_LONG = 4,
+    // 符号なし整数型
+    TYPE_UNSIGNED_TINY = 20,
+    TYPE_UNSIGNED_SHORT = 21,
+    TYPE_UNSIGNED_INT = 22,
+    TYPE_UNSIGNED_LONG = 23,
+    // その他のプリミティブ型
     TYPE_CHAR = 5,
     TYPE_STRING = 6,
     TYPE_BOOL = 7,
@@ -22,6 +29,7 @@ enum TypeInfo {
     TYPE_DOUBLE = 9,
     TYPE_BIG = 10,
     TYPE_QUAD = 11,
+    // 複合型
     TYPE_STRUCT = 12,
     TYPE_ENUM = 13,
     TYPE_INTERFACE = 14,
@@ -48,6 +56,8 @@ struct ArrayDimension {
 struct ArrayTypeInfo {
     TypeInfo base_type;                     // 基底型
     std::vector<ArrayDimension> dimensions; // 各次元の情報
+    std::string
+        element_type_name; // v0.14.0: ポインタ配列用の要素型名 (例: "int*")
 
     ArrayTypeInfo() : base_type(TYPE_UNKNOWN) {}
     ArrayTypeInfo(TypeInfo base, const std::vector<ArrayDimension> &dims)
@@ -1235,7 +1245,8 @@ struct ASTNode {
 
     // 関数ポインタ関連
     FunctionPointerTypeInfo function_pointer_type; // 関数ポインタ型情報
-    bool is_function_pointer = false;   // 関数ポインタかどうか
+    bool is_function_pointer = false; // 関数ポインタかどうか
+    bool is_function_pointer_return = false; // 関数が関数ポインタを返すかどうか
     std::string function_pointer_value; // 関数ポインタが指す関数名
 
     // 配列ポインタ関連（多次元配列へのポインタ用）
@@ -1345,10 +1356,11 @@ struct ASTNode {
           is_array_return(false), is_private_method(false),
           is_function_address(false), int_value(0), array_size(-1),
           is_exported(false), is_qualified_call(false),
-          is_function_pointer(false), is_pointer_const_qualifier(false),
-          is_pointee_const_qualifier(false), is_constructor(false),
-          is_destructor(false), is_generic(false), is_type_parameter(false),
-          is_interpolation_text(false), is_interpolation_expr(false) {}
+          is_function_pointer(false), is_function_pointer_return(false),
+          is_pointer_const_qualifier(false), is_pointee_const_qualifier(false),
+          is_constructor(false), is_destructor(false), is_generic(false),
+          is_type_parameter(false), is_interpolation_text(false),
+          is_interpolation_expr(false) {}
 
     // デストラクタは自動管理（unique_ptr使用）
     virtual ~ASTNode() = default;

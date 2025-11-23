@@ -1,0 +1,33 @@
+// sleep関数のテスト
+// sleep()は組み込み関数なのでimport不要
+
+int main() {
+    println("=== sleep関数のテスト ===\n");
+    
+    println("テスト1: 1秒待機");
+    println("開始...");
+    sleep(1000);
+    println("完了！\n");
+    
+    println("テスト2: カウントダウン");
+    int i = 5;
+    while (i > 0) {
+        println("{i}...");
+        sleep(1000);
+        i = i - 1;
+    }
+    println("発射!\n");
+    
+    println("テスト3: 短い待機");
+    int j = 0;
+    while (j < 5) {
+        println("ティック {j}");
+        sleep(200);
+        j = j + 1;
+    }
+    println("\n");
+    
+    println("sleep関数のテスト完了！");
+    
+    return 0;
+}

@@ -31,39 +31,39 @@ unsigned int echo_unsigned(unsigned int value) {
 }
 
 void accept_unsigned(unsigned int value) {
-    println("func_param=%d", value);
+    println("func_param={value}");
 }
 
 int main() {
     Counter counter = {
         value: -5
     };
-    println("struct_init=%d", counter.value);
+    println("struct_init={counter.value}");
 
     counter.value = -7;
-    println("struct_assign=%d", counter.value);
+    println("struct_assign={counter.value}");
 
     accept_unsigned(-13);
 
     unsigned int from_func = produce_negative();
-    println("func_return=%d", from_func);
+    println("func_return={from_func}");
 
     unsigned int from_echo = echo_unsigned(-21);
-    println("func_return_param=%d", from_echo);
+    println("func_return_param={from_echo}");
 
     UnsignedProvider provider = counter;
-    println("interface_value=%d", provider.provide());
+    println("interface_value={provider.provide()}");
 
     FaultyProvider faulty = {
         raw: 123
     };
     UnsignedProvider neg_provider = faulty;
-    println("interface_negative_return=%d", neg_provider.provide());
+    println("interface_negative_return={neg_provider.provide()}");
 
     counter.value = 42;
     provider = counter;
-    println("struct_positive=%d", counter.value);
-    println("interface_positive=%d", provider.provide());
+    println("struct_positive={counter.value}");
+    println("interface_positive={provider.provide()}");
 
     return 0;
 }
