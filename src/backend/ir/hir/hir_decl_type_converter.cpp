@@ -253,6 +253,7 @@ HIRFunction HIRDeclTypeConverter::convert_function(const ASTNode *node) {
 continue_conversion:
     func.is_async = node->is_async;
     func.is_exported = node->is_exported;
+    func.is_private = node->is_private_method;
 
     if (debug_mode) {
         if (node->is_async) {

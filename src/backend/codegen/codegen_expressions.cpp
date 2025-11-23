@@ -531,6 +531,35 @@ std::string HIRToCpp::generate_method_call(const HIRExpr &expr) {
     }
     */
 
+    // Check if this is a private method call on self in a primitive impl
+    // Private methods are member functions of Model, so we should call them directly
+    bool is_private_method_call = false;
+    if (expr.receiver &&
+        expr.receiver->kind == HIRExpr::ExprKind::Variable &&
+        expr.receiver->var_name == "self" &&
+        current_impl_is_for_primitive &&
+        current_impl) {
+        // Look up if the method is private in the current impl
+        for (const auto& method : current_impl->methods) {
+            if (method.name == expr.method_name && method.is_private) {
+                is_private_method_call = true;
+                break;
+            }
+        }
+    }
+
+    // For private method calls in primitive impls, emit just the method name
+    if (is_private_method_call) {
+        std::string result = expr.method_name + "(";
+        for (size_t i = 0; i < expr.arguments.size(); i++) {
+            if (i > 0)
+                result += ", ";
+            result += generate_expr(expr.arguments[i]);
+        }
+        result += ")";
+        return result;
+    }
+
     // Determine if we should use -> or .
     bool use_arrow = expr.is_arrow ||
                      (expr.receiver &&

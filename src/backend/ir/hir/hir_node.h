@@ -333,6 +333,7 @@ struct HIRFunction {
     std::unique_ptr<HIRStmt> body;
     bool is_async = false;
     bool is_exported = false;
+    bool is_private = false; // privateメソッドフラグ (v0.14.0)
     std::vector<std::string>
         generic_params; // ジェネリック型パラメータ (T, U, etc.)
     SourceLocation location;

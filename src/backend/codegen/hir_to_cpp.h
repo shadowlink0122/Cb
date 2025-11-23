@@ -34,6 +34,7 @@ class HIRToCpp {
                                 // (T, K, V, etc.)
     bool current_impl_is_for_primitive =
         false; // 現在のimplがプリミティブ型用か
+    const ir::hir::HIRImpl* current_impl = nullptr; // 現在のimpl参照
     std::unordered_map<std::string, std::string>
         current_impl_static_vars; // impl static変数名→ユニーク名のマップ
     int discard_variable_counter = 0; // 破棄変数のユニークID生成用カウンタ

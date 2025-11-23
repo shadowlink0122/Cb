@@ -1505,7 +1505,12 @@ void HIRToCpp::generate_primitive_type_specializations(
                     emit(" " + add_hir_prefix(param.name));
                 }
 
-                emit(") override {\n");
+                // privateメソッドにはoverride を付けない
+                if (!method.is_private) {
+                    emit(") override {\n");
+                } else {
+                    emit(") {\n");
+                }
                 increase_indent();
 
                 // メソッド本体を生成
@@ -1513,11 +1518,14 @@ void HIRToCpp::generate_primitive_type_specializations(
                 if (method.body) {
                     // 一時的にコンテキストを設定
                     bool old_is_primitive = current_impl_is_for_primitive;
+                    const HIRImpl* old_impl = current_impl;
                     current_impl_is_for_primitive = true;
+                    current_impl = &impl;
 
                     generate_stmt(*method.body);
 
                     current_impl_is_for_primitive = old_is_primitive;
+                    current_impl = old_impl;
                 }
 
                 decrease_indent();
