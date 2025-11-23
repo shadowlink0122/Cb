@@ -401,13 +401,22 @@ struct HIRInterface {
         true; // 値型interfaceも生成するか（デフォルト: true）
 };
 
+// HIR Global Variable (moved before HIRImpl for use in static_variables)
+struct HIRGlobalVar {
+    std::string name;
+    HIRType type;
+    bool is_const = false;
+    bool is_exported = false;
+    std::unique_ptr<HIRExpr> init_expr;
+    SourceLocation location;
+};
+
 // HIR Impl
 struct HIRImpl {
     std::string struct_name;
     std::string interface_name; // empty if not implementing an interface
     std::vector<HIRFunction> methods;
-    // TODO: Add static_variables field after moving HIRGlobalVar definition before this struct
-    // std::vector<HIRGlobalVar> static_variables; // impl内のstatic変数
+    std::vector<HIRGlobalVar> static_variables; // impl内のstatic変数
     std::vector<std::string> generic_params; // ジェネリックパラメータ
     SourceLocation location;
 };
@@ -433,16 +442,6 @@ struct HIRUnion {
 
     std::string name;
     std::vector<Variant> variants;
-    SourceLocation location;
-};
-
-// HIR Global Variable
-struct HIRGlobalVar {
-    std::string name;
-    HIRType type;
-    bool is_const = false;
-    bool is_exported = false;
-    std::unique_ptr<HIRExpr> init_expr;
     SourceLocation location;
 };
 

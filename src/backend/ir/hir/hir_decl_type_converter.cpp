@@ -628,8 +628,6 @@ HIRImpl HIRDeclTypeConverter::convert_impl(const ASTNode *node) {
     }
 
     // static変数の変換
-    // TODO: Temporarily disabled to debug segfault
-    /*
     for (const auto &static_var : node->impl_static_variables) {
         HIRGlobalVar hir_var;
         hir_var.name = static_var->name;
@@ -654,7 +652,6 @@ HIRImpl HIRDeclTypeConverter::convert_impl(const ASTNode *node) {
                     static_var->name.c_str());
         }
     }
-    */
 
     return impl_def;
 }
