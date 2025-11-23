@@ -406,6 +406,8 @@ struct HIRImpl {
     std::string struct_name;
     std::string interface_name; // empty if not implementing an interface
     std::vector<HIRFunction> methods;
+    // TODO: Add static_variables field after moving HIRGlobalVar definition before this struct
+    // std::vector<HIRGlobalVar> static_variables; // impl内のstatic変数
     std::vector<std::string> generic_params; // ジェネリックパラメータ
     SourceLocation location;
 };

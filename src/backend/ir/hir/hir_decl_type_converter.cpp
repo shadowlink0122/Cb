@@ -627,6 +627,35 @@ HIRImpl HIRDeclTypeConverter::convert_impl(const ASTNode *node) {
         }
     }
 
+    // static変数の変換
+    // TODO: Temporarily disabled to debug segfault
+    /*
+    for (const auto &static_var : node->impl_static_variables) {
+        HIRGlobalVar hir_var;
+        hir_var.name = static_var->name;
+        hir_var.type = generator_->convert_type(static_var->type_info, static_var->type_name);
+        hir_var.is_const = static_var->is_const;
+        hir_var.is_exported = false; // impl static variables are not exported
+
+        // 初期化式の変換
+        if (static_var->init_expr) {
+            hir_var.init_expr = std::make_unique<HIRExpr>(
+                generator_->convert_expr(static_var->init_expr.get()));
+        } else if (static_var->right) {
+            hir_var.init_expr = std::make_unique<HIRExpr>(
+                generator_->convert_expr(static_var->right.get()));
+        }
+
+        hir_var.location = generator_->convert_location(static_var->location);
+        impl_def.static_variables.push_back(std::move(hir_var));
+
+        if (debug_mode) {
+            fprintf(stderr, "  Converted impl static variable: %s\n",
+                    static_var->name.c_str());
+        }
+    }
+    */
+
     return impl_def;
 }
 HIRType

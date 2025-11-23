@@ -83,6 +83,14 @@ std::string HIRToCpp::generate_variable(const HIRExpr &expr) {
             return "(*this)";
         }
     }
+
+    // Check if this is an impl static variable
+    auto it = current_impl_static_vars.find(expr.var_name);
+    if (it != current_impl_static_vars.end()) {
+        // Use the unique name for this impl's static variable
+        return it->second;
+    }
+
     return add_hir_prefix(expr.var_name);
 }
 

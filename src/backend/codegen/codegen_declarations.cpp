@@ -1257,6 +1257,52 @@ void HIRToCpp::generate_impl(const HIRImpl &impl) {
         return;
     }
 
+    // static変数を生成
+    current_impl_static_vars.clear();
+    if (!impl.static_variables.empty()) {
+        emit_line("// Static variables for impl: " + impl.struct_name);
+        for (const auto &static_var : impl.static_variables) {
+            if (static_var.is_const)
+                emit("static const ");
+            else
+                emit("static ");
+
+            // 配列の場合、要素型だけ取得
+            if (static_var.type.kind == HIRType::TypeKind::Array &&
+                static_var.type.inner_type) {
+                emit(generate_type(*static_var.type.inner_type));
+            } else {
+                emit(generate_type(static_var.type));
+            }
+
+            // 変数名にstruct名を含めてユニークにする
+            std::string unique_var_name = add_hir_prefix(impl.struct_name + "_" + static_var.name);
+            emit(" " + unique_var_name);
+
+            // static変数名のマッピングを記録
+            current_impl_static_vars[static_var.name] = unique_var_name;
+
+            // 配列サイズを追加
+            if (!static_var.type.array_dimensions.empty()) {
+                for (int dim : static_var.type.array_dimensions) {
+                    emit("[");
+                    if (dim > 0) {
+                        emit(std::to_string(dim));
+                    }
+                    emit("]");
+                }
+            }
+
+            if (static_var.init_expr) {
+                emit(" = ");
+                emit(generate_expr(*static_var.init_expr));
+            }
+
+            emit(";\n");
+        }
+        emit_line("");
+    }
+
     // メソッドを生成
     for (const auto &method : impl.methods) {
         emit_line("// Method: " + method.name);
