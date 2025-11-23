@@ -215,23 +215,32 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
         bool left_is_string = false;
         bool right_is_string = false;
 
-        // 左辺が文字列型かチェック
+        // 左辺が文字列型かチェック（明示的な文字列型のみ）
         if (expr.left->type.kind == HIRType::TypeKind::String ||
             (expr.left->kind == HIRExpr::ExprKind::Literal &&
-             expr.left->literal_type.kind == HIRType::TypeKind::String) ||
-            (expr.left->kind == HIRExpr::ExprKind::BinaryOp &&
-             expr.left->op == "+")) {  // BinaryOpで+演算子なら文字列連結の結果
+             expr.left->literal_type.kind == HIRType::TypeKind::String)) {
+            left_is_string = true;
+            is_string_concat = true;
+        }
+        // 左辺がBinaryOpで+演算子の場合、その結果型が文字列なら文字列連結
+        else if (expr.left->kind == HIRExpr::ExprKind::BinaryOp &&
+                 expr.left->op == "+" &&
+                 expr.left->type.kind == HIRType::TypeKind::String) {
             left_is_string = true;
             is_string_concat = true;
         }
 
-        // 右辺が文字列型かチェック
-        if (expr.right->kind == HIRExpr::ExprKind::FunctionCall ||
-            expr.right->type.kind == HIRType::TypeKind::String ||
+        // 右辺が文字列型かチェック（明示的な文字列型のみ）
+        if (expr.right->type.kind == HIRType::TypeKind::String ||
             (expr.right->kind == HIRExpr::ExprKind::Literal &&
-             expr.right->literal_type.kind == HIRType::TypeKind::String) ||
-            (expr.right->kind == HIRExpr::ExprKind::BinaryOp &&
-             expr.right->op == "+")) {  // BinaryOpで+演算子なら文字列連結の結果
+             expr.right->literal_type.kind == HIRType::TypeKind::String)) {
+            right_is_string = true;
+            is_string_concat = true;
+        }
+        // 右辺がBinaryOpで+演算子の場合、その結果型が文字列なら文字列連結
+        else if (expr.right->kind == HIRExpr::ExprKind::BinaryOp &&
+                 expr.right->op == "+" &&
+                 expr.right->type.kind == HIRType::TypeKind::String) {
             right_is_string = true;
             is_string_concat = true;
         }
@@ -253,7 +262,8 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
                  expr.left->type.kind == HIRType::TypeKind::Float ||
                  expr.left->type.kind == HIRType::TypeKind::Double)) {
                 // 左辺が整数型の場合、CB_HIR_to_string_helper()でラップ
-                result += "CB_HIR_to_string_helper(" + generate_expr(*expr.left) + ")";
+                result += "CB_HIR_to_string_helper(" +
+                          generate_expr(*expr.left) + ")";
             } else {
                 result += generate_expr(*expr.left);
             }
@@ -273,7 +283,8 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
                  expr.right->type.kind == HIRType::TypeKind::Float ||
                  expr.right->type.kind == HIRType::TypeKind::Double)) {
                 // 右辺が整数型の場合、CB_HIR_to_string_helper()でラップ
-                result += "CB_HIR_to_string_helper(" + generate_expr(*expr.right) + ")";
+                result += "CB_HIR_to_string_helper(" +
+                          generate_expr(*expr.right) + ")";
             } else {
                 result += generate_expr(*expr.right);
             }
@@ -322,15 +333,14 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
                 is_pointer_arithmetic = true;
             }
             // _ptr, _node, _array などの命名規則
-            // v0.14.0: CB_HIR_current チェックを削除（static int currentとの名前衝突を回避）
+            // v0.14.0: CB_HIR_current チェックを削除（static int
+            // currentとの名前衝突を回避）
             else if ((left_expr_str.find("_ptr") != std::string::npos &&
-                        left_expr_str.find("ptr_size") == std::string::npos) ||
-                       (left_expr_str.find("_node") != std::string::npos &&
-                        left_expr_str.find("node_count") ==
-                            std::string::npos) ||
-                       (left_expr_str.find("_array") != std::string::npos &&
-                        left_expr_str.find("array_size") ==
-                            std::string::npos)) {
+                      left_expr_str.find("ptr_size") == std::string::npos) ||
+                     (left_expr_str.find("_node") != std::string::npos &&
+                      left_expr_str.find("node_count") == std::string::npos) ||
+                     (left_expr_str.find("_array") != std::string::npos &&
+                      left_expr_str.find("array_size") == std::string::npos)) {
                 is_pointer_arithmetic = true;
             }
             // .front, .back などのポインタメンバー（括弧なしの場合）
@@ -532,15 +542,14 @@ std::string HIRToCpp::generate_method_call(const HIRExpr &expr) {
     */
 
     // Check if this is a private method call on self in a primitive impl
-    // Private methods are member functions of Model, so we should call them directly
+    // Private methods are member functions of Model, so we should call them
+    // directly
     bool is_private_method_call = false;
-    if (expr.receiver &&
-        expr.receiver->kind == HIRExpr::ExprKind::Variable &&
-        expr.receiver->var_name == "self" &&
-        current_impl_is_for_primitive &&
+    if (expr.receiver && expr.receiver->kind == HIRExpr::ExprKind::Variable &&
+        expr.receiver->var_name == "self" && current_impl_is_for_primitive &&
         current_impl) {
         // Look up if the method is private in the current impl
-        for (const auto& method : current_impl->methods) {
+        for (const auto &method : current_impl->methods) {
             if (method.name == expr.method_name && method.is_private) {
                 is_private_method_call = true;
                 break;
@@ -603,8 +612,9 @@ std::string HIRToCpp::generate_method_call(const HIRExpr &expr) {
 std::string HIRToCpp::generate_member_access(const HIRExpr &expr) {
     // v0.14.0: セグフォ修正 - objectがnullでないかチェック
     if (!expr.object) {
-        std::cerr << "[ERROR] MemberAccess expression has null object for member: "
-                  << expr.member_name << std::endl;
+        std::cerr
+            << "[ERROR] MemberAccess expression has null object for member: "
+            << expr.member_name << std::endl;
         return "/* ERROR: null object in member access */";
     }
 

@@ -632,7 +632,8 @@ HIRImpl HIRDeclTypeConverter::convert_impl(const ASTNode *node) {
     for (const auto &static_var : node->impl_static_variables) {
         HIRGlobalVar hir_var;
         hir_var.name = static_var->name;
-        hir_var.type = generator_->convert_type(static_var->type_info, static_var->type_name);
+        hir_var.type = generator_->convert_type(static_var->type_info,
+                                                static_var->type_name);
         hir_var.is_const = static_var->is_const;
         hir_var.is_exported = false; // impl static variables are not exported
 

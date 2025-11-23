@@ -47,9 +47,9 @@
 
 #include "../../common/debug.h"
 #include "hir_to_cpp.h"
+#include <functional>
 #include <set>
 #include <unordered_set>
-#include <functional>
 
 namespace cb {
 namespace codegen {
@@ -222,7 +222,7 @@ void HIRToCpp::generate_structs(const std::vector<HIRStruct> &structs) {
     // v0.14.0: トポロジカルソートで構造体を依存関係順に出力
     // 依存関係グラフを構築
     std::unordered_map<std::string, std::vector<std::string>> dependencies;
-    std::unordered_map<std::string, const HIRStruct*> struct_map;
+    std::unordered_map<std::string, const HIRStruct *> struct_map;
 
     // 構造体マップを作成
     for (const auto &struct_def : structs) {
@@ -248,11 +248,13 @@ void HIRToCpp::generate_structs(const std::vector<HIRStruct> &structs) {
     std::unordered_set<std::string> in_stack;
     std::vector<std::string> sorted_order;
 
-    std::function<bool(const std::string&)> dfs = [&](const std::string& name) -> bool {
+    std::function<bool(const std::string &)> dfs =
+        [&](const std::string &name) -> bool {
         if (in_stack.find(name) != in_stack.end()) {
             // 循環依存を検出
-            std::cerr << "[WARN] Circular dependency detected involving struct: "
-                      << name << std::endl;
+            std::cerr
+                << "[WARN] Circular dependency detected involving struct: "
+                << name << std::endl;
             return false;
         }
 
@@ -264,7 +266,7 @@ void HIRToCpp::generate_structs(const std::vector<HIRStruct> &structs) {
         in_stack.insert(name);
 
         // 依存している構造体を先に訪問
-        for (const auto& dep : dependencies[name]) {
+        for (const auto &dep : dependencies[name]) {
             if (!dfs(dep)) {
                 return false;
             }
@@ -1280,7 +1282,8 @@ void HIRToCpp::generate_impl(const HIRImpl &impl) {
             }
 
             // 変数名にstruct名を含めてユニークにする
-            std::string unique_var_name = add_hir_prefix(impl.struct_name + "_" + static_var.name);
+            std::string unique_var_name =
+                add_hir_prefix(impl.struct_name + "_" + static_var.name);
             emit(" " + unique_var_name);
 
             // static変数名のマッピングを記録
@@ -1522,7 +1525,7 @@ void HIRToCpp::generate_primitive_type_specializations(
                 if (method.body) {
                     // 一時的にコンテキストを設定
                     bool old_is_primitive = current_impl_is_for_primitive;
-                    const HIRImpl* old_impl = current_impl;
+                    const HIRImpl *old_impl = current_impl;
                     current_impl_is_for_primitive = true;
                     current_impl = &impl;
 

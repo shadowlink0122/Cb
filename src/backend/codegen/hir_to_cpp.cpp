@@ -290,6 +290,7 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     generate_unions(program.unions);
 
     // インターフェース定義（抽象クラスとして）- 構造体の前に配置
+    // 注：インターフェースで使用される型は前方宣言で対応
     generate_interfaces(program.interfaces);
 
     // 構造体定義

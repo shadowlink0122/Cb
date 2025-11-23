@@ -569,9 +569,13 @@ void HIRToCpp::generate_match(const HIRStmt &stmt) {
             break;
 
         case HIRStmt::MatchArm::PatternKind::EnumVariant: {
-            // enum_type_nameを使ってビルトイン型とカスタム型を区別
-            bool is_option = arm.enum_type_name.find("Option") == 0;
-            bool is_result = arm.enum_type_name.find("Result") == 0;
+            // パターン名からビルトイン型を判定（enum_type_nameが空の場合もある）
+            bool is_option =
+                (arm.pattern_name == "Some" || arm.pattern_name == "None") ||
+                (arm.enum_type_name.find("Option") == 0);
+            bool is_result =
+                (arm.pattern_name == "Ok" || arm.pattern_name == "Err") ||
+                (arm.enum_type_name.find("Result") == 0);
 
             if (is_option) {
                 // Option型 - 小文字のis_some()/is_none()を使用
