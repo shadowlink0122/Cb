@@ -202,24 +202,74 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
         // 型情報ベースの判定を最優先
         bool is_pointer_arithmetic = false;
 
-        // 文字列連結を除外: 左辺が文字列リテラル、または右辺が文字列型の場合
+        // 文字列連結の特別処理: 左辺または右辺が文字列型の場合
         bool is_string_concat = false;
-        if (expr.left->kind == HIRExpr::ExprKind::Literal &&
-            expr.left->type.kind == HIRType::TypeKind::String) {
-            is_string_concat = true;
-        }
-        // 右辺が関数呼び出し(to_string_helper等)または文字列型の場合も文字列連結
-        if (expr.right->kind == HIRExpr::ExprKind::FunctionCall ||
-            expr.right->type.kind == HIRType::TypeKind::String) {
+        bool left_is_string = false;
+        bool right_is_string = false;
+
+        // 左辺が文字列型かチェック
+        if (expr.left->type.kind == HIRType::TypeKind::String ||
+            (expr.left->kind == HIRExpr::ExprKind::Literal &&
+             expr.left->literal_type.kind == HIRType::TypeKind::String) ||
+            (expr.left->kind == HIRExpr::ExprKind::BinaryOp &&
+             expr.left->op == "+")) {  // BinaryOpで+演算子なら文字列連結の結果
+            left_is_string = true;
             is_string_concat = true;
         }
 
-        if (is_string_concat) {
-            // 文字列連結は通常のBinaryOpとして処理
+        // 右辺が文字列型かチェック
+        if (expr.right->kind == HIRExpr::ExprKind::FunctionCall ||
+            expr.right->type.kind == HIRType::TypeKind::String ||
+            (expr.right->kind == HIRExpr::ExprKind::Literal &&
+             expr.right->literal_type.kind == HIRType::TypeKind::String) ||
+            (expr.right->kind == HIRExpr::ExprKind::BinaryOp &&
+             expr.right->op == "+")) {  // BinaryOpで+演算子なら文字列連結の結果
+            right_is_string = true;
+            is_string_concat = true;
+        }
+
+        if (is_string_concat && expr.op == "+") {
+            // 文字列連結: 整数を文字列に変換
             std::string result = "(";
-            result += generate_expr(*expr.left);
+
+            // 左辺の処理
+            if (!left_is_string &&
+                (expr.left->type.kind == HIRType::TypeKind::Int ||
+                 expr.left->type.kind == HIRType::TypeKind::Long ||
+                 expr.left->type.kind == HIRType::TypeKind::Short ||
+                 expr.left->type.kind == HIRType::TypeKind::Tiny ||
+                 expr.left->type.kind == HIRType::TypeKind::UnsignedInt ||
+                 expr.left->type.kind == HIRType::TypeKind::UnsignedLong ||
+                 expr.left->type.kind == HIRType::TypeKind::UnsignedShort ||
+                 expr.left->type.kind == HIRType::TypeKind::UnsignedTiny ||
+                 expr.left->type.kind == HIRType::TypeKind::Float ||
+                 expr.left->type.kind == HIRType::TypeKind::Double)) {
+                // 左辺が整数型の場合、CB_HIR_to_string_helper()でラップ
+                result += "CB_HIR_to_string_helper(" + generate_expr(*expr.left) + ")";
+            } else {
+                result += generate_expr(*expr.left);
+            }
+
             result += " " + expr.op + " ";
-            result += generate_expr(*expr.right);
+
+            // 右辺の処理
+            if (!right_is_string &&
+                (expr.right->type.kind == HIRType::TypeKind::Int ||
+                 expr.right->type.kind == HIRType::TypeKind::Long ||
+                 expr.right->type.kind == HIRType::TypeKind::Short ||
+                 expr.right->type.kind == HIRType::TypeKind::Tiny ||
+                 expr.right->type.kind == HIRType::TypeKind::UnsignedInt ||
+                 expr.right->type.kind == HIRType::TypeKind::UnsignedLong ||
+                 expr.right->type.kind == HIRType::TypeKind::UnsignedShort ||
+                 expr.right->type.kind == HIRType::TypeKind::UnsignedTiny ||
+                 expr.right->type.kind == HIRType::TypeKind::Float ||
+                 expr.right->type.kind == HIRType::TypeKind::Double)) {
+                // 右辺が整数型の場合、CB_HIR_to_string_helper()でラップ
+                result += "CB_HIR_to_string_helper(" + generate_expr(*expr.right) + ")";
+            } else {
+                result += generate_expr(*expr.right);
+            }
+
             result += ")";
             return result;
         }
