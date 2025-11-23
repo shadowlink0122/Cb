@@ -58,6 +58,10 @@ class HIRToCpp {
     void generate_unions(const std::vector<ir::hir::HIRUnion> &unions);
     void
     generate_interfaces(const std::vector<ir::hir::HIRInterface> &interfaces);
+    void generate_pointer_interfaces_only(
+        const std::vector<ir::hir::HIRInterface> &interfaces);
+    void generate_value_interfaces_only(
+        const std::vector<ir::hir::HIRInterface> &interfaces);
     void generate_pointer_interface(const ir::hir::HIRInterface &interface);
     void generate_value_interface(const ir::hir::HIRInterface &interface);
     void
@@ -95,6 +99,7 @@ class HIRToCpp {
     std::string generate_expr(const ir::hir::HIRExpr &expr);
     std::string generate_literal(const ir::hir::HIRExpr &expr);
     std::string generate_variable(const ir::hir::HIRExpr &expr);
+    bool contains_string_in_binop(const ir::hir::HIRExpr &expr);
     std::string generate_binary_op(const ir::hir::HIRExpr &expr);
     std::string generate_unary_op(const ir::hir::HIRExpr &expr);
     std::string generate_function_call(const ir::hir::HIRExpr &expr);

@@ -818,6 +818,22 @@ void HIRToCpp::generate_interfaces(
     }
 }
 
+void HIRToCpp::generate_pointer_interfaces_only(
+    const std::vector<HIRInterface> &interfaces) {
+    for (const auto &interface : interfaces) {
+        generate_pointer_interface(interface);
+    }
+}
+
+void HIRToCpp::generate_value_interfaces_only(
+    const std::vector<HIRInterface> &interfaces) {
+    for (const auto &interface : interfaces) {
+        if (interface.generate_value_type) {
+            generate_value_interface(interface);
+        }
+    }
+}
+
 void HIRToCpp::generate_pointer_interface(const HIRInterface &interface) {
     emit_line("// Interface (pointer-based): " + interface.name);
 

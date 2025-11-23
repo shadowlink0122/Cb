@@ -289,12 +289,16 @@ std::string HIRToCpp::generate(const HIRProgram &program) {
     // Union定義
     generate_unions(program.unions);
 
-    // インターフェース定義（抽象クラスとして）- 構造体の前に配置
-    // 注：インターフェースで使用される型は前方宣言で対応
-    generate_interfaces(program.interfaces);
+    // インターフェース定義（ポインタベースのみ）- 構造体の前に配置
+    // 注：値ベースの実装は構造体定義後に生成（循環依存を回避するため）
+    generate_pointer_interfaces_only(program.interfaces);
 
     // 構造体定義
     generate_structs(program.structs);
+
+    // インターフェース定義（値ベースのみ）- 構造体定義後に配置
+    // value-based type erasureパターンのメソッド実装が構造体を使用するため
+    generate_value_interfaces_only(program.interfaces);
 
     // グローバル変数
     generate_global_vars(program.global_vars);

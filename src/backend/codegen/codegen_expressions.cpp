@@ -94,6 +94,28 @@ std::string HIRToCpp::generate_variable(const HIRExpr &expr) {
     return add_hir_prefix(expr.var_name);
 }
 
+// v0.14.0: BinaryOp式が文字列を含むかを再帰的にチェック
+bool HIRToCpp::contains_string_in_binop(const HIRExpr &expr) {
+    // 文字列リテラルの場合
+    if (expr.type.kind == HIRType::TypeKind::String ||
+        (expr.kind == HIRExpr::ExprKind::Literal &&
+         expr.literal_type.kind == HIRType::TypeKind::String)) {
+        return true;
+    }
+
+    // BinaryOpの場合、左右を再帰的にチェック
+    if (expr.kind == HIRExpr::ExprKind::BinaryOp && expr.op == "+") {
+        if (expr.left && contains_string_in_binop(*expr.left)) {
+            return true;
+        }
+        if (expr.right && contains_string_in_binop(*expr.right)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
     // Helper lambda to check if a type name is a union
     auto is_union_type = [this](const std::string &type_name) -> bool {
@@ -215,34 +237,28 @@ std::string HIRToCpp::generate_binary_op(const HIRExpr &expr) {
         bool left_is_string = false;
         bool right_is_string = false;
 
-        // 左辺が文字列型かチェック（明示的な文字列型のみ）
-        if (expr.left->type.kind == HIRType::TypeKind::String ||
-            (expr.left->kind == HIRExpr::ExprKind::Literal &&
-             expr.left->literal_type.kind == HIRType::TypeKind::String)) {
-            left_is_string = true;
-            is_string_concat = true;
-        }
-        // 左辺がBinaryOpで+演算子の場合、その結果型が文字列なら文字列連結
-        else if (expr.left->kind == HIRExpr::ExprKind::BinaryOp &&
-                 expr.left->op == "+" &&
-                 expr.left->type.kind == HIRType::TypeKind::String) {
+        // v0.14.0: +演算子の場合、式ツリー内に文字列が含まれるかチェック
+        // HIRの型推論が不完全なため、再帰的に文字列の有無を確認
+        if (expr.left && contains_string_in_binop(*expr.left)) {
             left_is_string = true;
             is_string_concat = true;
         }
 
-        // 右辺が文字列型かチェック（明示的な文字列型のみ）
-        if (expr.right->type.kind == HIRType::TypeKind::String ||
-            (expr.right->kind == HIRExpr::ExprKind::Literal &&
-             expr.right->literal_type.kind == HIRType::TypeKind::String)) {
+        if (expr.right && contains_string_in_binop(*expr.right)) {
             right_is_string = true;
             is_string_concat = true;
         }
-        // 右辺がBinaryOpで+演算子の場合、その結果型が文字列なら文字列連結
-        else if (expr.right->kind == HIRExpr::ExprKind::BinaryOp &&
-                 expr.right->op == "+" &&
-                 expr.right->type.kind == HIRType::TypeKind::String) {
+
+        // 左辺がBinaryOpで+演算子で、文字列を含む場合
+        if (expr.left && expr.left->kind == HIRExpr::ExprKind::BinaryOp &&
+            expr.left->op == "+" && is_string_concat) {
+            left_is_string = true;
+        }
+
+        // 右辺がBinaryOpで+演算子で、文字列を含む場合
+        if (expr.right && expr.right->kind == HIRExpr::ExprKind::BinaryOp &&
+            expr.right->op == "+" && is_string_concat) {
             right_is_string = true;
-            is_string_concat = true;
         }
 
         if (is_string_concat && expr.op == "+") {
@@ -758,23 +774,43 @@ std::string HIRToCpp::generate_lambda(const HIRExpr &expr) {
 }
 
 std::string HIRToCpp::generate_struct_literal(const HIRExpr &expr) {
+    // v0.14.0: 構造体リテラルの生成
+    // C++では基底クラスを持つ構造体は aggregate type ではないため、
+    // 指定初期化子が使用できない。安全のため、常にコンストラクタ呼び出し
+    // または値のみの波括弧初期化を使用する。
+
+    // Check if this struct implements any interfaces (has base classes)
+    bool has_base_class = false;
+    if (current_program) {
+        for (const auto &impl : current_program->impls) {
+            if (impl.struct_name == expr.struct_type_name &&
+                !impl.interface_name.empty()) {
+                has_base_class = true;
+                break;
+            }
+        }
+    }
+
+    // If struct has base class, use constructor call
+    if (has_base_class) {
+        std::string result = expr.struct_type_name + "(";
+        for (size_t i = 0; i < expr.field_values.size(); i++) {
+            if (i > 0)
+                result += ", ";
+            result += generate_expr(expr.field_values[i]);
+        }
+        result += ")";
+        return result;
+    }
+
+    // For other structs, use simple brace initialization without field names
+    // to avoid C++20 designated initializer restrictions
     std::string result = expr.struct_type_name + "{";
-
-    // Check if we have named fields (designated initializers)
-    bool use_named = !expr.field_names.empty() &&
-                     expr.field_names.size() == expr.field_values.size();
-
     for (size_t i = 0; i < expr.field_values.size(); i++) {
         if (i > 0)
             result += ", ";
-
-        if (use_named && !expr.field_names[i].empty()) {
-            // C++20 designated initializer: .field = value
-            result += "." + expr.field_names[i] + " = ";
-        }
         result += generate_expr(expr.field_values[i]);
     }
-
     result += "}";
     return result;
 }
