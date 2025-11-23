@@ -1104,6 +1104,9 @@ void HIRToCpp::generate_function(const HIRFunction &func) {
             emit("typename " + func.generic_params[i]);
         }
         emit(">\n");
+
+        // Set generic params context for type generation
+        current_generic_params = func.generic_params;
     }
 
     // v0.14.0: Check if the function returns a function pointer
@@ -1214,8 +1217,9 @@ void HIRToCpp::generate_function(const HIRFunction &func) {
     emit_line("}");
     emit_line("");
 
-    // パラメータマップをクリア
+    // パラメータマップとジェネリックパラメータをクリア
     current_function_params.clear();
+    current_generic_params.clear();
 
     int stmt_count = 0;
     if (func.body && func.body->kind == HIRStmt::StmtKind::Block) {
